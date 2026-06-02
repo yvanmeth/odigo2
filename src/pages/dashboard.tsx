@@ -5,6 +5,9 @@ import Subjects from './subjects'
 import Planner from './planner'
 import Home from './home'
 import WordLists from './wordlists'
+import WordDrop from './worddrop'
+import QCM from './qcm'
+import Spelling from './spelling'
 
 interface Props {
   session: Session
@@ -129,11 +132,22 @@ export default function Dashboard({ session }: Props) {
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
           marginTop: '1.5rem'
         }}>
-          {activePage === 'dashboard' && <Home />}
-          {activePage === 'planner' && <Planner />}
-          {activePage === 'subjects' && <Subjects />}
-          {activePage === 'wordlists' && <WordLists />}
-          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && <p style={{ color: '#aaa' }}>Contenu à venir...</p>}
+         {activePage === 'dashboard' && <Home />}
+        {activePage === 'planner' && <Planner />}
+        {activePage === 'subjects' && <Subjects />}
+        {activePage === 'wordlists' && <WordLists />}
+        {activePage === 'exercises' && (
+  <div>
+    <WordDrop />
+    <div style={{ marginTop: '2rem' }}>
+      <QCM />
+    </div>
+    <div style={{ marginTop: '2rem' }}>
+      <Spelling />
+    </div>
+  </div>
+)}
+        {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && <p style={{ color: '#aaa' }}>Contenu à venir...</p>}
         </div>
       </div>
     </div>
