@@ -29,7 +29,6 @@ const LANG_CODES: Record<string, string> = {
 export default function Spelling() {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
-  const [selectedList, setSelectedList] = useState('')
   const [selectedListName, setSelectedListName] = useState('')
   const [direction, setDirection] = useState<'foreign' | 'french'>('foreign')
   const [words, setWords] = useState<WordItem[]>([])
@@ -260,7 +259,6 @@ export default function Spelling() {
               value={selectedList}
               onChange={e => {
                 setSelectedList(e.target.value)
-                setSelectedListName(e.target.options[e.target.selectedIndex].text)
                 loadHighScores(e.target.value)
               }}
               style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}

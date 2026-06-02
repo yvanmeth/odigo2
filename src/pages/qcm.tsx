@@ -312,7 +312,6 @@ export default function QCM() {
       }}>
         {choices.map((choice, i) => {
           const isCorrect = feedback && choice === feedback.answer
-          const isWrong = feedback && !feedback.correct && choice === choices.find(c => c !== feedback.answer && feedback && !feedback.correct)
           return (
             <button
               key={i}
