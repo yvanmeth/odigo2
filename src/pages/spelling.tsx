@@ -29,12 +29,11 @@ const LANG_CODES: Record<string, string> = {
 export default function Spelling() {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
-  const [selectedListName, setSelectedListName] = useState('')
+  const [selectedList, setSelectedList] = useState('')
   const [direction, setDirection] = useState<'foreign' | 'french'>('foreign')
   const [words, setWords] = useState<WordItem[]>([])
   const [subjectName, setSubjectName] = useState('Anglais')
 
-  // Game state
   const [queue, setQueue] = useState<WordItem[]>([])
   const [failedWords, setFailedWords] = useState<WordItem[]>([])
   const [currentWord, setCurrentWord] = useState<WordItem | null>(null)
@@ -48,7 +47,6 @@ export default function Spelling() {
   const [isReviewPhase, setIsReviewPhase] = useState(false)
   const [highScores, setHighScores] = useState<{ score: number; date: string }[]>([])
 
-  // Aides
   const [usedListen, setUsedListen] = useState(false)
   const [usedLetterCount, setUsedLetterCount] = useState(false)
   const [usedFirstLetter, setUsedFirstLetter] = useState(false)
@@ -60,10 +58,7 @@ export default function Spelling() {
   useEffect(() => { fetchLists() }, [])
 
   const fetchLists = async () => {
-    const { data } = await supabase
-      .from('word_lists')
-      .select('id, name, subjects(name)')
-      .order('name')
+    const { data } = await supabase.from('word_lists').select('id, name').order('name')
     if (data) setLists(data)
   }
 
@@ -224,7 +219,7 @@ export default function Spelling() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [handleValidate, gameState, feedback])
 
-  const saveScore = async () => {
+  const saveScore = () => {
     const key = `spelling_scores_${selectedList}`
     const existing = JSON.parse(localStorage.getItem(key) || '[]')
     const newScore = { score, date: new Date().toLocaleDateString('fr-CH') }
@@ -338,7 +333,6 @@ export default function Spelling() {
   return (
     <div style={{ maxWidth: '500px', margin: '0 auto' }}>
 
-      {/* HUD */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div style={{ fontWeight: 'bold', color: '#2a9d8f', fontSize: '1.2rem' }}>
           {score} pts {getFireEmoji()}
@@ -352,17 +346,14 @@ export default function Spelling() {
 
       {currentWord && (
         <div>
-          {/* Indication de langue */}
           <div style={{ textAlign: 'center', fontSize: '0.85rem', color: '#888', marginBottom: '0.5rem' }}>
             Écris la traduction en <strong style={{ color: '#2a9d8f' }}>{targetLang}</strong>
           </div>
 
-          {/* Mot source */}
           <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', textAlign: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 'bold', color: '#333' }}>
             {getSourceWord(currentWord)}
           </div>
 
-          {/* Aides */}
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', justifyContent: 'center' }}>
             <button
               onClick={() => speak(getTargetWord(currentWord))}
@@ -384,7 +375,6 @@ export default function Spelling() {
             </button>
           </div>
 
-          {/* Indice lettres */}
           {(showLetterCount || showFirstLetter) && (
             <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: '1.2rem', color: '#2a9d8f', marginBottom: '1rem', letterSpacing: '0.2rem' }}>
               {showFirstLetter
@@ -394,7 +384,6 @@ export default function Spelling() {
             </div>
           )}
 
-          {/* Champ de saisie */}
           <input
             ref={inputRef}
             type="text"
@@ -413,7 +402,6 @@ export default function Spelling() {
             Valider
           </button>
 
-          {/* Feedback */}
           {feedback && (
             <div style={{ textAlign: 'center', marginTop: '1rem', padding: '0.75rem', borderRadius: '0.5rem', background: feedback.type === 'perfect' ? '#f0faf8' : feedback.type === 'ok' ? '#fffbf0' : '#fff5f5' }}>
               <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: feedback.type === 'perfect' ? '#2a9d8f' : feedback.type === 'ok' ? '#e9c46a' : '#e63946' }}>
