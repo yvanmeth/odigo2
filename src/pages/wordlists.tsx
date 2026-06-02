@@ -61,8 +61,8 @@ export default function WordLists() {
     const isVocab = selectedList.list_type === 'vocabulary'
   
     const prompt = isVocab
-      ? `Tu vois une liste de vocabulaire. Extrais tous les mots et leur traduction. Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, sous cette forme exacte: [{"source":"mot","target":"traduction"}]. Si un mot n'a pas de traduction visible, mets target vide.`
-      : `Tu vois une liste de mots. Extrais tous les mots. Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, sous cette forme exacte: [{"source":"mot","target":""}].`
+  ? `Tu vois une liste de vocabulaire. Extrais tous les mots. Pour chaque mot, fournis sa traduction en français, peu importe la langue source ou si une traduction dans une autre langue est déjà visible dans l'image. Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, sous cette forme exacte: [{"source":"mot en langue étrangère","target":"traduction en français"}].`
+  : `Tu vois une liste de mots. Extrais tous les mots. Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, sous cette forme exacte: [{"source":"mot","target":""}].`
   
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
