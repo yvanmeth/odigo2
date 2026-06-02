@@ -127,4 +127,21 @@ export default function Home() {
                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', color: '#aaa' }}>{e.doneRevisions}/{e.totalRevisions}</td>
                     <td style={{ padding: '0.75rem 1rem' }}>
                       {e.readiness !== null ? (
-                        <span style={{ backgroun
+                        <span style={{ background: '#ddd', color: 'white', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.85rem' }}>
+                        {e.readiness}/6
+                      </span>
+                    ) : <span style={{ color: '#aaa' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', color: '#888' }}>
+                    {e.grade !== null ? `${e.grade}/6` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        </>
+      )}
+    </div>
+  )
+}
