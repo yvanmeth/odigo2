@@ -23,9 +23,34 @@ const navItems = [
   { id: 'settings', label: 'Paramètres', icon: '⚙️' },
 ]
 
+const exerciseCards = [
+  {
+    id: 'worddrop',
+    label: 'Word Drop',
+    icon: '🎮',
+    description: 'Aligne le mot sur la bonne traduction avant qu\'il touche le sol !',
+    color: '#2a9d8f',
+  },
+  {
+    id: 'qcm',
+    label: 'QCM',
+    icon: '🧠',
+    description: 'Choisis la bonne réponse parmi 2, 4 ou 8 propositions.',
+    color: '#e9c46a',
+  },
+  {
+    id: 'spelling',
+    label: 'Épellation',
+    icon: '✍️',
+    description: 'Écoute ou lis le mot et écris sa traduction correctement.',
+    color: '#e76f51',
+  },
+]
+
 export default function Dashboard({ session }: Props) {
   const [collapsed, setCollapsed] = useState(false)
   const [activePage, setActivePage] = useState('dashboard')
+  const [activeExercise, setActiveExercise] = useState<string | null>(null)
 
   const now = new Date()
   const dateStr = now.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -47,7 +72,6 @@ export default function Dashboard({ session }: Props) {
         boxShadow: '2px 0 8px rgba(0,0,0,0.04)'
       }}>
 
-        {/* Header menu */}
         <div style={{ padding: '1.25rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e0f0ee' }}>
           {!collapsed && <span style={{ color: '#2a9d8f', fontWeight: 'bold', fontSize: '1.2rem' }}>ODIGO</span>}
           <button
@@ -58,7 +82,6 @@ export default function Dashboard({ session }: Props) {
           </button>
         </div>
 
-        {/* Date et heure */}
         {!collapsed && (
           <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee' }}>
             <div style={{ fontSize: '0.75rem', color: '#888' }}>{dateStr}</div>
@@ -66,12 +89,11 @@ export default function Dashboard({ session }: Props) {
           </div>
         )}
 
-        {/* Navigation */}
         <nav style={{ flex: 1, padding: '0.5rem 0' }}>
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => setActivePage(item.id)}
+              onClick={() => { setActivePage(item.id); setActiveExercise(null) }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -95,7 +117,6 @@ export default function Dashboard({ session }: Props) {
           ))}
         </nav>
 
-        {/* Déconnexion */}
         <div style={{ padding: '1rem', borderTop: '1px solid #e0f0ee' }}>
           <button
             onClick={() => supabase.auth.signOut()}
@@ -122,32 +143,91 @@ export default function Dashboard({ session }: Props) {
       {/* Zone de contenu */}
       <div style={{ flex: 1, padding: '2rem' }}>
         <h1 style={{ color: '#2a9d8f', marginBottom: '0.5rem' }}>
-          {navItems.find(i => i.id === activePage)?.label}
+          {activePage === 'exercises' && activeExercise
+            ? exerciseCards.find(e => e.id === activeExercise)?.label
+            : navItems.find(i => i.id === activePage)?.label}
         </h1>
-        <p style={{ color: '#888' }}>Connecté : {session.user.email}</p>
+        <p style={{ color: '#888', marginBottom: '1.5rem' }}>Connecté : {session.user.email}</p>
+
         <div style={{
           background: 'white',
           borderRadius: '1rem',
           padding: '2rem',
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-          marginTop: '1.5rem'
         }}>
-         {activePage === 'dashboard' && <Home />}
-        {activePage === 'planner' && <Planner />}
-        {activePage === 'subjects' && <Subjects />}
-        {activePage === 'wordlists' && <WordLists />}
-        {activePage === 'exercises' && (
-  <div>
-    <WordDrop />
-    <div style={{ marginTop: '2rem' }}>
-      <QCM />
-    </div>
-    <div style={{ marginTop: '2rem' }}>
-      <Spelling />
-    </div>
-  </div>
-)}
-        {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && <p style={{ color: '#aaa' }}>Contenu à venir...</p>}
+          {activePage === 'dashboard' && <Home />}
+          {activePage === 'planner' && <Planner />}
+          {activePage === 'subjects' && <Subjects />}
+          {activePage === 'wordlists' && <WordLists />}
+
+          {activePage === 'exercises' && !activeExercise && (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                {exerciseCards.map(ex => (
+                  <div
+                    key={ex.id}
+                    onClick={() => setActiveExercise(ex.id)}
+                    style={{
+                      background: 'white',
+                      borderRadius: '1rem',
+                      padding: '1.5rem 1rem',
+                      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                      textAlign: 'center',
+                      borderTop: `4px solid ${ex.color}`,
+                      cursor: 'pointer',
+                      transition: 'transform 0.15s ease',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                  >
+                    <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>{ex.icon}</div>
+                    <div style={{ fontWeight: 'bold', color: '#333', fontSize: '1rem', marginBottom: '0.5rem' }}>{ex.label}</div>
+                    <div style={{ fontSize: '0.85rem', color: '#888', lineHeight: '1.4' }}>{ex.description}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activePage === 'exercises' && activeExercise === 'worddrop' && (
+            <div>
+              <button
+                onClick={() => setActiveExercise(null)}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                ← Retour aux exercices
+              </button>
+              <WordDrop />
+            </div>
+          )}
+
+          {activePage === 'exercises' && activeExercise === 'qcm' && (
+            <div>
+              <button
+                onClick={() => setActiveExercise(null)}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                ← Retour aux exercices
+              </button>
+              <QCM />
+            </div>
+          )}
+
+          {activePage === 'exercises' && activeExercise === 'spelling' && (
+            <div>
+              <button
+                onClick={() => setActiveExercise(null)}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                ← Retour aux exercices
+              </button>
+              <Spelling />
+            </div>
+          )}
+
+          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && (
+            <p style={{ color: '#aaa' }}>Contenu à venir...</p>
+          )}
         </div>
       </div>
     </div>

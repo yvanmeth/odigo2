@@ -38,7 +38,7 @@ export default function Spelling() {
   const [failedWords, setFailedWords] = useState<WordItem[]>([])
   const [currentWord, setCurrentWord] = useState<WordItem | null>(null)
   const [input, setInput] = useState('')
-  const [feedback, setFeedback] = useState<{ type: 'perfect' | 'ok' | 'wrong'; correction: string } | null>(null)
+  const [feedback, setFeedback] = useState<{ type: 'perfect' | 'ok' | 'wrong'; correction: string; hasCase: boolean; hasPunct: boolean } | null>(null)
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
   const [fireMode, setFireMode] = useState<null | 'small' | 'big'>(null)
@@ -54,6 +54,7 @@ export default function Spelling() {
   const [showFirstLetter, setShowFirstLetter] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
+  const feedbackRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { fetchLists() }, [])
 
@@ -141,24 +142,44 @@ export default function Spelling() {
     return word.split(' ').map(w => w[0] + w.slice(1).split('').map(() => '_').join(' ')).join('   ')
   }
 
+  // Langue dictée = langue de la réponse
+  const getDictationLang = () => {
+    if (direction === 'foreign') return 'fr-FR'
+    return LANG_CODES[subjectName] || 'en-US'
+  }
+
   const speak = (text: string) => {
-    const lang = direction === 'foreign'
-      ? (LANG_CODES[subjectName] || 'en-US')
-      : 'fr-FR'
     const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = lang
+    utterance.lang = getDictationLang()
     speechSynthesis.speak(utterance)
     setUsedListen(true)
   }
 
+  // Normalise pour comparaison tolérante (majuscules + ponctuation)
+  const normalize = (s: string) => s.toLowerCase().replace(/[.,;:!?'"()\-]/g, '').trim()
+
   const countErrors = (answer: string, correct: string) => {
-    if (answer === correct) return 0
-    let errors = Math.abs(answer.length - correct.length)
-    const minLen = Math.min(answer.length, correct.length)
+    // Vérifier différences de casse/ponctuation uniquement
+    const normAnswer = normalize(answer)
+    const normCorrect = normalize(correct)
+    if (normAnswer === normCorrect) return 0 // identique après normalisation
+
+    // Compter les vraies erreurs (sur les versions normalisées)
+    if (normAnswer === normCorrect) return 0
+    let errors = Math.abs(normAnswer.length - normCorrect.length)
+    const minLen = Math.min(normAnswer.length, normCorrect.length)
     for (let i = 0; i < minLen; i++) {
-      if (answer[i] !== correct[i]) errors++
+      if (normAnswer[i] !== normCorrect[i]) errors++
     }
     return errors
+  }
+
+  const hasCaseDiff = (answer: string, correct: string) => {
+    return answer.toLowerCase() === correct.toLowerCase() && answer !== correct
+  }
+
+  const hasPunctDiff = (answer: string, correct: string) => {
+    return normalize(answer) === normalize(correct) && answer !== correct
   }
 
   const calculatePoints = (errorCount: number) => {
@@ -179,6 +200,8 @@ export default function Spelling() {
     if (!currentWord || feedback) return
     const correct = getTargetWord(currentWord)
     const errorCount = countErrors(input.trim(), correct)
+    const caseDiff = hasCaseDiff(input.trim(), correct)
+    const punctDiff = hasPunctDiff(input.trim(), correct)
 
     let type: 'perfect' | 'ok' | 'wrong'
     if (errorCount === 0) type = 'perfect'
@@ -186,7 +209,7 @@ export default function Spelling() {
     else type = 'wrong'
 
     const points = calculatePoints(errorCount)
-    setFeedback({ type, correction: correct })
+    setFeedback({ type, correction: correct, hasCase: caseDiff, hasPunct: punctDiff })
 
     if (type === 'perfect') {
       const newStreak = streak + 1
@@ -203,10 +226,16 @@ export default function Spelling() {
 
     setWordsCompleted(prev => prev + 1)
 
+    // Scroll vers le feedback
+    setTimeout(() => {
+      feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 100)
+
+    // Attendre 3 secondes avant de passer au mot suivant
     setTimeout(() => {
       setCurrentWord(null)
       setFeedback(null)
-    }, 1500)
+    }, 3000)
   }, [currentWord, input, feedback, streak, usedListen, usedLetterCount, usedFirstLetter, getTargetWord])
 
   useEffect(() => {
@@ -403,13 +432,18 @@ export default function Spelling() {
           </button>
 
           {feedback && (
-            <div style={{ textAlign: 'center', marginTop: '1rem', padding: '0.75rem', borderRadius: '0.5rem', background: feedback.type === 'perfect' ? '#f0faf8' : feedback.type === 'ok' ? '#fffbf0' : '#fff5f5' }}>
+            <div ref={feedbackRef} style={{ textAlign: 'center', marginTop: '1rem', padding: '1rem', borderRadius: '0.5rem', background: feedback.type === 'perfect' ? '#f0faf8' : feedback.type === 'ok' ? '#fffbf0' : '#fff5f5' }}>
               <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: feedback.type === 'perfect' ? '#2a9d8f' : feedback.type === 'ok' ? '#e9c46a' : '#e63946' }}>
                 {feedback.type === 'perfect' ? `✓ Perfect ! ${getFireEmoji()}` : feedback.type === 'ok' ? '~ OK, presque !' : '✗ Faux'}
               </div>
               {feedback.type !== 'perfect' && (
-                <div style={{ color: '#555', marginTop: '0.25rem' }}>
+                <div style={{ color: '#555', marginTop: '0.5rem' }}>
                   Correction : <strong>{feedback.correction}</strong>
+                </div>
+              )}
+              {feedback.type === 'perfect' && (feedback.hasCase || feedback.hasPunct) && (
+                <div style={{ color: '#e9c46a', fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                  ⚠️ Attention aux majuscules / ponctuation : <strong>{feedback.correction}</strong>
                 </div>
               )}
             </div>

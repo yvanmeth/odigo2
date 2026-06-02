@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 interface WordItem {
@@ -26,13 +26,12 @@ export default function WordDrop() {
   const [direction, setDirection] = useState<'foreign' | 'french'>('foreign')
   const [words, setWords] = useState<WordItem[]>([])
 
-  // Game state
   const [queue, setQueue] = useState<WordItem[]>([])
   const [failedWords, setFailedWords] = useState<WordItem[]>([])
   const [currentWord, setCurrentWord] = useState<WordItem | null>(null)
   const [choices, setChoices] = useState<string[]>([])
-  const [wordPos, setWordPos] = useState(1) // 0=left, 1=center, 2=right
-  const [falling, setFalling] = useState(false)
+  const [wordPos, setWordPos] = useState(1)
+  const [isFalling, setIsFalling] = useState(false)
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null)
   const [lives, setLives] = useState(3)
   const [score, setScore] = useState(0)
@@ -43,10 +42,14 @@ export default function WordDrop() {
   const [selectedKeyboard, setSelectedKeyboard] = useState(1)
   const [startTime, setStartTime] = useState(0)
   const [highScores, setHighScores] = useState<{ score: number; date: string }[]>([])
+  const [wordY, setWordY] = useState(80)
+  const animFrameRef = useRef<number | null>(null)
+  const startTimeRef = useRef<number>(0)
+  const speedRef = useRef(INITIAL_SPEED)
+  const feedbackRef = useRef<'correct' | 'wrong' | null>(null)
+  const currentWordRef = useRef<WordItem | null>(null)
 
-  useEffect(() => {
-    fetchLists()
-  }, [])
+  useEffect(() => { fetchLists() }, [])
 
   const fetchLists = async () => {
     const { data } = await supabase.from('word_lists').select('id, name').order('name')
@@ -58,13 +61,13 @@ export default function WordDrop() {
     if (data) setWords(data.filter(w => w.source_word && w.target_word))
   }
 
-  const buildQueue = useCallback((wordPool: WordItem[]) => {
+  const buildQueue = (wordPool: WordItem[]) => {
     const q: WordItem[] = []
     for (let i = 0; i < TOTAL_WORDS; i++) {
       q.push(wordPool[Math.floor(Math.random() * wordPool.length)])
     }
     return q
-  }, [])
+  }
 
   const getChoices = useCallback((correct: WordItem, allWords: WordItem[]) => {
     const correctAnswer = direction === 'foreign' ? correct.target_word : correct.source_word
@@ -73,8 +76,7 @@ export default function WordDrop() {
       .map(w => direction === 'foreign' ? w.target_word : w.source_word)
       .filter((v, i, a) => a.indexOf(v) === i)
     const shuffled = others.sort(() => Math.random() - 0.5).slice(0, 2)
-    const all = [correctAnswer, ...shuffled].sort(() => Math.random() - 0.5)
-    return all
+    return [correctAnswer, ...shuffled].sort(() => Math.random() - 0.5)
   }, [direction])
 
   const startGame = async () => {
@@ -90,12 +92,57 @@ export default function WordDrop() {
       setLives(3)
       setScore(0)
       setSpeed(INITIAL_SPEED)
+      speedRef.current = INITIAL_SPEED
       setWordsCompleted(0)
       setFailedWords([])
       setIsReviewPhase(false)
       setGameState('playing')
     }
   }, [words])
+
+  const stopAnimation = () => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current)
+      animFrameRef.current = null
+    }
+  }
+
+  const startFalling = useCallback((currentSpeed: number) => {
+    stopAnimation()
+    startTimeRef.current = performance.now()
+    const GAME_HEIGHT = 500
+    const START_Y = 80
+    const END_Y = 380
+
+    const animate = (now: number) => {
+      if (feedbackRef.current) return
+      const elapsed = now - startTimeRef.current
+      const progress = Math.min(elapsed / currentSpeed, 1)
+      const y = START_Y + (END_Y - START_Y) * progress
+      setWordY(y)
+
+      if (progress < 1) {
+        animFrameRef.current = requestAnimationFrame(animate)
+      } else {
+        // Temps écoulé sans réponse = faux
+        if (!feedbackRef.current && currentWordRef.current) {
+          feedbackRef.current = 'wrong'
+          setFeedback('wrong')
+          setLives(prev => prev - 1)
+          setFailedWords(prev => [...prev, currentWordRef.current!])
+          setWordsCompleted(prev => prev + 1)
+          speedRef.current = Math.min(INITIAL_SPEED, speedRef.current + SPEED_REDUCTION)
+          setSpeed(speedRef.current)
+          setTimeout(() => {
+            feedbackRef.current = null
+            setFeedback(null)
+            setCurrentWord(null)
+          }, 800)
+        }
+      }
+    }
+    animFrameRef.current = requestAnimationFrame(animate)
+  }, [])
 
   useEffect(() => {
     if (gameState !== 'playing') return
@@ -111,48 +158,61 @@ export default function WordDrop() {
         setFailedWords([])
         return
       }
+      stopAnimation()
       setGameState('result')
       saveScore()
       return
     }
     setQueue(nextQueue)
     setCurrentWord(next)
+    currentWordRef.current = next
     setChoices(getChoices(next, words))
     setWordPos(1)
     setSelectedKeyboard(1)
-    setFalling(false)
+    feedbackRef.current = null
     setFeedback(null)
+    setWordY(80)
     setStartTime(Date.now())
+    setTimeout(() => startFalling(speedRef.current), 50)
   }, [currentWord, queue, gameState])
 
+  useEffect(() => {
+    return () => stopAnimation()
+  }, [])
+
   const handleAnswer = useCallback((pos: number) => {
-    if (!currentWord || feedback) return
+    if (!currentWord || feedbackRef.current) return
+    stopAnimation()
     const correctAnswer = direction === 'foreign' ? currentWord.target_word : currentWord.source_word
     const chosen = choices[pos]
     const elapsed = (Date.now() - startTime) / 1000
     const isCorrect = chosen === correctAnswer
 
+    feedbackRef.current = isCorrect ? 'correct' : 'wrong'
     setFeedback(isCorrect ? 'correct' : 'wrong')
-    setFalling(true)
+    setIsFalling(true)
 
     if (isCorrect) {
       const points = elapsed < 2 ? 15 : 10
       setScore(prev => prev + points)
-      setSpeed(prev => Math.max(MIN_SPEED, prev - SPEED_REDUCTION))
+      speedRef.current = Math.max(MIN_SPEED, speedRef.current - SPEED_REDUCTION)
+      setSpeed(speedRef.current)
     } else {
       setLives(prev => prev - 1)
       setFailedWords(prev => [...prev, currentWord])
-      setSpeed(prev => Math.min(INITIAL_SPEED, prev + SPEED_REDUCTION))
+      speedRef.current = Math.min(INITIAL_SPEED, speedRef.current + SPEED_REDUCTION)
+      setSpeed(speedRef.current)
     }
 
     setWordsCompleted(prev => prev + 1)
 
     setTimeout(() => {
-      setCurrentWord(null)
-      setFalling(false)
+      feedbackRef.current = null
       setFeedback(null)
+      setIsFalling(false)
+      setCurrentWord(null)
     }, 800)
-  }, [currentWord, choices, direction, feedback, startTime])
+  }, [currentWord, choices, direction, startTime])
 
   const handleValidate = useCallback(() => {
     handleAnswer(wordPos)
@@ -160,33 +220,36 @@ export default function WordDrop() {
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (gameState !== 'playing' || !currentWord || feedback) return
+      if (gameState !== 'playing' || !currentWord || feedbackRef.current) return
       if (e.key === 'ArrowLeft') {
+        e.preventDefault()
         setWordPos(prev => Math.max(0, prev - 1))
         setSelectedKeyboard(prev => Math.max(0, prev - 1))
       } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
         setWordPos(prev => Math.min(2, prev + 1))
         setSelectedKeyboard(prev => Math.min(2, prev + 1))
       } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        e.preventDefault()
         handleValidate()
       }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [gameState, currentWord, feedback, handleValidate])
+  }, [gameState, currentWord, handleValidate])
 
-  const saveScore = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const existing = JSON.parse(localStorage.getItem(`scores_${selectedList}`) || '[]')
+  const saveScore = () => {
+    const key = `worddrop_scores_${selectedList}`
+    const existing = JSON.parse(localStorage.getItem(key) || '[]')
     const newScore = { score, date: new Date().toLocaleDateString('fr-CH') }
     const updated = [...existing, newScore].sort((a, b) => b.score - a.score).slice(0, 10)
-    localStorage.setItem(`scores_${selectedList}`, JSON.stringify(updated))
+    localStorage.setItem(key, JSON.stringify(updated))
     setHighScores(updated)
   }
 
-  const loadHighScores = () => {
-    const existing = JSON.parse(localStorage.getItem(`scores_${selectedList}`) || '[]')
+  const loadHighScores = (listId: string) => {
+    const key = `worddrop_scores_${listId}`
+    const existing = JSON.parse(localStorage.getItem(key) || '[]')
     setHighScores(existing)
   }
 
@@ -207,7 +270,7 @@ export default function WordDrop() {
         <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', maxWidth: '400px' }}>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Choisir une liste</label>
-            <select value={selectedList} onChange={e => { setSelectedList(e.target.value); loadHighScores() }} style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}>
+            <select value={selectedList} onChange={e => { setSelectedList(e.target.value); loadHighScores(e.target.value) }} style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}>
               <option value="">-- Sélectionner --</option>
               {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
@@ -259,7 +322,7 @@ export default function WordDrop() {
             {highScores.map((s, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem' }}>
                 <span style={{ color: i === 0 ? '#e9c46a' : '#555' }}>#{i + 1} {i === 0 ? '🥇' : ''}</span>
-                <span style={{ fontWeight: 'bold', color: score === s.score && i === 0 ? '#2a9d8f' : '#333' }}>{s.score} pts</span>
+                <span style={{ fontWeight: 'bold', color: '#333' }}>{s.score} pts</span>
                 <span style={{ color: '#aaa' }}>{s.date}</span>
               </div>
             ))}
@@ -296,11 +359,11 @@ export default function WordDrop() {
       {currentWord && (
         <div style={{
           position: 'absolute',
-          top: falling ? '380px' : '80px',
+          top: `${wordY}px`,
           left: getWordLeft(),
           width: '120px',
           textAlign: 'center',
-          transition: falling ? `top ${speed / 10000}s ease-in` : `top ${speed / 1000}s linear, left 0.15s ease`,
+          transition: isFalling ? 'left 0.15s ease' : 'left 0.15s ease',
           zIndex: 5,
         }}>
           <div style={{
