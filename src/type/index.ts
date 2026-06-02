@@ -6,20 +6,19 @@ export interface Profile {
 }
 
 export interface Subject {
-  id: string
-  user_id: string
+  id: number
   name: string
 }
 
 export interface Evaluation {
   id: string
   user_id: string
-  subject_id: number
-  topic: string
-  evaluation_date: string
+  date: string
   start_time?: string
   end_time?: string
-  readiness?: number
+  subject_id: string
+  topic: string
+  situation?: number
   grade?: number
   created_at: string
 }
@@ -27,11 +26,11 @@ export interface Evaluation {
 export interface Revision {
   id: string
   user_id: string
-  evaluation_id?: string
-  revision_date: string
+  date: string
   start_time?: string
   end_time?: string
-  completed: boolean
+  evaluation_id?: string
+  status: 'done' | 'pending'
   details?: string
   created_at: string
 }
@@ -40,7 +39,7 @@ export interface Event {
   id: string
   user_id: string
   title: string
-  event_date: string
+  date: string
   start_time?: string
   end_time?: string
   details?: string
