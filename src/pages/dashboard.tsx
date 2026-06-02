@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Subjects from './subjects'
 import Planner from './planner'
+import Home from './home'
 
 interface Props {
   session: Session
@@ -129,6 +130,7 @@ export default function Dashboard({ session }: Props) {
         }}>
 {activePage === 'subjects' && <Subjects />}
 {activePage === 'planner' && <Planner />}
+{activePage === 'dashboard' && <Home />}
         </div>
       </div>
     </div>
