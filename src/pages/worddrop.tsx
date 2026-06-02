@@ -35,7 +35,7 @@ export default function WordDrop() {
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null)
   const [lives, setLives] = useState(3)
   const [score, setScore] = useState(0)
-  const [speed, setSpeed] = useState(INITIAL_SPEED)
+  const [_speed, setSpeed] = useState(INITIAL_SPEED)
   const [wordsCompleted, setWordsCompleted] = useState(0)
   const [totalWords, setTotalWords] = useState(0)
   const [isReviewPhase, setIsReviewPhase] = useState(false)
@@ -110,7 +110,7 @@ export default function WordDrop() {
   const startFalling = useCallback((currentSpeed: number) => {
     stopAnimation()
     startTimeRef.current = performance.now()
-    const GAME_HEIGHT = 500
+
     const START_Y = 80
     const END_Y = 380
 
