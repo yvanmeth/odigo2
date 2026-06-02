@@ -88,7 +88,8 @@ export default function WordLists() {
   
       const data = await response.json()
       const text = data.content?.[0]?.text || '[]'
-      const parsed = JSON.parse(text)
+      const clean = text.replace(/```json|```/g, '').trim()
+const parsed = JSON.parse(clean)
       setImportWords(parsed.map((w: { source: string; target: string }) => ({ ...w, selected: true })))
     } catch (err) {
       console.error('Erreur import image:', err)
