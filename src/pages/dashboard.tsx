@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Subjects from './subjects'
+import Planner from './planner'
 
 interface Props {
   session: Session
@@ -127,6 +128,7 @@ export default function Dashboard({ session }: Props) {
           marginTop: '1.5rem'
         }}>
          {activePage === 'subjects' && <Subjects />}
+         {activePage === 'planner' && <Planner />}
 {activePage !== 'subjects' && <p style={{ color: '#aaa' }}>Contenu à venir...</p>}
         </div>
       </div>

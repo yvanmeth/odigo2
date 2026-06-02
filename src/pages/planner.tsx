@@ -1,0 +1,267 @@
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+import type { Evaluation, Revision } from '../type/index'
+import type { Subject } from '../type/index'
+import type { Event as AppEvent } from '../type/index'
+
+type Tab = 'evaluations' | 'revisions' | 'events'
+
+export default function Planner() {
+  const [activeTab, setActiveTab] = useState<Tab>('evaluations')
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([])
+  const [revisions, setRevisions] = useState<Revision[]>([])
+  const [events, setEvents] = useState<AppEvent[]>([])
+  const [subjects, setSubjects] = useState<Subject[]>([])
+  const [showForm, setShowForm] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  // Form states
+  const [evalDate, setEvalDate] = useState('')
+  const [evalSubject, setEvalSubject] = useState('')
+  const [evalTopic, setEvalTopic] = useState('')
+  const [evalReadiness, setEvalReadiness] = useState('')
+  const [evalStartTime, setEvalStartTime] = useState('')
+  const [evalEndTime, setEvalEndTime] = useState('')
+
+  const [revDate, setRevDate] = useState('')
+  const [revStartTime, setRevStartTime] = useState('')
+  const [revEndTime, setRevEndTime] = useState('')
+  const [revDetails, setRevDetails] = useState('')
+  const [revEvalId, setRevEvalId] = useState('')
+
+  const [evtTitle, setEvtTitle] = useState('')
+  const [evtDate, setEvtDate] = useState('')
+  const [evtStartTime, setEvtStartTime] = useState('')
+  const [evtEndTime, setEvtEndTime] = useState('')
+  const [evtDetails, setEvtDetails] = useState('')
+
+  useEffect(() => {
+    fetchAll()
+  }, [])
+
+  const fetchAll = async () => {
+    setLoading(true)
+    const [evalsRes, revsRes, eventsRes, subjectsRes] = await Promise.all([
+      supabase.from('evaluations').select('*').order('evaluation_date'),
+      supabase.from('revisions').select('*').order('revision_date'),
+      supabase.from('events').select('*').order('event_date'),
+      supabase.from('subjects').select('*').order('name'),
+    ])
+    if (evalsRes.data) setEvaluations(evalsRes.data)
+    if (revsRes.data) setRevisions(revsRes.data)
+    if (eventsRes.data) setEvents(eventsRes.data)
+    if (subjectsRes.data) setSubjects(subjectsRes.data)
+    setLoading(false)
+  }
+
+  const handleAddEval = async () => {
+    if (!evalDate || !evalSubject || !evalTopic) return
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('evaluations').insert({
+      user_id: user?.id,
+      evaluation_date: evalDate,
+      subject_id: parseInt(evalSubject),
+      topic: evalTopic,
+      readiness: evalReadiness ? parseFloat(evalReadiness) : null,
+      start_time: evalStartTime || null,
+      end_time: evalEndTime || null,
+    })
+    setEvalDate(''); setEvalSubject(''); setEvalTopic(''); setEvalReadiness('')
+    setEvalStartTime(''); setEvalEndTime('')
+    setShowForm(false)
+    fetchAll()
+  }
+
+  const handleAddRev = async () => {
+    if (!revDate) return
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('revisions').insert({
+      user_id: user?.id,
+      revision_date: revDate,
+      start_time: revStartTime || null,
+      end_time: revEndTime || null,
+      details: revDetails || null,
+      evaluation_id: revEvalId || null,
+      completed: false,
+    })
+    setRevDate(''); setRevStartTime(''); setRevEndTime(''); setRevDetails(''); setRevEvalId('')
+    setShowForm(false)
+    fetchAll()
+  }
+
+  const handleAddEvt = async () => {
+    if (!evtTitle || !evtDate) return
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('events').insert({
+      user_id: user?.id,
+      title: evtTitle,
+      event_date: evtDate,
+      start_time: evtStartTime || null,
+      end_time: evtEndTime || null,
+      details: evtDetails || null,
+    })
+    setEvtTitle(''); setEvtDate(''); setEvtStartTime(''); setEvtEndTime(''); setEvtDetails('')
+    setShowForm(false)
+    fetchAll()
+  }
+
+  const handleDelete = async (table: string, id: string) => {
+    await supabase.from(table).delete().eq('id', id)
+    fetchAll()
+  }
+
+  const getSubjectName = (id: number) => subjects.find(s => s.id === id)?.name || '?'
+
+  const tabStyle = (tab: Tab) => ({
+    padding: '0.6rem 1.2rem',
+    border: 'none',
+    borderRadius: '0.5rem',
+    cursor: 'pointer',
+    background: activeTab === tab ? '#2a9d8f' : '#e0f0ee',
+    color: activeTab === tab ? 'white' : '#2a9d8f',
+    fontWeight: activeTab === tab ? 'bold' : 'normal',
+    fontSize: '0.9rem',
+  })
+
+  const inputStyle = {
+    width: '100%',
+    padding: '0.6rem',
+    borderRadius: '0.5rem',
+    border: '1px solid #ddd',
+    fontSize: '0.9rem',
+    boxSizing: 'border-box' as const,
+    marginBottom: '0.75rem',
+  }
+
+  const cardStyle = {
+    background: 'white',
+    borderRadius: '0.75rem',
+    padding: '1rem 1.25rem',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    marginBottom: '0.75rem',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  }
+
+  if (loading) return <p style={{ color: '#888' }}>Chargement...</p>
+
+  return (
+    <div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+        <button style={tabStyle('evaluations')} onClick={() => { setActiveTab('evaluations'); setShowForm(false) }}>📝 Évaluations</button>
+        <button style={tabStyle('revisions')} onClick={() => { setActiveTab('revisions'); setShowForm(false) }}>📖 Révisions</button>
+        <button style={tabStyle('events')} onClick={() => { setActiveTab('events'); setShowForm(false) }}>📅 Événements</button>
+      </div>
+
+      {/* Bouton ajouter */}
+      <button
+        onClick={() => setShowForm(!showForm)}
+        style={{ marginBottom: '1rem', padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+      >
+        {showForm ? '✕ Annuler' : '+ Ajouter'}
+      </button>
+
+      {/* Formulaires */}
+      {showForm && activeTab === 'evaluations' && (
+        <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
+          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>Nouvelle évaluation</h3>
+          <input type="date" value={evalDate} onChange={e => setEvalDate(e.target.value)} style={inputStyle} />
+          <select value={evalSubject} onChange={e => setEvalSubject(e.target.value)} style={inputStyle}>
+            <option value="">Choisir une matière</option>
+            {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <input type="text" placeholder="Sujet / Chapitre" value={evalTopic} onChange={e => setEvalTopic(e.target.value)} style={inputStyle} />
+          <input type="number" placeholder="Situation (0-6)" min="0" max="6" value={evalReadiness} onChange={e => setEvalReadiness(e.target.value)} style={inputStyle} />
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input type="time" value={evalStartTime} onChange={e => setEvalStartTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
+            <input type="time" value={evalEndTime} onChange={e => setEvalEndTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
+          </div>
+          <button onClick={handleAddEval} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>Enregistrer</button>
+        </div>
+      )}
+
+      {showForm && activeTab === 'revisions' && (
+        <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
+          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>Nouvelle révision</h3>
+          <input type="date" value={revDate} onChange={e => setRevDate(e.target.value)} style={inputStyle} />
+          <select value={revEvalId} onChange={e => setRevEvalId(e.target.value)} style={inputStyle}>
+            <option value="">Lier à une évaluation (optionnel)</option>
+            {evaluations.map(e => <option key={e.id} value={e.id}>{e.evaluation_date} — {getSubjectName(e.subject_id)} — {e.topic}</option>)}
+          </select>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input type="time" value={revStartTime} onChange={e => setRevStartTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
+            <input type="time" value={revEndTime} onChange={e => setRevEndTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
+          </div>
+          <textarea placeholder="Détails (optionnel)" value={revDetails} onChange={e => setRevDetails(e.target.value)} style={{ ...inputStyle, height: '80px', resize: 'vertical' }} />
+          <button onClick={handleAddRev} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>Enregistrer</button>
+        </div>
+      )}
+
+      {showForm && activeTab === 'events' && (
+        <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
+          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>Nouvel événement</h3>
+          <input type="text" placeholder="Titre" value={evtTitle} onChange={e => setEvtTitle(e.target.value)} style={inputStyle} />
+          <input type="date" value={evtDate} onChange={e => setEvtDate(e.target.value)} style={inputStyle} />
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input type="time" value={evtStartTime} onChange={e => setEvtStartTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
+            <input type="time" value={evtEndTime} onChange={e => setEvtEndTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
+          </div>
+          <textarea placeholder="Détails (optionnel)" value={evtDetails} onChange={e => setEvtDetails(e.target.value)} style={{ ...inputStyle, height: '80px', resize: 'vertical' }} />
+          <button onClick={handleAddEvt} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>Enregistrer</button>
+        </div>
+      )}
+
+      {/* Listes */}
+      {activeTab === 'evaluations' && (
+        <div>
+          {evaluations.length === 0 && <p style={{ color: '#aaa' }}>Aucune évaluation.</p>}
+          {evaluations.map(e => (
+            <div key={e.id} style={cardStyle}>
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#333' }}>{getSubjectName(e.subject_id)} — {e.topic}</div>
+                <div style={{ fontSize: '0.85rem', color: '#888' }}>{e.evaluation_date}{e.start_time ? ` · ${e.start_time}` : ''}</div>
+                {e.readiness !== null && <div style={{ fontSize: '0.85rem', color: '#2a9d8f' }}>Situation : {e.readiness}/6</div>}
+                {e.grade !== null && <div style={{ fontSize: '0.85rem', color: '#2a9d8f' }}>Note : {e.grade}/6</div>}
+              </div>
+              <button onClick={() => handleDelete('evaluations', e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '1.1rem' }}>🗑</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'revisions' && (
+        <div>
+          {revisions.length === 0 && <p style={{ color: '#aaa' }}>Aucune révision.</p>}
+          {revisions.map(r => (
+            <div key={r.id} style={cardStyle}>
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#333' }}>{r.revision_date}{r.start_time ? ` · ${r.start_time}` : ''}</div>
+                {r.details && <div style={{ fontSize: '0.85rem', color: '#888' }}>{r.details}</div>}
+                <div style={{ fontSize: '0.85rem', color: r.completed ? '#2a9d8f' : '#e63946' }}>{r.completed ? '✓ Fait' : '○ À faire'}</div>
+              </div>
+              <button onClick={() => handleDelete('revisions', r.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '1.1rem' }}>🗑</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'events' && (
+        <div>
+          {events.length === 0 && <p style={{ color: '#aaa' }}>Aucun événement.</p>}
+          {events.map(ev => (
+            <div key={ev.id} style={cardStyle}>
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#333' }}>{ev.title}</div>
+                <div style={{ fontSize: '0.85rem', color: '#888' }}>{ev.event_date}{ev.start_time ? ` · ${ev.start_time}` : ''}</div>
+                {ev.details && <div style={{ fontSize: '0.85rem', color: '#888' }}>{ev.details}</div>}
+              </div>
+              <button onClick={() => handleDelete('events', ev.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '1.1rem' }}>🗑</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
