@@ -110,7 +110,7 @@ export default function Planner() {
     fetchAll()
   }
 
-  const getSubjectName = (id: number) => subjects.find(s => s.id === id)?.name || '?'
+  const getSubjectName = (id: number) => subjects.find(s => Number(s.id) === id)?.name || '?'
 
   const tabStyle = (tab: Tab) => ({
     padding: '0.6rem 1.2rem',
