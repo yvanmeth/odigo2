@@ -24,8 +24,7 @@ export default function Subjects() {
         .select('*')
         .order('name')
 
-        console.log('data:', data, 'error:', error)
-        if (!error && data) setSubjects(data)
+      if (!error && data) setSubjects(data)
       setLoading(false)
     }
     fetchSubjects()

@@ -2,9 +2,6 @@ import type { Session } from '@supabase/supabase-js'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Subjects from './subjects'
-import Planner from './planner'
-import Home from './home'
-import WordLists from './wordlists'
 
 interface Props {
   session: Session
@@ -129,10 +126,8 @@ export default function Dashboard({ session }: Props) {
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
           marginTop: '1.5rem'
         }}>
-{activePage === 'subjects' && <Subjects />}
-{activePage === 'planner' && <Planner />}
-{activePage === 'dashboard' && <Home />}
-{activePage === 'wordlists' && <WordLists />}
+         {activePage === 'subjects' && <Subjects />}
+{activePage !== 'subjects' && <p style={{ color: '#aaa' }}>Contenu à venir...</p>}
         </div>
       </div>
     </div>
