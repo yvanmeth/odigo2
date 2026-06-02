@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import Subjects from './subjects'
 import Planner from './planner'
 import Home from './home'
+import WordLists from './wordlists'
 
 interface Props {
   session: Session
@@ -131,6 +132,7 @@ export default function Dashboard({ session }: Props) {
 {activePage === 'subjects' && <Subjects />}
 {activePage === 'planner' && <Planner />}
 {activePage === 'dashboard' && <Home />}
+{activePage === 'wordlists' && <WordLists />}
         </div>
       </div>
     </div>
