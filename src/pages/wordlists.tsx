@@ -43,7 +43,73 @@ export default function WordLists() {
   const [editSource, setEditSource] = useState('')
   const [editTarget, setEditTarget] = useState('')
   const [editContext, setEditContext] = useState('')
-
+  const [importWords, setImportWords] = useState<{ source: string; target: string; selected: boolean }[]>([])
+  const [importLoading, setImportLoading] = useState(false)
+  
+  const handleImageImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedList) return
+    setImportLoading(true)
+  
+    const base64 = await new Promise<string>((res, rej) => {
+      const reader = new FileReader()
+      reader.onload = () => res((reader.result as string).split(',')[1])
+      reader.onerror = rej
+      reader.readAsDataURL(file)
+    })
+  
+    const isVocab = selectedList.list_type === 'vocabulary'
+  
+    const prompt = isVocab
+      ? `Tu vois une liste de vocabulaire. Extrais tous les mots et leur traduction. Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, sous cette forme exacte: [{"source":"mot","target":"traduction"}]. Si un mot n'a pas de traduction visible, mets target vide.`
+      : `Tu vois une liste de mots. Extrais tous les mots. Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, sous cette forme exacte: [{"source":"mot","target":""}].`
+  
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
+              { type: 'text', text: prompt }
+            ]
+          }]
+        })
+      })
+  
+      const data = await response.json()
+      const text = data.content?.[0]?.text || '[]'
+      const parsed = JSON.parse(text)
+      setImportWords(parsed.map((w: { source: string; target: string }) => ({ ...w, selected: true })))
+    } catch (err) {
+      console.error('Erreur import image:', err)
+    }
+  
+    setImportLoading(false)
+    e.target.value = ''
+  }
+  
+  const handleConfirmImport = async () => {
+    if (!selectedList) return
+    const toImport = importWords.filter(w => w.selected && w.source.trim())
+    for (const w of toImport) {
+      await supabase.from('word_items').insert({
+        list_id: selectedList.id,
+        source_word: w.source,
+        target_word: w.target || null,
+        context: null,
+      })
+    }
+    setImportWords([])
+    fetchItems(selectedList.id)
+  }
   useEffect(() => {
     fetchLists()
     fetchSubjects()
@@ -209,7 +275,55 @@ export default function WordLists() {
               {selectedList.name} <span style={{ color: '#888', fontWeight: 'normal', fontSize: '0.9rem' }}>({items.length} mot{items.length > 1 ? 's' : ''})</span>
             </h2>
 
-            {/* Formulaire ajout mot */}
+{/* Import par image */}
+<div style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: importWords.length > 0 ? '1rem' : '0' }}>
+    <label style={{ padding: '0.6rem 1rem', background: '#e0f0ee', color: '#2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>
+      📷 Importer par image
+      <input type="file" accept="image/*" onChange={handleImageImport} style={{ display: 'none' }} />
+    </label>
+    {importLoading && <span style={{ color: '#888', fontSize: '0.9rem' }}>Analyse en cours...</span>}
+  </div>
+
+  {importWords.length > 0 && (
+    <div>
+      <p style={{ color: '#555', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Mots détectés — coche ceux à importer :</p>
+      <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '0.75rem' }}>
+        {importWords.map((w, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0', borderBottom: '1px solid #f5f5f5' }}>
+            <input type="checkbox" checked={w.selected} onChange={() => {
+              const updated = [...importWords]
+              updated[i].selected = !updated[i].selected
+              setImportWords(updated)
+            }} />
+            <span style={{ flex: 1, fontSize: '0.9rem' }}><strong>{w.source}</strong>{w.target ? ` → ${w.target}` : ''}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <button
+          onClick={() => setImportWords(importWords.map(w => ({ ...w, selected: true })))}
+          style={{ padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+        >
+          Tout sélectionner
+        </button>
+        <button
+          onClick={handleConfirmImport}
+          style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+        >
+          Importer la sélection
+        </button>
+        <button
+          onClick={() => setImportWords([])}
+          style={{ padding: '0.4rem 0.8rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+        >
+          Annuler
+        </button>
+      </div>
+    </div>
+  )}
+</div>            
+{/* Formulaire ajout mot */}
             <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <input type="text" placeholder="Mot source *" value={newSource} onChange={e => setNewSource(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '120px', marginBottom: 0 }} />
