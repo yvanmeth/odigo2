@@ -127,9 +127,8 @@ export default function Dashboard({ session }: Props) {
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
           marginTop: '1.5rem'
         }}>
-         {activePage === 'subjects' && <Subjects />}
-         {activePage === 'planner' && <Planner />}
-{activePage !== 'subjects' && <p style={{ color: '#aaa' }}>Contenu à venir...</p>}
+{activePage === 'subjects' && <Subjects />}
+{activePage === 'planner' && <Planner />}
         </div>
       </div>
     </div>

@@ -241,7 +241,18 @@ export default function Planner() {
                 {r.details && <div style={{ fontSize: '0.85rem', color: '#888' }}>{r.details}</div>}
                 <div style={{ fontSize: '0.85rem', color: r.completed ? '#2a9d8f' : '#e63946' }}>{r.completed ? '✓ Fait' : '○ À faire'}</div>
               </div>
-              <button onClick={() => handleDelete('revisions', r.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '1.1rem' }}>🗑</button>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+  <button
+    onClick={async () => {
+      await supabase.from('revisions').update({ completed: !r.completed }).eq('id', r.id)
+      fetchAll()
+    }}
+    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
+  >
+    {r.completed ? '✅' : '⬜'}
+  </button>
+  <button onClick={() => handleDelete('revisions', r.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '1.1rem' }}>🗑</button>
+</div>
             </div>
           ))}
         </div>
