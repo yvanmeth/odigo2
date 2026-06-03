@@ -8,6 +8,7 @@ import WordLists from './wordlists'
 import WordDrop from './worddrop'
 import QCM from './qcm'
 import Spelling from './spelling'
+import Rewards from './rewards'
 
 interface Props {
   session: Session
@@ -224,8 +225,8 @@ export default function Dashboard({ session }: Props) {
               <Spelling />
             </div>
           )}
-
-          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && (
+          {activePage === 'rewards' && <Rewards />}
+          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'rewards' && (
             <p style={{ color: '#aaa' }}>Contenu à venir...</p>
           )}
         </div>
