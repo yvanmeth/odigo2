@@ -249,7 +249,7 @@ export default function Spelling() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [handleValidate, gameState, feedback])
 
-  const saveScore = () => {
+  const saveScore = async () => {
     const key = `spelling_scores_${selectedList}`
     const existing = JSON.parse(localStorage.getItem(key) || '[]')
     const newScore = { score, date: new Date().toLocaleDateString('fr-CH') }

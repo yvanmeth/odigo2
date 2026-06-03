@@ -239,7 +239,7 @@ export default function WordDrop() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [gameState, currentWord, handleValidate])
 
-  const saveScore = () => {
+  const saveScore = async () => {
     const key = `worddrop_scores_${selectedList}`
     const existing = JSON.parse(localStorage.getItem(key) || '[]')
     const newScore = { score, date: new Date().toLocaleDateString('fr-CH') }
