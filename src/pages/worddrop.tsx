@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { addDigoos } from '../services/digoos'
 
 interface WordItem {
   id: string
@@ -244,6 +245,7 @@ export default function WordDrop() {
     const newScore = { score, date: new Date().toLocaleDateString('fr-CH') }
     const updated = [...existing, newScore].sort((a, b) => b.score - a.score).slice(0, 10)
     localStorage.setItem(key, JSON.stringify(updated))
+    await addDigoos(5 + Math.floor(score / 10))
     setHighScores(updated)
   }
 
