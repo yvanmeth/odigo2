@@ -26,6 +26,7 @@ export default function Settings() {
   const [newInterest, setNewInterest] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [dangerPassword, setDangerPassword] = useState('')
   const [passwordMsg, setPasswordMsg] = useState('')
   const [showReset, setShowReset] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
@@ -170,6 +171,7 @@ export default function Settings() {
           onChange={e => setProfile({ ...profile, first_name: e.target.value })}
           style={inputStyle}
           placeholder="Ton prénom"
+          autoComplete="off"
         />
 
         <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Date de naissance</label>
@@ -224,6 +226,7 @@ export default function Settings() {
             onChange={e => setNewInterest(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addCustomInterest()}
             placeholder="Ajouter un centre d'intérêt..."
+            autoComplete="off"
             style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
           />
           <button
@@ -234,7 +237,6 @@ export default function Settings() {
           </button>
         </div>
 
-        {/* Intérêts personnalisés ajoutés */}
         {profile.interests?.filter(i => !SUGGESTED_INTERESTS.includes(i)).length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
             {profile.interests.filter(i => !SUGGESTED_INTERESTS.includes(i)).map(interest => (
@@ -316,7 +318,11 @@ export default function Settings() {
           placeholder="Confirmer le mot de passe"
           style={inputStyle}
         />
-        {passwordMsg && <p style={{ color: passwordMsg.includes('succès') ? '#2a9d8f' : '#e63946', fontSize: '0.85rem' }}>{passwordMsg}</p>}
+        {passwordMsg && (
+          <p style={{ color: passwordMsg.includes('succès') ? '#2a9d8f' : '#e63946', fontSize: '0.85rem' }}>
+            {passwordMsg}
+          </p>
+        )}
         <button
           onClick={handleChangePassword}
           style={{ padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
@@ -337,6 +343,7 @@ export default function Settings() {
             value={parentCode}
             onChange={e => setParentCode(e.target.value)}
             placeholder="Code parent"
+            autoComplete="off"
             style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
           />
           <button
@@ -348,50 +355,108 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Zone danger */}
-      <div style={{ ...sectionStyle, border: '1px solid #ffe0e0' }}>
-        <h3 style={{ color: '#e63946', marginBottom: '1rem' }}>⚠️ Zone dangereuse</h3>
+      {/* Supprimer / Reset */}
+      <div style={{ ...sectionStyle, border: '1px solid #eee' }}>
+        <h3 style={{ color: '#555', marginBottom: '0.5rem' }}>Supprimer le compte ou repartir de zéro</h3>
+        <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
+          Ces actions sont irréversibles. Ton mot de passe sera demandé pour confirmer.
+        </p>
 
-        {!showReset ? (
-          <button
-            onClick={() => setShowReset(true)}
-            style={{ padding: '0.6rem 1.2rem', background: 'white', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', marginRight: '0.75rem' }}
-          >
-            Remettre à zéro
-          </button>
-        ) : (
-          <div style={{ background: '#fff5f5', borderRadius: '0.5rem', padding: '1rem', marginBottom: '0.75rem' }}>
-            <p style={{ color: '#e63946', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
-              ⚠️ Cette action supprime toutes tes données (évaluations, révisions, listes, Digoos). Irréversible.
+        {!showReset && !showDelete && (
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button
+              onClick={() => setShowReset(true)}
+              style={{ padding: '0.6rem 1.2rem', background: 'white', color: '#e9c46a', border: '1px solid #e9c46a', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              Repartir de zéro
+            </button>
+            <button
+              onClick={() => setShowDelete(true)}
+              style={{ padding: '0.6rem 1.2rem', background: 'white', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              Supprimer le compte
+            </button>
+          </div>
+        )}
+
+        {showReset && (
+          <div style={{ background: '#fffbf0', borderRadius: '0.5rem', padding: '1rem' }}>
+            <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+              <strong>Repartir de zéro</strong> supprime toutes tes données : évaluations, révisions, événements, listes de mots et Digoos. Ton compte reste actif mais vide.
             </p>
+            <input
+              type="password"
+              value={dangerPassword}
+              onChange={e => setDangerPassword(e.target.value)}
+              placeholder="Confirme avec ton mot de passe"
+              autoComplete="off"
+              style={inputStyle}
+            />
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={handleReset} style={{ padding: '0.5rem 1rem', background: '#e63946', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
-                Confirmer
+              <button
+                onClick={async () => {
+                  const { data: { user } } = await supabase.auth.getUser()
+                  const { error } = await supabase.auth.signInWithPassword({
+                    email: user?.email || '',
+                    password: dangerPassword,
+                  })
+                  if (error) {
+                    alert('Mot de passe incorrect.')
+                    return
+                  }
+                  await handleReset()
+                  setDangerPassword('')
+                }}
+                style={{ padding: '0.5rem 1rem', background: '#e9c46a', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                Confirmer la remise à zéro
               </button>
-              <button onClick={() => setShowReset(false)} style={{ padding: '0.5rem 1rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button
+                onClick={() => { setShowReset(false); setDangerPassword('') }}
+                style={{ padding: '0.5rem 1rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
                 Annuler
               </button>
             </div>
           </div>
         )}
 
-        {!showDelete ? (
-          <button
-            onClick={() => setShowDelete(true)}
-            style={{ padding: '0.6rem 1.2rem', background: '#e63946', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-          >
-            Supprimer le compte
-          </button>
-        ) : (
+        {showDelete && (
           <div style={{ background: '#fff5f5', borderRadius: '0.5rem', padding: '1rem' }}>
-            <p style={{ color: '#e63946', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
-              ⚠️ Cette action supprime définitivement ton compte et toutes tes données.
+            <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+              <strong>Supprimer le compte</strong> efface définitivement ton compte et toutes les données associées. Cette action est irréversible et ne peut pas être annulée.
             </p>
+            <input
+              type="password"
+              value={dangerPassword}
+              onChange={e => setDangerPassword(e.target.value)}
+              placeholder="Confirme avec ton mot de passe"
+              autoComplete="off"
+              style={inputStyle}
+            />
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={handleDelete} style={{ padding: '0.5rem 1rem', background: '#e63946', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button
+                onClick={async () => {
+                  const { data: { user } } = await supabase.auth.getUser()
+                  const { error } = await supabase.auth.signInWithPassword({
+                    email: user?.email || '',
+                    password: dangerPassword,
+                  })
+                  if (error) {
+                    alert('Mot de passe incorrect.')
+                    return
+                  }
+                  await handleDelete()
+                  setDangerPassword('')
+                }}
+                style={{ padding: '0.5rem 1rem', background: '#e63946', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
                 Supprimer définitivement
               </button>
-              <button onClick={() => setShowDelete(false)} style={{ padding: '0.5rem 1rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button
+                onClick={() => { setShowDelete(false); setDangerPassword('') }}
+                style={{ padding: '0.5rem 1rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
                 Annuler
               </button>
             </div>
