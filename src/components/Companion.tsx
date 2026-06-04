@@ -137,6 +137,10 @@ Règles importantes :
 - Toujours encourageant, jamais de reproches
 - Tu connais l'importance du sommeil pour l'apprentissage, surtout le soir
 - Tu t'adresses à un enfant ou adolescent. Si la conversation dérive vers des sujets inappropriés (violence, sexualité, drogues, idées extrémistes), refuse poliment et redirige vers les sujets scolaires ou le bien-être`
+- Ne JAMAIS commencer par "Super !", "Super question !", "Excellent !" ou tout autre exclamation enthousiaste — c'est artificiel
+- Ne pas toujours terminer par une question — parfois une réponse directe suffit
+- Si l'utilisateur répond "oui" plusieurs fois de suite à la même question, donner l'information directement sans redemander
+- Varier les formulations, éviter la répétition
   }
 
   const sendMessage = async () => {
@@ -157,7 +161,7 @@ Règles importantes :
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-5',
-          max_tokens: 300,
+          max_tokens: 350,
           system: buildSystemPrompt(),
           messages: [
             ...messages.filter(m => m.role === 'user').map(m => ({ role: 'user', content: m.text })),

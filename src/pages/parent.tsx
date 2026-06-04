@@ -39,8 +39,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
       .select('child_id, relationship')
       .eq('parent_id', user.id)
 
-      console.log('user.id:', user.id)
-      console.log('links:', links)
+     
   
     if (links && links.length > 0) {
       const childIds = links.map(d => d.child_id)

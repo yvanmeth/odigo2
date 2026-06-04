@@ -22,6 +22,7 @@ export default function LoginPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0faf8', fontFamily: 'sans-serif' }}>
       <div style={{ background: 'white', padding: '2.5rem', borderRadius: '1rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', width: '100%', maxWidth: '380px' }}>
         <h1 style={{ color: '#2a9d8f', marginBottom: '0.25rem' }}>ODIGO</h1>
+        <p style={{ color: '#2a9d8f', fontSize: '0.85rem', marginBottom: '0.25rem', fontStyle: 'italic' }}>Planifier, apprendre, s'amuser</p>
         <p style={{ color: '#666', marginBottom: '2rem' }}>{isSignUp ? 'Créer un compte' : 'Connexion'}</p>
         <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '0.75rem', marginBottom: '1rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '1rem', boxSizing: 'border-box' }} />
         <input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '0.75rem', marginBottom: '1rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '1rem', boxSizing: 'border-box' }} />
