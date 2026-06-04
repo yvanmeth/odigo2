@@ -46,11 +46,6 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
         .select('id, first_name')
         .in('id', childIds)
 
-      const { data: authData } = await supabase
-        .from('profiles')
-        .select('id, first_name')
-        .in('id', childIds)
-
       if (profiles) {
         const enriched = profiles.map(p => ({
           id: p.id,

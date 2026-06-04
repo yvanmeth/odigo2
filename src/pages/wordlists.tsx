@@ -20,7 +20,7 @@ interface WordItem {
   created_at: string
 }
 
-export default function WordLists() {
+export default function WordLists({ userId }: { userId?: string }) {
   const [lists, setLists] = useState<WordList[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [selectedList, setSelectedList] = useState<WordList | null>(null)
