@@ -33,25 +33,25 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
-    const { data } = await supabase
+  
+    const { data: links } = await supabase
       .from('parent_child')
       .select('child_id, relationship')
       .eq('parent_id', user.id)
-
-    if (data && data.length > 0) {
-      const childIds = data.map(d => d.child_id)
+  
+    if (links && links.length > 0) {
+      const childIds = links.map(d => d.child_id)
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, first_name')
         .in('id', childIds)
-
+  
       if (profiles) {
         const enriched = profiles.map(p => ({
           id: p.id,
           first_name: p.first_name || 'Sans prénom',
           email: '',
-          relationship: data.find(d => d.child_id === p.id)?.relationship || 'parent',
+          relationship: links.find(d => d.child_id === p.id)?.relationship || 'parent',
         }))
         setChildren(enriched)
       }
