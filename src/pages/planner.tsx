@@ -6,7 +6,7 @@ import type { Event as AppEvent } from '../type/index'
 
 type Tab = 'evaluations' | 'revisions' | 'events'
 
-export default function Planner({ userId: _userId, isParent: _isParent }: { userId?: string; isParent?: boolean }) {
+export default function Planner({ userId, isParent }: { userId?: string; isParent?: boolean }) {
   const [activeTab, setActiveTab] = useState<Tab>('evaluations')
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
@@ -37,14 +37,16 @@ export default function Planner({ userId: _userId, isParent: _isParent }: { user
 
   useEffect(() => {
     fetchAll()
-  }, [])
+  }, [userId])
 
   const fetchAll = async () => {
     setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    const targetId = userId || user?.id
     const [evalsRes, revsRes, eventsRes, subjectsRes] = await Promise.all([
-      supabase.from('evaluations').select('*').order('evaluation_date'),
-      supabase.from('revisions').select('*').order('revision_date'),
-      supabase.from('events').select('*').order('event_date'),
+      supabase.from('evaluations').select('*').eq('user_id', targetId).order('evaluation_date'),
+      supabase.from('revisions').select('*').eq('user_id', targetId).order('revision_date'),
+      supabase.from('events').select('*').eq('user_id', targetId).order('event_date'),
       supabase.from('subjects').select('*').order('name'),
     ])
     if (evalsRes.data) setEvaluations(evalsRes.data)

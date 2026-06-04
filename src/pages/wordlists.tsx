@@ -20,7 +20,7 @@ interface WordItem {
   created_at: string
 }
 
-export default function WordLists({ userId: _userId }: { userId?: string }) {
+export default function WordLists({ userId }: { userId?: string }) {
   const [lists, setLists] = useState<WordList[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [selectedList, setSelectedList] = useState<WordList | null>(null)
@@ -178,11 +178,13 @@ const parsed = JSON.parse(clean)
   useEffect(() => {
     fetchLists()
     fetchSubjects()
-  }, [])
+  }, [userId])
 
   const fetchLists = async () => {
     setLoading(true)
-    const { data } = await supabase.from('word_lists').select('*').order('created_at', { ascending: false })
+    const { data: { user } } = await supabase.auth.getUser()
+    const targetId = userId || user?.id
+    const { data } = await supabase.from('word_lists').select('*').eq('user_id', targetId).order('created_at', { ascending: false })
     if (data) setLists(data)
     setLoading(false)
   }

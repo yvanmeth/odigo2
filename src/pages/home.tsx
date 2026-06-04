@@ -9,21 +9,24 @@ interface EvalWithStats extends Evaluation {
   doneRevisions: number
 }
 
-export default function Home({ userId: _userId }: { userId?: string }) {
+export default function Home({ userId }: { userId?: string }) {
   const [evals, setEvals] = useState<EvalWithStats[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [userId])
 
   const fetchData = async () => {
     setLoading(true)
 
+    const { data: { user } } = await supabase.auth.getUser()
+    const targetId = userId || user?.id
+
     const [evalsRes, subjectsRes, revisionsRes] = await Promise.all([
-      supabase.from('evaluations').select('*').order('evaluation_date'),
+      supabase.from('evaluations').select('*').eq('user_id', targetId).order('evaluation_date'),
       supabase.from('subjects').select('*'),
-      supabase.from('revisions').select('*'),
+      supabase.from('revisions').select('*').eq('user_id', targetId),
     ])
 
     if (evalsRes.data && subjectsRes.data && revisionsRes.data) {
