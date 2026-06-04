@@ -6,7 +6,7 @@ import type { Event as AppEvent } from '../type/index'
 
 type Tab = 'evaluations' | 'revisions' | 'events'
 
-export default function Planner({ userId, isParent }: { userId?: string; isParent?: boolean }) {
+export default function Planner({ userId, isParent: _isParent }: { userId?: string; isParent?: boolean }) {
   const [activeTab, setActiveTab] = useState<Tab>('evaluations')
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
