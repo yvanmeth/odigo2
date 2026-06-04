@@ -82,7 +82,7 @@ export default function Companion({ userId }: CompanionProps) {
 
     // Première rencontre
     if (!p.has_met_odigo) {
-      return `Bonjour ${firstName} ! Je m'appelle Odigo — mon nom vient du grec et signifie "je conduis". Tu peux aussi m'appeler Odi, Digo, ou juste O. Je suis ton compagnon d'apprentissage : je suis là pour t'encourager, te rappeler tes évaluations, et te tenir compagnie. On va bien s'entendre ! 😊`
+        return `Bonjour ${firstName} ! Je m'appelle Odigo, mais tu peux aussi m'appeler Odi, Digo, ou juste O. Je suis ton compagnon d'apprentissage : je suis là pour t'encourager, te rappeler tes évaluations, et te tenir compagnie. On va bien s'entendre !`
     }
 
     // Soir — conseil sommeil
@@ -123,19 +123,20 @@ export default function Companion({ userId }: CompanionProps) {
       : 'Aucune évaluation à venir.'
     const digoosInfo = progress ? `${progress.digoos_this_week} Digoos cette semaine, ${progress.week_streak} semaines consécutives actives.` : ''
 
-    return `Tu es Odigo, le compagnon bienveillant de l'application ODIGO. Ton nom vient du grec et signifie "je conduis". Tu t'adresses à ${firstName}.
+    return `Tu es Odigo, le compagnon bienveillant de l'application ODIGO. Tu t'adresses à ${firstName}.
 
-Ton caractère : toujours encourageant, bienveillant, jamais réprimandant. Tu valorises l'effort et la régularité, pas seulement les résultats. Tu es familier mais respectueux. Tu utilises le prénom de l'élève.
+Ton caractère : toujours encourageant, bienveillant, jamais réprimandant. Tu valorises l'effort et la régularité, pas seulement les résultats.
 
 Contexte : ${evalInfo} ${digoosInfo}
 
 Règles importantes :
-- Ne jamais faire de reproches ou de critiques négatives
-- Encourager même les petits efforts
-- Si l'élève dit qu'il n'a pas travaillé, rester bienveillant et aider à reprendre
-- Répondre en français, de manière courte et chaleureuse (2-4 phrases maximum)
-- Tu peux expliquer les fonctionnalités d'ODIGO si on te le demande
-- Tu connais l'importance du sommeil pour l'apprentissage, surtout le soir`
+- Ne JAMAIS commencer un message par le prénom de l'utilisateur — c'est une conversation naturelle, pas un email
+- Réponses courtes : 1 à 3 phrases maximum
+- Pas de mise en forme markdown (pas de gras, pas de listes)
+- Quand on te pose une question générale sur ODIGO (comment ça marche, etc.), réponds brièvement et propose 3 sujets cliquables sous forme de liste JSON à la fin de ton message, comme ceci : [SUGGESTIONS: "Le tableau de bord", "Le planificateur", "Les exercices"]
+- Toujours encourageant, jamais de reproches
+- Tu connais l'importance du sommeil pour l'apprentissage, surtout le soir
+- Tu t'adresses à un enfant ou adolescent. Si la conversation dérive vers des sujets inappropriés (violence, sexualité, drogues, idées extrémistes), refuse poliment et redirige vers les sujets scolaires ou le bien-être`
   }
 
   const sendMessage = async () => {
@@ -233,28 +234,46 @@ Règles importantes :
 
           {/* Messages */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {messages.map((msg, i) => (
-              <div key={i} style={{
-                display: 'flex',
-                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              }}>
-                <div style={{
-                  maxWidth: '85%',
-                  padding: '0.6rem 0.9rem',
-                  borderRadius: msg.role === 'user' ? '1rem 1rem 0.25rem 1rem' : '1rem 1rem 1rem 0.25rem',
-                  background: msg.role === 'user' ? '#2a9d8f' : '#f0faf8',
-                  color: msg.role === 'user' ? 'white' : '#333',
-                  fontSize: '0.9rem',
-                  lineHeight: '1.4',
-                }}>
-                  {msg.text}
+            {messages.map((msg, i) => {
+              const hasSuggestions = msg.role === 'odigo' && msg.text.includes('[SUGGESTIONS:')
+              const cleanText = msg.text.replace(/\[SUGGESTIONS:.*?\]/s, '').trim()
+              const suggMatch = msg.text.match(/\[SUGGESTIONS:(.*?)\]/s)
+              const suggList = suggMatch
+                ? suggMatch[1].split(',').map(s => s.trim().replace(/^"|"$/g, ''))
+                : []
+
+              return (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: '0.4rem' }}>
+                  <div style={{
+                    maxWidth: '85%',
+                    padding: '0.6rem 0.9rem',
+                    borderRadius: msg.role === 'user' ? '1rem 1rem 0.25rem 1rem' : '1rem 1rem 1rem 0.25rem',
+                    background: msg.role === 'user' ? '#2a9d8f' : '#f0faf8',
+                    color: msg.role === 'user' ? 'white' : '#333',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.4',
+                  }}>
+                    {cleanText}
+                  </div>
+                  {hasSuggestions && i === messages.length - 1 && suggList.map((s, j) => (
+                    <button
+                      key={j}
+                      onClick={() => {
+                        setInput(s)
+                        setTimeout(() => sendMessage(), 100)
+                      }}
+                      style={{ padding: '0.35rem 0.8rem', background: 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '2rem', cursor: 'pointer', fontSize: '0.82rem', alignSelf: 'flex-start' }}
+                    >
+                      {s}
+                    </button>
+                  ))}
                 </div>
-              </div>
-            ))}
+              )
+            })}
             {loading && (
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                 <div style={{ background: '#f0faf8', borderRadius: '1rem 1rem 1rem 0.25rem', padding: '0.6rem 0.9rem', color: '#888', fontSize: '0.9rem' }}>
-                  Odigo réfléchit...
+                  ...
                 </div>
               </div>
             )}
