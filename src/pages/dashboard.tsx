@@ -122,7 +122,6 @@ export default function Dashboard({ session }: Props) {
   const effectiveUserId = viewingChildId || session.user.id
   const isViewingChild = !!viewingChildId
 
-  const displayName = firstName || session.user.email
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif', background: '#f0faf8' }}>

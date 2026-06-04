@@ -45,6 +45,10 @@ export default function WordLists({ userId: _userId }: { userId?: string }) {
   const [editContext, setEditContext] = useState('')
   const [importWords, setImportWords] = useState<{ source: string; target: string; selected: boolean }[]>([])
   const [importLoading, setImportLoading] = useState(false)
+  const [pasteText, setPasteText] = useState('')
+const [showPasteZone, setShowPasteZone] = useState(false)
+const [parsedRows, setParsedRows] = useState<{ source: string; target: string; context: string; selected: boolean }[]>([])
+const [showParsedPreview, setShowParsedPreview] = useState(false)
 
   const parseTabularData = (text: string) => {
     const lines = text.trim().split('\n').filter(l => l.trim())
