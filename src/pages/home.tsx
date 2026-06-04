@@ -9,7 +9,7 @@ interface EvalWithStats extends Evaluation {
   doneRevisions: number
 }
 
-export default function Home({ userId }: { userId?: string }) {
+export default function Home({ userId: _userId }: { userId?: string }) {
   const [evals, setEvals] = useState<EvalWithStats[]>([])
   const [loading, setLoading] = useState(true)
 
