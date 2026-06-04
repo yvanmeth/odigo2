@@ -11,6 +11,7 @@ import Spelling from './spelling'
 import Rewards from './rewards'
 import Settings from './settings'
 import ParentDashboard from './parent'
+import Companion from '../components/Companion'
 
 interface Props {
   session: Session
@@ -364,6 +365,7 @@ export default function Dashboard({ session }: Props) {
           )}
         </div>
       </div>
+      {!isViewingChild && <Companion userId={session.user.id} />}
     </div>
   )
 }
