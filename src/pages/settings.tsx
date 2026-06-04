@@ -341,14 +341,68 @@ export default function Settings() {
           <input
             type="text"
             value={parentCode}
-            onChange={e => setParentCode(e.target.value)}
-            placeholder="Code parent"
+            onChange={e => setParentCode(e.target.value.toUpperCase())}
+            placeholder="Code parent (ex: AB12CD)"
             autoComplete="off"
-            style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
+            maxLength={6}
+            style={{ ...inputStyle, marginBottom: 0, flex: 1, letterSpacing: '0.2rem', fontWeight: 'bold' }}
           />
           <button
-            onClick={() => alert('Fonctionnalité compte parent à venir.')}
-            style={{ padding: '0.6rem 1rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}
+            onClick={async () => {
+              if (!parentCode || parentCode.length < 6) {
+                alert('Entre un code valide à 6 caractères.')
+                return
+              }
+              const { data: { user } } = await supabase.auth.getUser()
+              if (!user) return
+
+              // Vérifier le code
+              const { data: invite } = await supabase
+                .from('invite_codes')
+                .select('*')
+                .eq('code', parentCode)
+                .eq('used', false)
+                .gte('expires_at', new Date().toISOString())
+                .single()
+
+              if (!invite) {
+                alert('Code invalide ou expiré.')
+                return
+              }
+
+              if (invite.parent_id === user.id) {
+                alert('Tu ne peux pas te lier à ton propre compte.')
+                return
+              }
+
+              // Vérifier max 2 parents
+              const { data: existing } = await supabase
+                .from('parent_child')
+                .select('*')
+                .eq('child_id', user.id)
+
+              if (existing && existing.length >= 2) {
+                alert('Tu as déjà 2 parents liés. Maximum atteint.')
+                return
+              }
+
+              // Créer le lien
+              await supabase.from('parent_child').insert({
+                parent_id: invite.parent_id,
+                child_id: user.id,
+                relationship: 'parent',
+              })
+
+              // Marquer le code comme utilisé
+              await supabase.from('invite_codes').update({ used: true }).eq('id', invite.id)
+
+              // Mettre à jour le profil enfant
+              await supabase.from('profiles').upsert({ id: user.id, role: 'child' })
+
+              setParentCode('')
+              alert('Compte parent lié avec succès !')
+            }}
+            style={{ padding: '0.6rem 1rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}
           >
             Lier
           </button>

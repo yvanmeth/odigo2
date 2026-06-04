@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Subjects from './subjects'
 import Planner from './planner'
@@ -10,9 +10,15 @@ import QCM from './qcm'
 import Spelling from './spelling'
 import Rewards from './rewards'
 import Settings from './settings'
+import ParentDashboard from './parent'
 
 interface Props {
   session: Session
+}
+
+interface Child {
+  id: string
+  first_name: string
 }
 
 const navItems = [
@@ -53,10 +59,70 @@ export default function Dashboard({ session }: Props) {
   const [collapsed, setCollapsed] = useState(false)
   const [activePage, setActivePage] = useState('dashboard')
   const [activeExercise, setActiveExercise] = useState<string | null>(null)
+  const [isParent, setIsParent] = useState(false)
+  const [children, setChildren] = useState<Child[]>([])
+  const [viewingChildId, setViewingChildId] = useState<string | null>(null)
+  const [viewingChildName, setViewingChildName] = useState<string>('')
+  const [firstName, setFirstName] = useState<string>('')
 
   const now = new Date()
   const dateStr = now.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long' })
   const timeStr = now.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })
+
+  useEffect(() => {
+    fetchProfile()
+  }, [])
+
+  const fetchProfile = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('role, first_name')
+      .eq('id', session.user.id)
+      .single()
+
+    if (data) {
+      setIsParent(data.role === 'parent')
+      setFirstName(data.first_name || '')
+      if (data.role === 'parent') fetchChildren()
+    }
+  }
+
+  const fetchChildren = async () => {
+    const { data } = await supabase
+      .from('parent_child')
+      .select('child_id')
+      .eq('parent_id', session.user.id)
+
+    if (data && data.length > 0) {
+      const childIds = data.map(d => d.child_id)
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name')
+        .in('id', childIds)
+
+      if (profiles) {
+        setChildren(profiles.map(p => ({ id: p.id, first_name: p.first_name || 'Enfant' })))
+      }
+    }
+  }
+
+  const handleSelectChild = (childId: string | null) => {
+    setViewingChildId(childId)
+    if (childId) {
+      const child = children.find(c => c.id === childId)
+      setViewingChildName(child?.first_name || 'Enfant')
+      setActivePage('dashboard')
+    } else {
+      setViewingChildName('')
+      setActivePage('dashboard')
+    }
+  }
+
+  // L'userId effectif pour les données
+  const effectiveUserId = viewingChildId || session.user.id
+  const isViewingChild = !!viewingChildId
+
+  const displayName = firstName || session.user.email
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif', background: '#f0faf8' }}>
@@ -91,7 +157,50 @@ export default function Dashboard({ session }: Props) {
           </div>
         )}
 
+        {/* Sélecteur enfant pour les parents */}
+        {isParent && !collapsed && (
+          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee', background: '#f9f9f9' }}>
+            <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '0.4rem' }}>Vue active</div>
+            <select
+              value={viewingChildId || ''}
+              onChange={e => handleSelectChild(e.target.value || null)}
+              style={{ width: '100%', padding: '0.4rem', borderRadius: '0.4rem', border: '1px solid #ddd', fontSize: '0.85rem', color: '#333' }}
+            >
+              <option value="">👤 Mon espace</option>
+              {children.map(c => (
+                <option key={c.id} value={c.id}>👧 {c.first_name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <nav style={{ flex: 1, padding: '0.5rem 0' }}>
+          {/* Onglet Parent uniquement visible par les parents */}
+          {isParent && !isViewingChild && (
+            <button
+              onClick={() => { setActivePage('parent'); setActiveExercise(null) }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                width: '100%',
+                padding: '0.75rem 1rem',
+                background: activePage === 'parent' ? '#fff8e0' : 'none',
+                border: 'none',
+                borderLeft: activePage === 'parent' ? '3px solid #e9c46a' : '3px solid transparent',
+                cursor: 'pointer',
+                color: activePage === 'parent' ? '#e9c46a' : '#555',
+                fontWeight: activePage === 'parent' ? 'bold' : 'normal',
+                fontSize: '0.9rem',
+                textAlign: 'left',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <span style={{ fontSize: '1.1rem' }}>👨‍👧</span>
+              {!collapsed && 'Espace parent'}
+            </button>
+          )}
+
           {navItems.map(item => (
             <button
               key={item.id}
@@ -144,12 +253,30 @@ export default function Dashboard({ session }: Props) {
 
       {/* Zone de contenu */}
       <div style={{ flex: 1, padding: '2rem' }}>
-        <h1 style={{ color: '#2a9d8f', marginBottom: '0.5rem' }}>
+
+        {/* Bandeau vue enfant */}
+        {isViewingChild && (
+          <div style={{ background: '#fff8e0', border: '1px solid #e9c46a', borderRadius: '0.75rem', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#e9c46a', fontWeight: 'bold', fontSize: '0.9rem' }}>
+              👧 Tu consultes l'espace de <strong>{viewingChildName}</strong>
+            </span>
+            <button
+              onClick={() => handleSelectChild(null)}
+              style={{ padding: '0.3rem 0.8rem', background: '#e9c46a', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
+            >
+              ← Mon espace
+            </button>
+          </div>
+        )}
+
+        <h1 style={{ color: '#2a9d8f', marginBottom: '0.25rem' }}>
           {activePage === 'exercises' && activeExercise
             ? exerciseCards.find(e => e.id === activeExercise)?.label
+            : activePage === 'parent'
+            ? 'Espace parent'
             : navItems.find(i => i.id === activePage)?.label}
         </h1>
-        <p style={{ color: '#888', marginBottom: '1.5rem' }}>Connecté : {session.user.email}</p>
+        <p style={{ color: '#888', marginBottom: '1.5rem', fontSize: '0.9rem' }}>{displayName}</p>
 
         <div style={{
           background: 'white',
@@ -157,10 +284,14 @@ export default function Dashboard({ session }: Props) {
           padding: '2rem',
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         }}>
-          {activePage === 'dashboard' && <Home />}
-          {activePage === 'planner' && <Planner />}
+          {activePage === 'parent' && isParent && (
+            <ParentDashboard onSelectChild={handleSelectChild} />
+          )}
+
+          {activePage === 'dashboard' && <Home userId={effectiveUserId} />}
+          {activePage === 'planner' && <Planner userId={effectiveUserId} isParent={isParent && isViewingChild} />}
           {activePage === 'subjects' && <Subjects />}
-          {activePage === 'wordlists' && <WordLists />}
+          {activePage === 'wordlists' && <WordLists userId={effectiveUserId} />}
 
           {activePage === 'exercises' && !activeExercise && (
             <div>
@@ -226,9 +357,10 @@ export default function Dashboard({ session }: Props) {
               <Spelling />
             </div>
           )}
+
           {activePage === 'rewards' && <Rewards />}
           {activePage === 'settings' && <Settings />}
-          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'rewards' && activePage !== 'settings' && (
+          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'rewards' && activePage !== 'settings' && activePage !== 'parent' && (
             <p style={{ color: '#aaa' }}>Contenu à venir...</p>
           )}
         </div>
