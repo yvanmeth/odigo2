@@ -60,7 +60,7 @@ const isAfterSundayReset = () => {
   return now.getDay() === 0 && now.getHours() >= 18
 }
 
-export default function Rewards() {
+export default function Rewards({ userId }: { userId?: string }) {
   const [progress, setProgress] = useState<Progress | null>(null)
   const [loading, setLoading] = useState(true)
   const [newBadges, setNewBadges] = useState<string[]>([])
@@ -68,27 +68,30 @@ export default function Rewards() {
 
   useEffect(() => {
     fetchProgress()
-  }, [])
+  }, [userId])
 
   const fetchProgress = async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    const targetId = userId || user.id
+    const isViewingOther = !!userId && userId !== user.id
+
     const { data } = await supabase
       .from('progress')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', targetId)
       .single()
 
-    if (data) {
-      const updated = await checkWeekReset(data, user.id)
-      setProgress(updated)
-      checkNewBadges(updated)
-    } else {
-      // Créer le profil de progression
-      const newProgress: Partial<Progress> = {
-        user_id: user.id,
+      if (data) {
+        const updated = isViewingOther ? data : await checkWeekReset(data, targetId)
+        setProgress(updated)
+        if (!isViewingOther) checkNewBadges(updated)
+      } else if (!isViewingOther) {
+        // Créer le profil de progression uniquement pour soi-même
+        const newProgress: Partial<Progress> = {
+          user_id: user.id,
         digoos: 0,
         digoos_this_week: 0,
         active_weeks: [],
@@ -102,7 +105,7 @@ export default function Rewards() {
     setLoading(false)
   }
 
-  const checkWeekReset = async (p: Progress, userId: string) => {
+  const checkWeekReset = async (p: Progress, targetUserId: string) => {
     const currentWeek = getCurrentWeekKey()
     if (p.last_week_reset === currentWeek) return p
 
@@ -128,7 +131,7 @@ export default function Rewards() {
       active_weeks: updatedActiveWeeks,
       week_streak: newStreak,
       last_week_reset: currentWeek,
-    }).eq('user_id', userId)
+    }).eq('user_id', targetUserId)
 
     if (isAfterSundayReset()) setWeekSummaryVisible(true)
 
