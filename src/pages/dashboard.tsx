@@ -152,6 +152,7 @@ export default function Dashboard({ session }: Props) {
 
         {!collapsed && (
           <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee' }}>
+            {firstName && <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#333', marginBottom: '0.25rem' }}>{firstName}</div>}
             <div style={{ fontSize: '0.75rem', color: '#888' }}>{dateStr}</div>
             <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#2a9d8f' }}>{timeStr}</div>
           </div>
@@ -276,7 +277,6 @@ export default function Dashboard({ session }: Props) {
             ? 'Espace parent'
             : navItems.find(i => i.id === activePage)?.label}
         </h1>
-        <p style={{ color: '#888', marginBottom: '1.5rem', fontSize: '0.9rem' }}>{displayName}</p>
 
         <div style={{
           background: 'white',

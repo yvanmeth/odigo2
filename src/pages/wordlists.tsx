@@ -45,6 +45,64 @@ export default function WordLists({ userId: _userId }: { userId?: string }) {
   const [editContext, setEditContext] = useState('')
   const [importWords, setImportWords] = useState<{ source: string; target: string; selected: boolean }[]>([])
   const [importLoading, setImportLoading] = useState(false)
+
+  const parseTabularData = (text: string) => {
+    const lines = text.trim().split('\n').filter(l => l.trim())
+    const rows = lines.map(line => {
+      const cols = line.split('\t').map(c => c.trim())
+      return {
+        source: cols[0] || '',
+        target: cols[1] || '',
+        context: cols[2] || '',
+        selected: true,
+      }
+    }).filter(r => r.source)
+    return rows
+  }
+  
+  const handlePasteParse = () => {
+    if (!pasteText.trim()) return
+    const rows = parseTabularData(pasteText)
+    setParsedRows(rows)
+    setShowParsedPreview(true)
+  }
+  
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const text = await file.text()
+    let rows: { source: string; target: string; context: string; selected: boolean }[] = []
+  
+    if (file.name.endsWith('.csv')) {
+      const lines = text.trim().split('\n').filter(l => l.trim())
+      rows = lines.map(line => {
+        const cols = line.split(/[,;]/).map(c => c.trim().replace(/^"|"$/g, ''))
+        return { source: cols[0] || '', target: cols[1] || '', context: cols[2] || '', selected: true }
+      }).filter(r => r.source)
+    }
+  
+    setParsedRows(rows)
+    setShowParsedPreview(true)
+    e.target.value = ''
+  }
+  
+  const handleConfirmParsed = async () => {
+    if (!selectedList) return
+    const toImport = parsedRows.filter(r => r.selected && r.source.trim())
+    for (const r of toImport) {
+      await supabase.from('word_items').insert({
+        list_id: selectedList.id,
+        source_word: r.source,
+        target_word: r.target || null,
+        context: r.context || null,
+      })
+    }
+    setParsedRows([])
+    setShowParsedPreview(false)
+    setPasteText('')
+    setShowPasteZone(false)
+    fetchItems(selectedList.id)
+  }
   
   const handleImageImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -277,6 +335,93 @@ const parsed = JSON.parse(clean)
             <h2 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1.1rem' }}>
               {selectedList.name} <span style={{ color: '#888', fontWeight: 'normal', fontSize: '0.9rem' }}>({items.length} mot{items.length > 1 ? 's' : ''})</span>
             </h2>
+
+{/* Import Excel/CSV */}
+<div style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
+  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: showPasteZone || showParsedPreview ? '1rem' : '0' }}>
+    <button
+      onClick={() => { setShowPasteZone(!showPasteZone); setShowParsedPreview(false) }}
+      style={{ padding: '0.6rem 1rem', background: showPasteZone ? '#2a9d8f' : '#e0f0ee', color: showPasteZone ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+    >
+      📋 Coller depuis Excel
+    </button>
+    <label style={{ padding: '0.6rem 1rem', background: '#e0f0ee', color: '#2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+      📂 Importer CSV
+      <input type="file" accept=".csv" onChange={handleFileImport} style={{ display: 'none' }} />
+    </label>
+  </div>
+
+  {/* Zone coller */}
+  {showPasteZone && !showParsedPreview && (
+    <div>
+      <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+        Sélectionne 2 ou 3 colonnes dans Excel/Google Sheets, copie et colle ici. Colonnes : <strong>mot source</strong> · <strong>traduction</strong> · <strong>contexte (optionnel)</strong>
+      </p>
+      <textarea
+        value={pasteText}
+        onChange={e => setPasteText(e.target.value)}
+        placeholder="Colle tes cellules ici..."
+        style={{ width: '100%', height: '120px', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem', boxSizing: 'border-box', resize: 'vertical', marginBottom: '0.5rem' }}
+      />
+      <button
+        onClick={handlePasteParse}
+        disabled={!pasteText.trim()}
+        style={{ padding: '0.6rem 1.2rem', background: pasteText.trim() ? '#2a9d8f' : '#ccc', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: pasteText.trim() ? 'pointer' : 'default', fontSize: '0.9rem' }}
+      >
+        Analyser
+      </button>
+    </div>
+  )}
+
+  {/* Prévisualisation */}
+  {showParsedPreview && parsedRows.length > 0 && (
+    <div>
+      <p style={{ color: '#555', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+        <strong>{parsedRows.filter(r => r.selected).length}</strong> mots détectés — coche ceux à importer :
+      </p>
+      <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '0.75rem', border: '1px solid #eee', borderRadius: '0.5rem' }}>
+        {parsedRows.map((row, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.75rem', borderBottom: '1px solid #f5f5f5' }}>
+            <input type="checkbox" checked={row.selected} onChange={() => {
+              const updated = [...parsedRows]
+              updated[i].selected = !updated[i].selected
+              setParsedRows(updated)
+            }} />
+            <span style={{ flex: 1, fontSize: '0.9rem' }}>
+              <strong>{row.source}</strong>
+              {row.target && <span style={{ color: '#2a9d8f' }}> → {row.target}</span>}
+              {row.context && <span style={{ color: '#aaa', fontSize: '0.8rem' }}> ({row.context})</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <button
+          onClick={() => setParsedRows(parsedRows.map(r => ({ ...r, selected: true })))}
+          style={{ padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+        >
+          Tout sélectionner
+        </button>
+        <button
+          onClick={handleConfirmParsed}
+          style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+        >
+          Importer la sélection
+        </button>
+        <button
+          onClick={() => { setParsedRows([]); setShowParsedPreview(false); setPasteText(''); setShowPasteZone(false) }}
+          style={{ padding: '0.4rem 0.8rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+        >
+          Annuler
+        </button>
+      </div>
+    </div>
+  )}
+
+  {showParsedPreview && parsedRows.length === 0 && (
+    <p style={{ color: '#e63946', fontSize: '0.85rem' }}>Aucun mot détecté. Vérifie le format.</p>
+  )}
+</div>
 
 {/* Import par image */}
 <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
