@@ -12,7 +12,8 @@ import Rewards from './rewards'
 import Settings from './settings'
 import ParentDashboard from './parent'
 import Companion from '../components/Companion'
-import Flashcards from './Flashcards'
+import Flashcards from './flashcards'
+import Conjugaison from './conjugaison'
 
 interface Props {
   session: Session
@@ -61,6 +62,13 @@ const exerciseCards = [
     icon: '🃏',
     description: 'Retourne les cartes et swipe selon si tu fais juste ou pas.',
     color: '#2a9d8f',
+  },
+  {
+    id: 'conjugaison',
+    label: 'Conjugaison',
+    icon: '✍️',
+    description: 'Conjugue les verbes au bon temps et à la bonne personne.',
+    color: '#e76f51',
   },
 ]
 

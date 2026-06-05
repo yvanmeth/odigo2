@@ -15,6 +15,17 @@ interface WordList {
 
 type GameState = 'select' | 'playing' | 'result'
 
+const LANG_CODES: Record<string, string> = {
+  'Anglais':   'en-GB',
+  'Allemand':  'de-DE',
+  'Espagnol':  'es-ES',
+  'Grec':      'el-GR',
+  'Arabe':     'ar-SA',
+  'Italien':   'it-IT',
+  'Français':  'fr-FR',
+}
+
+const SUBJECTS = Object.keys(LANG_CODES).filter(s => s !== 'Français')
 
 // --- Sons Web Audio ---
 const playSuccessSound = () => {
@@ -29,7 +40,7 @@ const playSuccessSound = () => {
     g.gain.setValueAtTime(0.1, ctx.currentTime)
     g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25)
     o.start(); o.stop(ctx.currentTime + 0.25)
-  } catch { /* silencieux si AudioContext non dispo */ }
+  } catch { /* silencieux */ }
 }
 
 const playFailSound = () => {
@@ -51,10 +62,18 @@ const playFailSound = () => {
   } catch { /* silencieux */ }
 }
 
+const speak = (text: string, lang: string) => {
+  speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = lang
+  speechSynthesis.speak(utterance)
+}
+
 export default function Flashcards() {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
+  const [subject, setSubject] = useState('Anglais')
   const [direction, setDirection] = useState<'foreign' | 'french'>('foreign')
   const [words, setWords] = useState<WordItem[]>([])
 
@@ -64,18 +83,21 @@ export default function Flashcards() {
   const [isFlipped, setIsFlipped] = useState(false)
   const [totalCards, setTotalCards] = useState(0)
   const [knownCount, setKnownCount] = useState(0)
-  const [passCount, setPassCount] = useState(0) // total de passages (pour récap)
-  const [cardAttempts, setCardAttempts] = useState(0) // tentatives sur la carte courante
+  const [passCount, setPassCount] = useState(0)
+  const [cardAttempts, setCardAttempts] = useState(0)
   const [digoosEarned, setDigoosEarned] = useState(0)
   const [swipeAnim, setSwipeAnim] = useState<'left' | 'right' | null>(null)
   const [highScores, setHighScores] = useState<{ known: number; passes: number; date: string }[]>([])
 
-  const cardRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef<number | null>(null)
+
+  // Langue recto et verso selon direction
+  const frontLang = direction === 'foreign' ? (LANG_CODES[subject] || 'en-GB') : 'fr-FR'
+  const backLang  = direction === 'foreign' ? 'fr-FR' : (LANG_CODES[subject] || 'en-GB')
 
   useEffect(() => { fetchLists() }, [])
 
-  // Bloquer le scroll pendant le jeu
+  // Bloquer le scroll clavier pendant le jeu
   useEffect(() => {
     if (gameState !== 'playing') return
     const prevent = (e: KeyboardEvent) => {
@@ -91,9 +113,9 @@ export default function Flashcards() {
   useEffect(() => {
     if (gameState !== 'playing') return
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === ' ') { e.preventDefault(); handleFlip() }
+      if (e.key === ' ')          { e.preventDefault(); handleFlip() }
       else if (e.key === 'ArrowRight') { e.preventDefault(); handleKnown() }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); handleUnknown() }
+      else if (e.key === 'ArrowLeft')  { e.preventDefault(); handleUnknown() }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
@@ -143,8 +165,7 @@ export default function Flashcards() {
     let digoos = 0
 
     if (known) {
-      digoos = 1
-      if (isFirstAttempt) digoos += 1 // bonus 0 erreur
+      digoos = isFirstAttempt ? 2 : 1
       playSuccessSound()
     } else {
       playFailSound()
@@ -152,7 +173,6 @@ export default function Flashcards() {
 
     setDigoosEarned(prev => prev + digoos)
     setPassCount(prev => prev + 1)
-
     setSwipeAnim(known ? 'right' : 'left')
 
     setTimeout(() => {
@@ -162,12 +182,10 @@ export default function Flashcards() {
 
       if (known) {
         setKnownCount(prev => prev + 1)
-        // carte retirée du paquet
         const next = deck[0] ?? null
         setDeck(prev => prev.slice(1))
         setCurrentCard(next)
       } else {
-        // carte remise en fin de paquet, shufflée parmi les restantes
         const remaining = [...deck, currentCard]
         const reshuffled = shuffle(remaining)
         setCurrentCard(reshuffled[0])
@@ -220,19 +238,9 @@ export default function Flashcards() {
     if (touchStartX.current === null) return
     const dx = e.changedTouches[0].clientX - touchStartX.current
     touchStartX.current = null
-    if (Math.abs(dx) < 50) {
-      // Tap court = flip
-      handleFlip()
-      return
-    }
+    if (Math.abs(dx) < 50) { handleFlip(); return }
     if (dx > 50) handleKnown()
     else if (dx < -50) handleUnknown()
-  }
-
-  const speak = (text: string) => {
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'fr-FR'
-    speechSynthesis.speak(utterance)
   }
 
   const displayFront = (card: WordItem) =>
@@ -260,6 +268,26 @@ export default function Flashcards() {
             </select>
           </div>
 
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Langue de la liste</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {SUBJECTS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSubject(s)}
+                  style={{
+                    padding: '0.4rem 0.8rem',
+                    background: subject === s ? '#2a9d8f' : '#e0f0ee',
+                    color: subject === s ? 'white' : '#2a9d8f',
+                    border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem'
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Direction</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -267,13 +295,13 @@ export default function Flashcards() {
                 onClick={() => setDirection('foreign')}
                 style={{ flex: 1, padding: '0.6rem', background: direction === 'foreign' ? '#2a9d8f' : '#e0f0ee', color: direction === 'foreign' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
-                Langue → Français
+                {subject} → Français
               </button>
               <button
                 onClick={() => setDirection('french')}
                 style={{ flex: 1, padding: '0.6rem', background: direction === 'french' ? '#2a9d8f' : '#e0f0ee', color: direction === 'french' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
-                Français → Langue
+                Français → {subject}
               </button>
             </div>
           </div>
@@ -379,10 +407,7 @@ export default function Flashcards() {
       <div style={{ background: '#e0f0ee', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
         <div style={{
           width: `${totalCards > 0 ? (knownCount / totalCards) * 100 : 0}%`,
-          background: '#2a9d8f',
-          height: '100%',
-          borderRadius: '1rem',
-          transition: 'width 0.4s ease',
+          background: '#2a9d8f', height: '100%', borderRadius: '1rem', transition: 'width 0.4s ease',
         }} />
       </div>
 
@@ -390,18 +415,13 @@ export default function Flashcards() {
       {currentCard && (
         <div style={{ perspective: '1000px', marginBottom: '1.5rem' }}>
           <div
-            ref={cardRef}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
             onClick={handleFlip}
             style={{
-              position: 'relative',
-              width: '100%',
-              height: '200px',
+              position: 'relative', width: '100%', height: '200px',
               transformStyle: 'preserve-3d',
-              transition: swipeAnim
-                ? `transform 0.35s ease, opacity 0.35s ease`
-                : 'transform 0.45s ease',
+              transition: swipeAnim ? 'transform 0.35s ease, opacity 0.35s ease' : 'transform 0.45s ease',
               transform: swipeAnim === 'right'
                 ? 'translateX(120%) rotate(10deg)'
                 : swipeAnim === 'left'
@@ -414,23 +434,17 @@ export default function Flashcards() {
             {/* Recto */}
             <div style={{
               position: 'absolute', width: '100%', height: '100%',
-              backfaceVisibility: 'hidden',
-              WebkitBackfaceVisibility: 'hidden',
-              background: 'white',
-              borderRadius: '1rem',
+              backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
+              background: 'white', borderRadius: '1rem',
               boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '1.5rem',
-              boxSizing: 'border-box',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              padding: '1.5rem', boxSizing: 'border-box',
             }}>
               <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#333', textAlign: 'center', marginBottom: '1rem' }}>
                 {displayFront(currentCard)}
               </div>
               <button
-                onClick={e => { e.stopPropagation(); speak(displayFront(currentCard)) }}
+                onClick={e => { e.stopPropagation(); speak(displayFront(currentCard), frontLang) }}
                 style={{ padding: '0.3rem 0.75rem', background: '#e0f0ee', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
               >
                 🔊 Écouter
@@ -443,25 +457,25 @@ export default function Flashcards() {
             {/* Verso */}
             <div style={{
               position: 'absolute', width: '100%', height: '100%',
-              backfaceVisibility: 'hidden',
-              WebkitBackfaceVisibility: 'hidden',
+              backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
               transform: 'rotateY(180deg)',
-              background: '#f0faf8',
-              borderRadius: '1rem',
+              background: '#f0faf8', borderRadius: '1rem',
               boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '1.5rem',
-              boxSizing: 'border-box',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              padding: '1.5rem', boxSizing: 'border-box',
             }}>
               <div style={{ fontSize: '0.8rem', color: '#2a9d8f', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Traduction
               </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#2a9d8f', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#2a9d8f', textAlign: 'center', marginBottom: '1rem' }}>
                 {displayBack(currentCard)}
               </div>
+              <button
+                onClick={e => { e.stopPropagation(); speak(displayBack(currentCard), backLang) }}
+                style={{ padding: '0.3rem 0.75rem', background: 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
+              >
+                🔊 Écouter
+              </button>
             </div>
           </div>
         </div>
@@ -473,11 +487,7 @@ export default function Flashcards() {
           <button
             onClick={handleUnknown}
             disabled={!!swipeAnim}
-            style={{
-              flex: 1, padding: '0.9rem', background: 'white', color: '#e63946',
-              border: '2px solid #e63946', borderRadius: '0.75rem', cursor: 'pointer',
-              fontSize: '1rem', fontWeight: 'bold', transition: 'all 0.15s',
-            }}
+            style={{ flex: 1, padding: '0.9rem', background: 'white', color: '#e63946', border: '2px solid #e63946', borderRadius: '0.75rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold', transition: 'all 0.15s' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#fff5f5' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'white' }}
           >
@@ -486,11 +496,7 @@ export default function Flashcards() {
           <button
             onClick={handleKnown}
             disabled={!!swipeAnim}
-            style={{
-              flex: 1, padding: '0.9rem', background: 'white', color: '#2a9d8f',
-              border: '2px solid #2a9d8f', borderRadius: '0.75rem', cursor: 'pointer',
-              fontSize: '1rem', fontWeight: 'bold', transition: 'all 0.15s',
-            }}
+            style={{ flex: 1, padding: '0.9rem', background: 'white', color: '#2a9d8f', border: '2px solid #2a9d8f', borderRadius: '0.75rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold', transition: 'all 0.15s' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#f0faf8' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'white' }}
           >
