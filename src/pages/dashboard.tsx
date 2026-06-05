@@ -385,6 +385,17 @@ export default function Dashboard({ session }: Props) {
     <Flashcards />
   </div>
 )}
+{activePage === 'exercises' && activeExercise === 'conjugaison' && (
+  <div>
+    <button
+      onClick={() => setActiveExercise(null)}
+      style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+    >
+      ← Retour aux exercices
+    </button>
+    <Conjugaison />
+  </div>
+)}
 
 
           {activePage === 'rewards' && <Rewards userId={effectiveUserId} />}
