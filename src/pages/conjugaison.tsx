@@ -11,7 +11,7 @@ interface Question {
   verbe: string
   temps: string
   personne: string
-  reponse: string
+  reponses: string[] // toutes les variantes acceptables
 }
 
 type GameState = 'select' | 'loading' | 'playing' | 'result'
@@ -21,9 +21,9 @@ const TEMPS = [
   { id: 'indicatif imparfait',        label: 'Indicatif imparfait' },
   { id: 'indicatif futur simple',     label: 'Indicatif futur simple' },
   { id: 'indicatif passé composé',    label: 'Indicatif passé composé' },
-  { id: 'indicatif plus-que-parfait', label: 'Indicatif plus-que-parfait' },
+  { id: 'indicatif plus-que-parfait', label: 'Ind. plus-que-parfait' },
   { id: 'indicatif passé simple',     label: 'Indicatif passé simple' },
-  { id: 'indicatif futur antérieur',  label: 'Indicatif futur antérieur' },
+  { id: 'indicatif futur antérieur',  label: 'Ind. futur antérieur' },
   { id: 'conditionnel présent',       label: 'Conditionnel présent' },
   { id: 'conditionnel passé',         label: 'Conditionnel passé' },
   { id: 'subjonctif présent',         label: 'Subjonctif présent' },
@@ -33,7 +33,17 @@ const TEMPS = [
 
 const NB_QUESTIONS = [5, 8, 10, 15]
 
-// Pronoms attendus par personne (pour validation et affichage)
+// Affichage lisible de la personne
+const PERSONNE_LABEL: Record<string, string> = {
+  'je':        '1ère pers. sing.',
+  'tu':        '2è pers. sing.',
+  'il/elle':   '3è pers. sing.',
+  'nous':      '1ère pers. plu.',
+  'vous':      '2è pers. plu.',
+  'ils/elles': '3è pers. plu.',
+}
+
+// Pronoms attendus par personne
 const PRONOMS: Record<string, string[]> = {
   'je':        ['je', "j'"],
   'tu':        ['tu'],
@@ -43,28 +53,21 @@ const PRONOMS: Record<string, string[]> = {
   'ils/elles': ['ils', 'elles'],
 }
 
-// Extrait le pronom et la forme depuis la saisie
+const pronominCorrect = (pronomSaisi: string, personneAttendue: string): boolean => {
+  const attendus = PRONOMS[personneAttendue] || []
+  return attendus.includes(pronomSaisi.toLowerCase().replace(/'/g, "'"))
+}
+
 const parseReponse = (input: string): { pronom: string | null; forme: string } => {
   const trimmed = input.trim()
   const parts = trimmed.split(/\s+/)
   if (parts.length === 1) return { pronom: null, forme: parts[0] }
-
   const firstWord = parts[0].toLowerCase().replace(/'/g, "'")
   const allPronoms = Object.values(PRONOMS).flat()
-  if (allPronoms.includes(firstWord)) {
-    return { pronom: firstWord, forme: parts.slice(1).join(' ') }
-  }
-  // "j'ai" → pronom = "j'", forme = "ai" si passé composé — gérer la contraction
-  if (firstWord.endsWith("'") || firstWord.includes("'")) {
+  if (allPronoms.includes(firstWord) || firstWord.endsWith("'")) {
     return { pronom: firstWord, forme: parts.slice(1).join(' ') }
   }
   return { pronom: null, forme: trimmed }
-}
-
-// Vérifie si le pronom saisi correspond à la personne attendue
-const pronominCorrect = (pronomSaisi: string, personneAttendue: string): boolean => {
-  const attendus = PRONOMS[personneAttendue] || []
-  return attendus.includes(pronomSaisi.toLowerCase().replace(/'/g, "'"))
 }
 
 interface ValidationResult {
@@ -72,28 +75,39 @@ interface ValidationResult {
   erreurPronom: boolean
   pronomSaisi: string | null
   formeSaisie: string
-  reponseComplete: string // pronom attendu + forme correcte
+  reponsesAffichage: string // ex: "suis allé(e)" ou "as mangé"
 }
 
 const validerReponse = (input: string, q: Question): ValidationResult => {
   const { pronom, forme } = parseReponse(input)
-  const formeCorrecte = q.reponse.trim()
-
-  // Pronom attendu (premier des synonymes)
-  const pronomAttendu = PRONOMS[q.personne]?.[0] ?? ''
-  const reponseComplete = q.personne === 'impératif présent' || !pronomAttendu
-    ? formeCorrecte
-    : `${pronomAttendu} ${formeCorrecte}`
-
-  // Vérification de la forme (stricte, accents compris)
-  const formeOk = forme.trim() === formeCorrecte
-
-  // Vérification du pronom s'il a été saisi
   const erreurPronom = pronom !== null && !pronominCorrect(pronom, q.personne)
 
+  // La forme saisie correspond-elle à l'une des variantes ?
+  const formeOk = q.reponses.some(r => forme.trim() === r.trim())
   const correct = formeOk && !erreurPronom
 
-  return { correct, erreurPronom, pronomSaisi: pronom, formeSaisie: forme, reponseComplete }
+  // Affichage condensé des variantes : "suis allé(e)(s)"
+  const reponsesAffichage = buildReponsesAffichage(q.reponses, q.personne)
+
+  return { correct, erreurPronom, pronomSaisi: pronom, formeSaisie: forme, reponsesAffichage }
+}
+
+// Construit un affichage compact des variantes ex: ["suis allé","suis allée"] → "suis allé(e)"
+const buildReponsesAffichage = (reponses: string[], personne: string): string => {
+  if (reponses.length === 0) return ''
+  if (reponses.length === 1) {
+    const pronomAttendu = PRONOMS[personne]?.[0] ?? ''
+    return pronomAttendu ? `${pronomAttendu} ${reponses[0]}` : reponses[0]
+  }
+  // Trouver la base commune et les suffixes variables
+  const base = reponses[0]
+  const pronomAttendu = PRONOMS[personne]?.[0] ?? ''
+  const suffixes = reponses.map(r => r.slice(base.length))
+  const uniqueSuffixes = [...new Set(suffixes)].filter(s => s !== '')
+  const compact = uniqueSuffixes.length > 0
+    ? `${base}(${uniqueSuffixes.join('/').replace(/^\(/, '')})`
+    : base
+  return pronomAttendu ? `${pronomAttendu} ${compact}` : compact
 }
 
 export default function Conjugaison() {
@@ -101,7 +115,7 @@ export default function Conjugaison() {
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
   const [nbQ, setNbQ] = useState(8)
-  const [tempsChoisi, setTempsChoisi] = useState('tous')
+  const [tempsChoisis, setTempsChoisis] = useState<string[]>(TEMPS.map(t => t.id)) // tous par défaut
   const [questions, setQuestions] = useState<Question[]>([])
   const [current, setCurrent] = useState(0)
   const [reponse, setReponse] = useState('')
@@ -109,11 +123,11 @@ export default function Conjugaison() {
     correct: boolean
     erreurPronom: boolean
     pronomSaisi: string | null
-    reponseComplete: string
+    reponsesAffichage: string
   } | null>(null)
   const [resultats, setResultats] = useState<{
     verbe: string; temps: string; personne: string
-    correct: boolean; reponseComplete: string; donnee: string
+    correct: boolean; reponsesAffichage: string; donnee: string
   }[]>([])
   const [streak, setStreak] = useState(0)
   const [score, setScore] = useState(0)
@@ -134,8 +148,20 @@ export default function Conjugaison() {
     setHighScores(existing)
   }
 
+  const toggleTemps = (id: string) => {
+    setTempsChoisis(prev =>
+      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    )
+  }
+
+  const toggleTous = () => {
+    setTempsChoisis(prev =>
+      prev.length === TEMPS.length ? [] : TEMPS.map(t => t.id)
+    )
+  }
+
   const genererQuestions = async () => {
-    if (!selectedList) return
+    if (!selectedList || tempsChoisis.length === 0) return
     setError('')
     setGameState('loading')
 
@@ -154,24 +180,29 @@ export default function Conjugaison() {
       return
     }
 
-    const tempsList = tempsChoisi === 'tous'
-      ? TEMPS.map(t => t.id)
-      : [tempsChoisi]
-
     const prompt = `Tu es un générateur de questions de conjugaison française pour un élève de 11P (16-17 ans, Genève).
 
 Génère exactement ${nbQ} questions à partir de ces verbes : ${verbes.join(', ')}.
-Temps à utiliser : ${tempsList.join(', ')}.
+Temps à utiliser : ${tempsChoisis.join(', ')}.
 
 Règles :
-- Varie les personnes (je, tu, il/elle, nous, vous, ils/elles) — pour l'impératif : tu, nous, vous
+- Varie les personnes (je, tu, il/elle, nous, vous, ils/elles) — pour l'impératif : tu, nous, vous uniquement
 - Varie les temps si plusieurs sont disponibles
 - Si moins de verbes que de questions, réutilise certains verbes
-- La valeur "reponse" doit être UNIQUEMENT la forme conjuguée, sans pronom (ex: "mangeons" et non "nous mangeons")
+- Pour chaque question, fournis TOUTES les formes acceptables dans le tableau "reponses" (sans pronom)
+  - Ex passé composé "aller" à "je" : ["suis allé", "suis allée"]
+  - Ex passé composé "aller" à "vous" : ["êtes allé", "êtes allée", "êtes allés", "êtes allées"]
+  - Ex présent "manger" à "je" : ["mange"] (une seule forme, pas d'accord)
+  - Pour les temps composés avec "être", inclure les variantes masculin/féminin/pluriel selon la personne
+  - Pour "vous" : inclure singulier et pluriel (allé, allée, allés, allées)
+  - Pour "nous" : inclure masculin et féminin (allés, allées)
+  - Pour "je/tu" : inclure masculin et féminin (allé, allée)
+  - Pour "il" → allé, "elle" → allée, "ils" → allés, "elles" → allées (mais personne = "il/elle" ou "ils/elles")
+    → donc inclure les deux genres
 - La valeur "personne" doit être l'une de ces valeurs exactes : je, tu, il/elle, nous, vous, ils/elles (ou tu/nous/vous pour l'impératif)
 
 Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises markdown :
-[{"verbe":"infinitif","temps":"temps exact","personne":"personne","reponse":"forme conjuguée sans pronom"}]`
+[{"verbe":"infinitif","temps":"temps exact","personne":"personne","reponses":["forme1","forme2"]}]`
 
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -184,7 +215,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-5',
-          max_tokens: 1500,
+          max_tokens: 2000,
           messages: [{ role: 'user', content: prompt }],
         }),
       })
@@ -224,14 +255,14 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
       correct: result.correct,
       erreurPronom: result.erreurPronom,
       pronomSaisi: result.pronomSaisi,
-      reponseComplete: result.reponseComplete,
+      reponsesAffichage: result.reponsesAffichage,
     })
     setResultats(prev => [...prev, {
       verbe: q.verbe,
       temps: q.temps,
       personne: q.personne,
       correct: result.correct,
-      reponseComplete: result.reponseComplete,
+      reponsesAffichage: result.reponsesAffichage,
       donnee: reponse.trim(),
     }])
   }, [reponse, feedback, questions, current, streak])
@@ -266,29 +297,17 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
   const q = questions[current]
   const correctCount = resultats.filter(r => r.correct).length
+  const tousCoches = tempsChoisis.length === TEMPS.length
 
   const buildFeedbackMessage = () => {
     if (!feedback) return null
     if (feedback.correct) {
-      return (
-        <span>
-          ✓ Correct ! <strong>{feedback.reponseComplete}</strong>
-          {streak >= 3 ? ' 🔥' : ''}
-        </span>
-      )
+      return <span>✓ Correct ! <strong>{feedback.reponsesAffichage}</strong>{streak >= 3 ? ' 🔥' : ''}</span>
     }
     if (feedback.erreurPronom && feedback.pronomSaisi) {
-      return (
-        <span>
-          ✗ Pronom incorrect (<em>{feedback.pronomSaisi}</em>) — Réponse : <strong>{feedback.reponseComplete}</strong>
-        </span>
-      )
+      return <span>✗ Pronom incorrect (<em>{feedback.pronomSaisi}</em>) — Réponse : <strong>{feedback.reponsesAffichage}</strong></span>
     }
-    return (
-      <span>
-        ✗ Réponse : <strong>{feedback.reponseComplete}</strong>
-      </span>
-    )
+    return <span>✗ Réponse : <strong>{feedback.reponsesAffichage}</strong></span>
   }
 
   // ---- ÉCRAN SÉLECTION ----
@@ -296,7 +315,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
     return (
       <div>
         <h2 style={{ color: '#2a9d8f', marginBottom: '1.5rem' }}>✍️ Conjugaison</h2>
-        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', maxWidth: '500px' }}>
+        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', maxWidth: '520px' }}>
 
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Liste de verbes</label>
@@ -322,23 +341,28 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Temps</label>
+            <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+              Temps <span style={{ color: '#aaa', fontWeight: 'normal' }}>({tempsChoisis.length}/{TEMPS.length} sélectionné{tempsChoisis.length > 1 ? 's' : ''})</span>
+            </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-              <button onClick={() => setTempsChoisi('tous')}
-                style={{ padding: '0.4rem 0.8rem', background: tempsChoisi === 'tous' ? '#2a9d8f' : '#e0f0ee', color: tempsChoisi === 'tous' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: tempsChoisi === 'tous' ? 'bold' : 'normal' }}
+              <button onClick={toggleTous}
+                style={{ padding: '0.4rem 0.8rem', background: tousCoches ? '#2a9d8f' : '#e0f0ee', color: tousCoches ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: tousCoches ? 'bold' : 'normal' }}
               >Tous</button>
               {TEMPS.map(t => (
-                <button key={t.id} onClick={() => setTempsChoisi(t.id)}
-                  style={{ padding: '0.4rem 0.8rem', background: tempsChoisi === t.id ? '#2a9d8f' : '#e0f0ee', color: tempsChoisi === t.id ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: tempsChoisi === t.id ? 'bold' : 'normal' }}
+                <button key={t.id} onClick={() => toggleTemps(t.id)}
+                  style={{ padding: '0.4rem 0.8rem', background: tempsChoisis.includes(t.id) ? '#2a9d8f' : '#e0f0ee', color: tempsChoisis.includes(t.id) ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: tempsChoisis.includes(t.id) ? 'bold' : 'normal' }}
                 >{t.label}</button>
               ))}
             </div>
+            {tempsChoisis.length === 0 && (
+              <p style={{ color: '#e63946', fontSize: '0.82rem', marginTop: '0.4rem' }}>Sélectionne au moins un temps.</p>
+            )}
           </div>
 
           {error && <p style={{ color: '#e63946', fontSize: '0.85rem', marginBottom: '1rem' }}>{error}</p>}
 
-          <button onClick={genererQuestions} disabled={!selectedList || gameState === 'loading'}
-            style={{ width: '100%', padding: '0.75rem', background: selectedList ? '#2a9d8f' : '#ccc', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: selectedList ? 'pointer' : 'default', fontSize: '1rem', fontWeight: 'bold' }}
+          <button onClick={genererQuestions} disabled={!selectedList || tempsChoisis.length === 0 || gameState === 'loading'}
+            style={{ width: '100%', padding: '0.75rem', background: (selectedList && tempsChoisis.length > 0) ? '#2a9d8f' : '#ccc', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: (selectedList && tempsChoisis.length > 0) ? 'pointer' : 'default', fontSize: '1rem', fontWeight: 'bold' }}
           >
             {gameState === 'loading' ? '⏳ Génération des questions...' : '🚀 Jouer'}
           </button>
@@ -376,12 +400,10 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
           {resultats.map((r, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem', gap: '0.5rem' }}>
-              <span style={{ color: '#555', minWidth: '80px' }}><strong>{r.verbe}</strong></span>
-              <span style={{ color: '#888', fontSize: '0.8rem', flex: 1 }}>{r.temps} · {r.personne}</span>
-              <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
-                {r.correct
-                  ? `✓ ${r.reponseComplete}`
-                  : `✗ ${r.donnee} → ${r.reponseComplete}`}
+              <span style={{ color: '#555', minWidth: '70px' }}><strong>{r.verbe}</strong></span>
+              <span style={{ color: '#888', fontSize: '0.78rem', flex: 1 }}>{r.temps} · {PERSONNE_LABEL[r.personne] || r.personne}</span>
+              <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold', textAlign: 'right' }}>
+                {r.correct ? `✓ ${r.reponsesAffichage}` : `✗ ${r.donnee} → ${r.reponsesAffichage}`}
               </span>
             </div>
           ))}
@@ -425,8 +447,8 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#333', marginBottom: '0.25rem' }}>
             {q.verbe}
           </div>
-          <div style={{ fontSize: '1.1rem', color: '#888' }}>
-            {q.personne}
+          <div style={{ fontSize: '1rem', color: '#888' }}>
+            {PERSONNE_LABEL[q.personne] || q.personne}
           </div>
         </div>
       )}
