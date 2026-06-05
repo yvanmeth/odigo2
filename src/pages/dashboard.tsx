@@ -12,6 +12,7 @@ import Rewards from './rewards'
 import Settings from './settings'
 import ParentDashboard from './parent'
 import Companion from '../components/Companion'
+import Flashcards from './flashcards'
 
 interface Props {
   session: Session
@@ -53,6 +54,13 @@ const exerciseCards = [
     icon: '✍️',
     description: 'Écoute ou lis le mot et écris sa traduction correctement.',
     color: '#e76f51',
+  },
+  {
+    id: 'flashcards',
+    label: 'Flashcards',
+    icon: '🃏',
+    description: 'Retourne les cartes et swipe selon si tu fais juste ou pas.',
+    color: '#2a9d8f',
   },
 ]
 
@@ -357,6 +365,19 @@ export default function Dashboard({ session }: Props) {
               <Spelling />
             </div>
           )}
+
+{activePage === 'exercises' && activeExercise === 'flashcards' && (
+  <div>
+    <button
+      onClick={() => setActiveExercise(null)}
+      style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+    >
+      ← Retour aux exercices
+    </button>
+    <Flashcards />
+  </div>
+)}
+
 
           {activePage === 'rewards' && <Rewards userId={effectiveUserId} />}
           {activePage === 'settings' && <Settings />}
