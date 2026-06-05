@@ -15,7 +15,6 @@ interface WordList {
 
 type GameState = 'select' | 'playing' | 'result'
 
-const BONUS_THRESHOLD = 1 // pas d'erreur sur la carte = bonus
 
 // --- Sons Web Audio ---
 const playSuccessSound = () => {

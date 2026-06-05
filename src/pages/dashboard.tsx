@@ -12,7 +12,7 @@ import Rewards from './rewards'
 import Settings from './settings'
 import ParentDashboard from './parent'
 import Companion from '../components/Companion'
-import Flashcards from './flashcards'
+import Flashcards from './Flashcards'
 
 interface Props {
   session: Session
