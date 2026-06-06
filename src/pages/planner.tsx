@@ -6,6 +6,12 @@ import type { Event as AppEvent } from '../type/index'
 
 type Tab = 'evaluations' | 'revisions' | 'events'
 
+const formatDate = (d: string) => {
+  if (!d) return ''
+  const [y, m, day] = d.split('-')
+  return `${day}.${m}.${y}`
+}
+
 export default function Planner({ userId, isParent: _isParent }: { userId?: string; isParent?: boolean }) {
   const [activeTab, setActiveTab] = useState<Tab>('evaluations')
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
@@ -14,30 +20,32 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
-  // Form states
+  // Form states — évaluations
   const [evalDate, setEvalDate] = useState('')
   const [evalSubject, setEvalSubject] = useState('')
   const [evalTopic, setEvalTopic] = useState('')
   const [evalReadiness, setEvalReadiness] = useState('')
+  const [evalGrade, setEvalGrade] = useState('')
   const [evalStartTime, setEvalStartTime] = useState('')
   const [evalEndTime, setEvalEndTime] = useState('')
 
+  // Form states — révisions
   const [revDate, setRevDate] = useState('')
   const [revStartTime, setRevStartTime] = useState('')
   const [revEndTime, setRevEndTime] = useState('')
   const [revDetails, setRevDetails] = useState('')
   const [revEvalId, setRevEvalId] = useState('')
 
+  // Form states — événements
   const [evtTitle, setEvtTitle] = useState('')
   const [evtDate, setEvtDate] = useState('')
   const [evtStartTime, setEvtStartTime] = useState('')
   const [evtEndTime, setEvtEndTime] = useState('')
   const [evtDetails, setEvtDetails] = useState('')
 
-  useEffect(() => {
-    fetchAll()
-  }, [userId])
+  useEffect(() => { fetchAll() }, [userId])
 
   const fetchAll = async () => {
     setLoading(true)
@@ -56,54 +64,109 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     setLoading(false)
   }
 
-  const handleAddEval = async () => {
+  const closeForm = () => {
+    setShowForm(false)
+    setEditingId(null)
+  }
+
+  // ---- Évaluations ----
+
+  const handleEditEval = (e: Evaluation) => {
+    setEvalDate(e.evaluation_date)
+    setEvalSubject(String(e.subject_id))
+    setEvalTopic(e.topic)
+    setEvalReadiness(e.readiness !== null && e.readiness !== undefined ? String(e.readiness) : '')
+    setEvalGrade(e.grade !== null && e.grade !== undefined ? String(e.grade) : '')
+    setEvalStartTime(e.start_time || '')
+    setEvalEndTime(e.end_time || '')
+    setEditingId(e.id)
+    setShowForm(true)
+  }
+
+  const handleSaveEval = async () => {
     if (!evalDate || !evalSubject || !evalTopic) return
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('evaluations').insert({
-      user_id: user?.id,
+    const payload = {
       evaluation_date: evalDate,
       subject_id: parseInt(evalSubject),
       topic: evalTopic,
       readiness: evalReadiness ? parseFloat(evalReadiness) : null,
+      grade: evalGrade ? parseFloat(evalGrade) : null,
       start_time: evalStartTime || null,
       end_time: evalEndTime || null,
-    })
+    }
+    if (editingId) {
+      await supabase.from('evaluations').update(payload).eq('id', editingId)
+    } else {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('evaluations').insert({ ...payload, user_id: user?.id })
+    }
     setEvalDate(''); setEvalSubject(''); setEvalTopic(''); setEvalReadiness('')
-    setEvalStartTime(''); setEvalEndTime('')
-    setShowForm(false)
+    setEvalGrade(''); setEvalStartTime(''); setEvalEndTime('')
+    closeForm()
     fetchAll()
   }
 
-  const handleAddRev = async () => {
+  // ---- Révisions ----
+
+  const handleEditRev = (r: Revision) => {
+    setRevDate(r.revision_date)
+    setRevStartTime(r.start_time || '')
+    setRevEndTime(r.end_time || '')
+    setRevDetails(r.details || '')
+    setRevEvalId(r.evaluation_id || '')
+    setEditingId(r.id)
+    setShowForm(true)
+  }
+
+  const handleSaveRev = async () => {
     if (!revDate) return
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('revisions').insert({
-      user_id: user?.id,
+    const payload = {
       revision_date: revDate,
       start_time: revStartTime || null,
       end_time: revEndTime || null,
       details: revDetails || null,
       evaluation_id: revEvalId || null,
-      completed: false,
-    })
+    }
+    if (editingId) {
+      await supabase.from('revisions').update(payload).eq('id', editingId)
+    } else {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('revisions').insert({ ...payload, user_id: user?.id, completed: false })
+    }
     setRevDate(''); setRevStartTime(''); setRevEndTime(''); setRevDetails(''); setRevEvalId('')
-    setShowForm(false)
+    closeForm()
     fetchAll()
   }
 
-  const handleAddEvt = async () => {
+  // ---- Événements ----
+
+  const handleEditEvt = (ev: AppEvent) => {
+    setEvtTitle(ev.title)
+    setEvtDate(ev.event_date)
+    setEvtStartTime(ev.start_time || '')
+    setEvtEndTime(ev.end_time || '')
+    setEvtDetails(ev.details || '')
+    setEditingId(ev.id)
+    setShowForm(true)
+  }
+
+  const handleSaveEvt = async () => {
     if (!evtTitle || !evtDate) return
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('events').insert({
-      user_id: user?.id,
+    const payload = {
       title: evtTitle,
       event_date: evtDate,
       start_time: evtStartTime || null,
       end_time: evtEndTime || null,
       details: evtDetails || null,
-    })
+    }
+    if (editingId) {
+      await supabase.from('events').update(payload).eq('id', editingId)
+    } else {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('events').insert({ ...payload, user_id: user?.id })
+    }
     setEvtTitle(''); setEvtDate(''); setEvtStartTime(''); setEvtEndTime(''); setEvtDetails('')
-    setShowForm(false)
+    closeForm()
     fetchAll()
   }
 
@@ -146,64 +209,83 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     alignItems: 'center',
   }
 
+  const actionBtnStyle = {
+    background: '#2a9d8f',
+    color: 'white',
+    border: 'none',
+    borderRadius: '0.4rem',
+    padding: '0.3rem 0.6rem',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+  }
+
   if (loading) return <p style={{ color: '#888' }}>Chargement...</p>
 
   return (
     <div>
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-        <button style={tabStyle('evaluations')} onClick={() => { setActiveTab('evaluations'); setShowForm(false) }}>📝 Évaluations</button>
-        <button style={tabStyle('revisions')} onClick={() => { setActiveTab('revisions'); setShowForm(false) }}>📖 Révisions</button>
-        <button style={tabStyle('events')} onClick={() => { setActiveTab('events'); setShowForm(false) }}>📅 Événements</button>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', justifyContent: 'center' }}>
+        <button style={tabStyle('evaluations')} onClick={() => { setActiveTab('evaluations'); closeForm() }}>📝 Évaluations</button>
+        <button style={tabStyle('revisions')} onClick={() => { setActiveTab('revisions'); closeForm() }}>📖 Révisions</button>
+        <button style={tabStyle('events')} onClick={() => { setActiveTab('events'); closeForm() }}>📅 Événements</button>
       </div>
 
       {/* Bouton ajouter */}
-      <button
-        onClick={() => setShowForm(!showForm)}
-        style={{ marginBottom: '1rem', padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-      >
-        {showForm ? '✕ Annuler' : '+ Ajouter'}
-      </button>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+        <button
+          onClick={() => { if (showForm) { closeForm() } else { setShowForm(true) } }}
+          style={{ padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+        >
+          {showForm ? '✕ Annuler' : '+ Ajouter'}
+        </button>
+      </div>
 
-      {/* Formulaires */}
+      {/* Formulaire évaluations */}
       {showForm && activeTab === 'evaluations' && (
         <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
-          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>Nouvelle évaluation</h3>
+          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>{editingId ? "Modifier l'évaluation" : 'Nouvelle évaluation'}</h3>
           <input type="date" value={evalDate} onChange={e => setEvalDate(e.target.value)} style={inputStyle} />
           <select value={evalSubject} onChange={e => setEvalSubject(e.target.value)} style={inputStyle}>
             <option value="">Choisir une matière</option>
             {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
           <input type="text" placeholder="Sujet / Chapitre" value={evalTopic} onChange={e => setEvalTopic(e.target.value)} style={inputStyle} />
-          <input type="number" placeholder="Situation (0-6)" min="0" max="6" value={evalReadiness} onChange={e => setEvalReadiness(e.target.value)} style={inputStyle} />
+          <input type="number" placeholder="Note attendue (0-6)" min="0" max="6" step="0.5" value={evalReadiness} onChange={e => setEvalReadiness(e.target.value)} style={inputStyle} />
+          <input type="number" placeholder="Note obtenue (0-6)" min="0" max="6" step="0.5" value={evalGrade} onChange={e => setEvalGrade(e.target.value)} style={inputStyle} />
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <input type="time" value={evalStartTime} onChange={e => setEvalStartTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
             <input type="time" value={evalEndTime} onChange={e => setEvalEndTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
           </div>
-          <button onClick={handleAddEval} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>Enregistrer</button>
+          <button onClick={handleSaveEval} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+            {editingId ? 'Mettre à jour' : 'Enregistrer'}
+          </button>
         </div>
       )}
 
+      {/* Formulaire révisions */}
       {showForm && activeTab === 'revisions' && (
         <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
-          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>Nouvelle révision</h3>
+          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>{editingId ? 'Modifier la révision' : 'Nouvelle révision'}</h3>
           <input type="date" value={revDate} onChange={e => setRevDate(e.target.value)} style={inputStyle} />
           <select value={revEvalId} onChange={e => setRevEvalId(e.target.value)} style={inputStyle}>
             <option value="">Lier à une évaluation (optionnel)</option>
-            {evaluations.map(e => <option key={e.id} value={e.id}>{e.evaluation_date} — {getSubjectName(e.subject_id)} — {e.topic}</option>)}
+            {evaluations.map(e => <option key={e.id} value={e.id}>{formatDate(e.evaluation_date)} — {getSubjectName(e.subject_id)} — {e.topic}</option>)}
           </select>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <input type="time" value={revStartTime} onChange={e => setRevStartTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
             <input type="time" value={revEndTime} onChange={e => setRevEndTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
           </div>
           <textarea placeholder="Détails (optionnel)" value={revDetails} onChange={e => setRevDetails(e.target.value)} style={{ ...inputStyle, height: '80px', resize: 'vertical' }} />
-          <button onClick={handleAddRev} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>Enregistrer</button>
+          <button onClick={handleSaveRev} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+            {editingId ? 'Mettre à jour' : 'Enregistrer'}
+          </button>
         </div>
       )}
 
+      {/* Formulaire événements */}
       {showForm && activeTab === 'events' && (
         <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
-          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>Nouvel événement</h3>
+          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>{editingId ? "Modifier l'événement" : 'Nouvel événement'}</h3>
           <input type="text" placeholder="Titre" value={evtTitle} onChange={e => setEvtTitle(e.target.value)} style={inputStyle} />
           <input type="date" value={evtDate} onChange={e => setEvtDate(e.target.value)} style={inputStyle} />
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -211,11 +293,13 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
             <input type="time" value={evtEndTime} onChange={e => setEvtEndTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
           </div>
           <textarea placeholder="Détails (optionnel)" value={evtDetails} onChange={e => setEvtDetails(e.target.value)} style={{ ...inputStyle, height: '80px', resize: 'vertical' }} />
-          <button onClick={handleAddEvt} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>Enregistrer</button>
+          <button onClick={handleSaveEvt} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+            {editingId ? 'Mettre à jour' : 'Enregistrer'}
+          </button>
         </div>
       )}
 
-      {/* Listes */}
+      {/* Liste évaluations */}
       {activeTab === 'evaluations' && (
         <div>
           {evaluations.length === 0 && <p style={{ color: '#aaa' }}>Aucune évaluation.</p>}
@@ -223,43 +307,46 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
             <div key={e.id} style={cardStyle}>
               <div>
                 <div style={{ fontWeight: 'bold', color: '#333' }}>{getSubjectName(e.subject_id)} — {e.topic}</div>
-                <div style={{ fontSize: '0.85rem', color: '#888' }}>{e.evaluation_date}{e.start_time ? ` · ${e.start_time}` : ''}</div>
-                {e.readiness !== null && <div style={{ fontSize: '0.85rem', color: '#2a9d8f' }}>Situation : {e.readiness}/6</div>}
-                {e.grade !== null && <div style={{ fontSize: '0.85rem', color: '#2a9d8f' }}>Note : {e.grade}/6</div>}
+                <div style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(e.evaluation_date)}{e.start_time ? ` · ${e.start_time}` : ''}</div>
+                {e.readiness !== null && e.readiness !== undefined && <div style={{ fontSize: '0.85rem', color: '#2a9d8f' }}>Note attendue : {e.readiness}/6</div>}
+                {e.grade !== null && e.grade !== undefined && <div style={{ fontSize: '0.85rem', color: '#2a9d8f' }}>Note obtenue : {e.grade}/6</div>}
               </div>
-              <button onClick={() => handleDelete('evaluations', e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '1.1rem' }}>🗑</button>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button onClick={() => handleEditEval(e)} style={actionBtnStyle}>✏️</button>
+                <button onClick={() => handleDelete('evaluations', e.id)} style={actionBtnStyle}>🗑</button>
+              </div>
             </div>
           ))}
         </div>
       )}
 
+      {/* Liste révisions */}
       {activeTab === 'revisions' && (
         <div>
           {revisions.length === 0 && <p style={{ color: '#aaa' }}>Aucune révision.</p>}
           {revisions.map(r => (
             <div key={r.id} style={cardStyle}>
               <div>
-                <div style={{ fontWeight: 'bold', color: '#333' }}>{r.revision_date}{r.start_time ? ` · ${r.start_time}` : ''}</div>
+                <div style={{ fontWeight: 'bold', color: '#333' }}>{formatDate(r.revision_date)}{r.start_time ? ` · ${r.start_time}` : ''}</div>
                 {r.details && <div style={{ fontSize: '0.85rem', color: '#888' }}>{r.details}</div>}
                 <div style={{ fontSize: '0.85rem', color: r.completed ? '#2a9d8f' : '#e63946' }}>{r.completed ? '✓ Fait' : '○ À faire'}</div>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-  <button
-    onClick={async () => {
-      await supabase.from('revisions').update({ completed: !r.completed }).eq('id', r.id)
-      fetchAll()
-    }}
-    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
-  >
-    {r.completed ? '✅' : '⬜'}
-  </button>
-  <button onClick={() => handleDelete('revisions', r.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '1.1rem' }}>🗑</button>
-</div>
+                <button
+                  onClick={async () => { await supabase.from('revisions').update({ completed: !r.completed }).eq('id', r.id); fetchAll() }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
+                >
+                  {r.completed ? '✅' : '⬜'}
+                </button>
+                <button onClick={() => handleEditRev(r)} style={actionBtnStyle}>✏️</button>
+                <button onClick={() => handleDelete('revisions', r.id)} style={actionBtnStyle}>🗑</button>
+              </div>
             </div>
           ))}
         </div>
       )}
 
+      {/* Liste événements */}
       {activeTab === 'events' && (
         <div>
           {events.length === 0 && <p style={{ color: '#aaa' }}>Aucun événement.</p>}
@@ -267,10 +354,13 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
             <div key={ev.id} style={cardStyle}>
               <div>
                 <div style={{ fontWeight: 'bold', color: '#333' }}>{ev.title}</div>
-                <div style={{ fontSize: '0.85rem', color: '#888' }}>{ev.event_date}{ev.start_time ? ` · ${ev.start_time}` : ''}</div>
+                <div style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(ev.event_date)}{ev.start_time ? ` · ${ev.start_time}` : ''}</div>
                 {ev.details && <div style={{ fontSize: '0.85rem', color: '#888' }}>{ev.details}</div>}
               </div>
-              <button onClick={() => handleDelete('events', ev.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '1.1rem' }}>🗑</button>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button onClick={() => handleEditEvt(ev)} style={actionBtnStyle}>✏️</button>
+                <button onClick={() => handleDelete('events', ev.id)} style={actionBtnStyle}>🗑</button>
+              </div>
             </div>
           ))}
         </div>
