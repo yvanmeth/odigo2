@@ -27,6 +27,8 @@ interface ShopItem {
   id: string
   type: 'theme' | 'title'
   name: string
+  name_masculine?: string | null
+  name_feminine?: string | null
   description?: string | null
   price: number
   color?: string | null
@@ -104,11 +106,13 @@ export default function Rewards({ userId }: { userId?: string }) {
   const [shopItems, setShopItems] = useState<ShopItem[]>([])
   const [purchases, setPurchases] = useState<UserPurchase[]>([])
   const [loadingPurchaseId, setLoadingPurchaseId] = useState<string | null>(null)
+  const [gender, setGender] = useState<'M' | 'F' | 'X' | null>(null)
 
   useEffect(() => {
     fetchProgress()
     fetchIrlRewards()
     fetchShop()
+    fetchGender()
   }, [userId])
 
   const fetchProgress = async () => {
@@ -241,8 +245,27 @@ export default function Rewards({ userId }: { userId?: string }) {
     window.location.reload()
   }
 
+  const fetchGender = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const targetId = userId || user.id
+    const { data } = await supabase.from('profiles').select('gender').eq('id', targetId).single()
+    if (data) setGender(data.gender || 'X')
+  }
+
   const getPurchase = (itemId: string) => purchases.find(p => p.item_id === itemId)
   const isExpiredPurchase = (p: UserPurchase) => !!p.expires_at && new Date(p.expires_at) < new Date()
+
+  const getItemName = (item: ShopItem): string => {
+    if (item.type === 'title') {
+      if (gender === 'M') return item.name_masculine || item.name
+      if (gender === 'F') return item.name_feminine || item.name
+      return item.name_masculine && item.name_feminine
+        ? item.name_masculine + ' / ' + item.name_feminine
+        : item.name
+    }
+    return item.name
+  }
 
   const currentWeek = getCurrentWeekKey()
   const weekProgress = progress ? Math.min((progress.digoos_this_week / WEEK_THRESHOLD) * 100, 100) : 0
@@ -354,7 +377,7 @@ export default function Rewards({ userId }: { userId?: string }) {
           <div style={{ width: '36px', height: '36px', borderRadius: '0.5rem', background: item.color }} />
         )}
         {item.type === 'title' && <span style={{ fontSize: '1.4rem' }}>🏷️</span>}
-        <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>{item.name}</div>
+        <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>{getItemName(item)}</div>
         {item.description && <div style={{ fontSize: '0.82rem', color: '#888' }}>{item.description}</div>}
         {item.price > 0 && (
           <div style={{ fontSize: '0.8rem', color: '#e9c46a', fontWeight: 'bold' }}>{item.price} Digoos</div>

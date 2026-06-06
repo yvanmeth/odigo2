@@ -7,14 +7,21 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [gender, setGender] = useState<'M' | 'F' | 'X'>('X')
 
   const handleSubmit = async () => {
     setLoading(true)
     setError('')
-    const { error } = isSignUp
-      ? await supabase.auth.signUp({ email, password })
-      : await supabase.auth.signInWithPassword({ email, password })
-    if (error) setError(error.message)
+    if (isSignUp) {
+      const { data, error } = await supabase.auth.signUp({ email, password })
+      if (error) { setError(error.message); setLoading(false); return }
+      if (data.user) {
+        await supabase.from('profiles').upsert({ id: data.user.id, gender })
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) setError(error.message)
+    }
     setLoading(false)
   }
 
@@ -26,6 +33,29 @@ export default function LoginPage() {
         <p style={{ color: '#666', marginBottom: '2rem' }}>{isSignUp ? 'Créer un compte' : 'Connexion'}</p>
         <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '0.75rem', marginBottom: '1rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '1rem', boxSizing: 'border-box' }} />
         <input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '0.75rem', marginBottom: '1rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '1rem', boxSizing: 'border-box' }} />
+        {isSignUp && (
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Tu es...</label>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {(['M', 'F', 'X'] as const).map((g, i) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setGender(g)}
+                  style={{
+                    flex: 1, minWidth: '80px', padding: '0.6rem',
+                    background: gender === g ? '#2a9d8f' : '#e0f0ee',
+                    color: gender === g ? 'white' : '#2a9d8f',
+                    border: 'none', borderRadius: '0.5rem',
+                    cursor: 'pointer', fontSize: '0.82rem',
+                  }}
+                >
+                  {['Garçon', 'Fille', 'Préférer ne pas préciser'][i]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {error && <p style={{ color: 'red', fontSize: '0.85rem' }}>{error}</p>}
         <button onClick={handleSubmit} disabled={loading} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '1rem', cursor: 'pointer' }}>
           {loading ? 'Chargement...' : isSignUp ? 'Créer le compte' : 'Se connecter'}

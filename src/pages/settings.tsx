@@ -7,6 +7,7 @@ interface Profile {
   birth_date?: string
   interests: string[]
   main_language: string
+  gender?: 'M' | 'F' | 'X'
   dark_mode: boolean
 }
 
@@ -54,6 +55,7 @@ export default function Settings() {
         birth_date: data.birth_date || '',
         interests: data.interests || [],
         main_language: data.main_language || 'Français',
+        gender: data.gender || 'X',
         dark_mode: data.dark_mode || false,
       })
     } else {
@@ -63,6 +65,7 @@ export default function Settings() {
         birth_date: '',
         interests: [],
         main_language: 'Français',
+        gender: 'X',
         dark_mode: false,
       })
     }
@@ -78,6 +81,7 @@ export default function Settings() {
       birth_date: profile.birth_date || null,
       interests: profile.interests,
       main_language: profile.main_language,
+      gender: profile.gender || 'X',
       dark_mode: profile.dark_mode,
     })
     setSaving(false)
@@ -190,6 +194,26 @@ export default function Settings() {
         >
           {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
         </select>
+
+        <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Tu es...</label>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+          {(['M', 'F', 'X'] as const).map((g, i) => (
+            <button
+              key={g}
+              type="button"
+              onClick={() => setProfile({ ...profile, gender: g })}
+              style={{
+                flex: 1, minWidth: '80px', padding: '0.6rem',
+                background: (profile.gender || 'X') === g ? '#2a9d8f' : '#e0f0ee',
+                color: (profile.gender || 'X') === g ? 'white' : '#2a9d8f',
+                border: 'none', borderRadius: '0.5rem',
+                cursor: 'pointer', fontSize: '0.82rem',
+              }}
+            >
+              {['Garçon', 'Fille', 'Préférer ne pas préciser'][i]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Centres d'intérêt */}

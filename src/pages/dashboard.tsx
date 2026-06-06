@@ -27,6 +27,14 @@ interface Child {
 
 const PRIMARY = 'var(--color-primary)'
 
+const getTitleName = (item: { type: string; name: string; name_masculine?: string | null; name_feminine?: string | null }, gender: string | null): string => {
+  if (gender === 'M') return item.name_masculine || item.name
+  if (gender === 'F') return item.name_feminine || item.name
+  return item.name_masculine && item.name_feminine
+    ? item.name_masculine + ' / ' + item.name_feminine
+    : item.name
+}
+
 const navItems = [
   { id: 'dashboard', label: 'Tableau de bord', icon: '🏠' },
   { id: 'planner', label: 'Planificateur', icon: '📅' },
@@ -91,6 +99,8 @@ export default function Dashboard({ session }: Props) {
   const [viewingChildId, setViewingChildId] = useState<string | null>(null)
   const [viewingChildName, setViewingChildName] = useState<string>('')
   const [firstName, setFirstName] = useState<string>('')
+  const [gender, setGender] = useState<'M' | 'F' | 'X' | null>(null)
+  const [activeTitle, setActiveTitle] = useState<string | null>(null)
 
   const now = new Date()
   const dateStr = now.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -105,14 +115,34 @@ export default function Dashboard({ session }: Props) {
   const fetchProfile = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('role, first_name')
+      .select('role, first_name, gender')
       .eq('id', session.user.id)
       .single()
 
     if (data) {
       setIsParent(data.role === 'parent')
       setFirstName(data.first_name || '')
+      setGender(data.gender || null)
       if (data.role === 'parent') fetchChildren()
+    }
+
+    const { data: activePurchases } = await supabase
+      .from('user_purchases')
+      .select('item_id, expires_at')
+      .eq('user_id', session.user.id)
+      .eq('active', true)
+
+    const validPurchase = activePurchases?.find(p => !p.expires_at || new Date(p.expires_at) > new Date())
+    if (validPurchase) {
+      const { data: titleItem } = await supabase
+        .from('shop_items')
+        .select('type, name, name_masculine, name_feminine')
+        .eq('id', validPurchase.item_id)
+        .eq('type', 'title')
+        .maybeSingle()
+      if (titleItem) {
+        setActiveTitle(getTitleName(titleItem, data?.gender || null))
+      }
     }
   }
 
@@ -178,7 +208,8 @@ export default function Dashboard({ session }: Props) {
 
         {!collapsed && (
           <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee' }}>
-            {firstName && <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#333', marginBottom: '0.25rem' }}>{firstName}</div>}
+            {firstName && <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#333', marginBottom: '0.1rem' }}>{firstName}</div>}
+            {activeTitle && <div style={{ fontSize: '0.75rem', color: PRIMARY, fontStyle: 'italic', marginBottom: '0.1rem' }}>{activeTitle}</div>}
             <div style={{ fontSize: '0.75rem', color: '#888' }}>{dateStr}</div>
             <div style={{ fontSize: '1rem', fontWeight: 'bold', color: PRIMARY }}>{timeStr}</div>
           </div>
