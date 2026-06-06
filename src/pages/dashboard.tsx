@@ -14,6 +14,7 @@ import ParentDashboard from './parent'
 import Companion from '../components/Companion'
 import Flashcards from './flashcards'
 import Conjugaison from './conjugaison'
+import Vocabulaire from './vocabulaire'
 
 interface Props {
   session: Session
@@ -69,6 +70,13 @@ const exerciseCards = [
     icon: '✍️',
     description: 'Conjugue les verbes au bon temps et à la bonne personne.',
     color: '#e76f51',
+  },
+  {
+    id: 'vocabulaire',
+    label: 'Vocabulaire',
+    icon: '📝',
+    description: 'Complète les phrases à trou avec le bon mot.',
+    color: '#4CAF50',
   },
 ]
 
@@ -394,6 +402,17 @@ export default function Dashboard({ session }: Props) {
       ← Retour aux exercices
     </button>
     <Conjugaison />
+  </div>
+)}
+{activePage === 'exercises' && activeExercise === 'vocabulaire' && (
+  <div>
+    <button
+      onClick={() => setActiveExercise(null)}
+      style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+    >
+      ← Retour aux exercices
+    </button>
+    <Vocabulaire />
   </div>
 )}
 
