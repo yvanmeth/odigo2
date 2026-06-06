@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { deductDigoos } from '../services/digoos'
 
 interface Progress {
   user_id: string
@@ -10,6 +11,14 @@ interface Progress {
   badges: string[]
   last_week_reset: string
   updated_at: string
+}
+
+interface IrlReward {
+  id: string
+  parent_id: string
+  name: string
+  cost: number
+  description?: string | null
 }
 
 interface Badge {
@@ -65,9 +74,14 @@ export default function Rewards({ userId }: { userId?: string }) {
   const [loading, setLoading] = useState(true)
   const [newBadges, setNewBadges] = useState<string[]>([])
   const [weekSummaryVisible, setWeekSummaryVisible] = useState(false)
+  const [irlRewards, setIrlRewards] = useState<IrlReward[]>([])
+  const [parentIds, setParentIds] = useState<string[]>([])
+  const [confirmMsg, setConfirmMsg] = useState<string | null>(null)
+  const [loadingRewardId, setLoadingRewardId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchProgress()
+    fetchIrlRewards()
   }, [userId])
 
   const fetchProgress = async () => {
@@ -103,6 +117,26 @@ export default function Rewards({ userId }: { userId?: string }) {
       setProgress(newProgress as Progress)
     }
     setLoading(false)
+  }
+
+  const fetchIrlRewards = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const targetId = userId || user.id
+    const { data: links } = await supabase.from('parent_child').select('parent_id').eq('child_id', targetId)
+    if (!links || links.length === 0) { setParentIds([]); return }
+    const pIds = links.map((l: any) => l.parent_id)
+    setParentIds(pIds)
+    const { data } = await supabase.from('irl_rewards').select('*').in('parent_id', pIds).order('name')
+    if (data) setIrlRewards(data)
+  }
+
+  const handleObtenir = async (reward: IrlReward) => {
+    setLoadingRewardId(reward.id)
+    await deductDigoos(reward.cost)
+    setConfirmMsg('🎉 Récompense obtenue ! Demande-la à tes parents.')
+    await fetchProgress()
+    setLoadingRewardId(null)
   }
 
   const checkWeekReset = async (p: Progress, targetUserId: string) => {
@@ -305,6 +339,54 @@ export default function Rewards({ userId }: { userId?: string }) {
           </div>
         </div>
       </div>
+
+      {/* Récompenses IRL — visible uniquement si au moins un parent lié */}
+      {parentIds.length > 0 && (
+        <div style={{ marginTop: '1.5rem' }}>
+          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🎁 Récompenses IRL</h3>
+
+          {confirmMsg && (
+            <div style={{ background: '#f0faf8', border: '2px solid #2a9d8f', borderRadius: '0.75rem', padding: '0.85rem 1rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#2a9d8f', fontWeight: 'bold' }}>{confirmMsg}</span>
+              <button onClick={() => setConfirmMsg(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: '1rem' }}>✕</button>
+            </div>
+          )}
+
+          {irlRewards.length === 0 ? (
+            <p style={{ color: '#aaa' }}>Aucune récompense disponible pour l'instant.</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+              {irlRewards.map(r => {
+                const canAfford = (progress?.digoos || 0) >= r.cost
+                const isLoading = loadingRewardId === r.id
+                return (
+                  <div key={r.id} style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ fontWeight: 'bold', color: '#333', fontSize: '1rem' }}>{r.name}</div>
+                    {r.description && <div style={{ fontSize: '0.85rem', color: '#888' }}>{r.description}</div>}
+                    <div style={{ display: 'inline-block', background: '#e9c46a', color: 'white', fontWeight: 'bold', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem', alignSelf: 'flex-start' }}>
+                      {r.cost} Digoos
+                    </div>
+                    <button
+                      onClick={() => canAfford && !isLoading && handleObtenir(r)}
+                      disabled={!canAfford || isLoading}
+                      style={{
+                        marginTop: '0.25rem', padding: '0.6rem',
+                        background: canAfford ? '#2a9d8f' : '#ddd',
+                        color: canAfford ? 'white' : '#aaa',
+                        border: 'none', borderRadius: '0.5rem',
+                        cursor: canAfford && !isLoading ? 'pointer' : 'default',
+                        fontSize: '0.9rem', fontWeight: 'bold',
+                      }}
+                    >
+                      {isLoading ? '...' : canAfford ? 'Obtenir' : 'Digoos insuffisants'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

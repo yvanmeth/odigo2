@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+interface IrlReward {
+  id: string
+  parent_id: string
+  name: string
+  cost: number
+  description?: string | null
+  created_at: string
+}
+
 interface Child {
   id: string
   first_name: string
@@ -24,9 +33,18 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
   const [selectedRelationship, setSelectedRelationship] = useState('parent')
   const [copied, setCopied] = useState(false)
 
+  // IRL Rewards states
+  const [irlRewards, setIrlRewards] = useState<IrlReward[]>([])
+  const [showIrlForm, setShowIrlForm] = useState(false)
+  const [irlEditingId, setIrlEditingId] = useState<string | null>(null)
+  const [irlName, setIrlName] = useState('')
+  const [irlCost, setIrlCost] = useState('')
+  const [irlDescription, setIrlDescription] = useState('')
+
   useEffect(() => {
     fetchChildren()
     fetchInviteCode()
+    fetchIrlRewards()
   }, [])
 
   const fetchChildren = async () => {
@@ -103,6 +121,40 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     navigator.clipboard.writeText(inviteCode.code)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const fetchIrlRewards = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from('irl_rewards').select('*').eq('parent_id', user.id).order('name')
+    if (data) setIrlRewards(data)
+  }
+
+  const handleEditIrlReward = (r: IrlReward) => {
+    setIrlName(r.name)
+    setIrlCost(String(r.cost))
+    setIrlDescription(r.description || '')
+    setIrlEditingId(r.id)
+    setShowIrlForm(true)
+  }
+
+  const handleSaveIrlReward = async () => {
+    if (!irlName || !irlCost) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const payload = { name: irlName, cost: parseInt(irlCost), description: irlDescription || null }
+    if (irlEditingId) {
+      await supabase.from('irl_rewards').update(payload).eq('id', irlEditingId)
+    } else {
+      await supabase.from('irl_rewards').insert({ ...payload, parent_id: user.id })
+    }
+    setIrlName(''); setIrlCost(''); setIrlDescription(''); setIrlEditingId(null); setShowIrlForm(false)
+    fetchIrlRewards()
+  }
+
+  const handleDeleteIrlReward = async (id: string) => {
+    await supabase.from('irl_rewards').delete().eq('id', id)
+    fetchIrlRewards()
   }
 
   const removeChild = async (childId: string) => {
@@ -224,6 +276,65 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
             Accéder à mon espace
           </button>
         </div>
+      </div>
+
+      {/* Récompenses IRL */}
+      <div style={{ marginTop: '1.5rem', background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ color: '#2a9d8f', margin: 0 }}>🎁 Récompenses IRL</h3>
+          <button
+            onClick={() => { if (showIrlForm) { setShowIrlForm(false); setIrlEditingId(null) } else { setShowIrlForm(true) } }}
+            style={{ padding: '0.4rem 0.9rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+          >
+            {showIrlForm ? '✕ Annuler' : '+ Ajouter'}
+          </button>
+        </div>
+
+        {showIrlForm && (
+          <div style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <input
+              type="text" placeholder="Nom de la récompense" value={irlName}
+              onChange={e => setIrlName(e.target.value)}
+              style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
+            />
+            <input
+              type="number" placeholder="Coût en Digoos" min={1} value={irlCost}
+              onChange={e => setIrlCost(e.target.value)}
+              style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
+            />
+            <textarea
+              placeholder="Description (facultatif)" value={irlDescription}
+              onChange={e => setIrlDescription(e.target.value)}
+              style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem', resize: 'vertical', height: '70px' }}
+            />
+            <button
+              onClick={handleSaveIrlReward}
+              style={{ padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              {irlEditingId ? 'Mettre à jour' : 'Enregistrer'}
+            </button>
+          </div>
+        )}
+
+        {irlRewards.length === 0 ? (
+          <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucune récompense définie.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {irlRewards.map(r => (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: '#f0faf8', borderRadius: '0.75rem' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', color: '#333' }}>{r.name}</div>
+                  {r.description && <div style={{ fontSize: '0.82rem', color: '#888' }}>{r.description}</div>}
+                  <div style={{ fontSize: '0.82rem', color: '#e9c46a', fontWeight: 'bold', marginTop: '0.15rem' }}>{r.cost} Digoos</div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button onClick={() => handleEditIrlReward(r)} style={{ background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.4rem', padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.85rem' }}>✏️</button>
+                  <button onClick={() => handleDeleteIrlReward(r.id)} style={{ background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.4rem', padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.85rem' }}>🗑</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -28,3 +28,22 @@ export const addDigoos = async (amount: number) => {
     })
   }
 }
+
+export const deductDigoos = async (amount: number) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const { data } = await supabase
+    .from('progress')
+    .select('digoos, digoos_this_week')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!data) return
+
+  await supabase.from('progress').update({
+    digoos: Math.max(0, (data.digoos || 0) - amount),
+    digoos_this_week: Math.max(0, (data.digoos_this_week || 0) - amount),
+    updated_at: new Date().toISOString(),
+  }).eq('user_id', user.id)
+}
