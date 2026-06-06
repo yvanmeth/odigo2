@@ -18,6 +18,13 @@ const NB_QUESTIONS = [5, 8, 10, 15]
 
 const normaliser = (s: string) => s.trim().toLowerCase()
 
+const dicter = (mot: string) => {
+  speechSynthesis.cancel()
+  const u = new SpeechSynthesisUtterance(mot)
+  u.lang = 'fr-FR'
+  speechSynthesis.speak(u)
+}
+
 const renderPhrase = (phrase: string, mot?: string, correct?: boolean) => {
   const parts = phrase.split('___')
   if (parts.length !== 2) return <span>{phrase}</span>
@@ -37,8 +44,13 @@ export default function Vocabulaire() {
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
   const [nbQ, setNbQ] = useState(8)
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [current, setCurrent] = useState(0)
+
+  // File de questions : queue[0] = question courante
+  const [queue, setQueue] = useState<Question[]>([])
+  const [questionNum, setQuestionNum] = useState(1)           // compteur affiché (croît toujours)
+  const [totalQ, setTotalQ] = useState(0)                     // total affiché (+1 à chaque erreur)
+  const [motsVus, setMotsVus] = useState<Set<string>>(new Set()) // pour n'enregistrer que le 1er essai
+
   const [reponse, setReponse] = useState('')
   const [feedback, setFeedback] = useState<{ correct: boolean } | null>(null)
   const [resultats, setResultats] = useState<{
@@ -85,21 +97,23 @@ export default function Vocabulaire() {
 
     const prompt = `Tu es un générateur d'exercices de phrases à trou pour Neyla, 10 ans, élève en 7P à Genève.
 
-Génère exactement ${nbQ} phrases à trou, une par mot, à partir de cette liste : ${mots.join(', ')}.
+Génère exactement ${nbQ} phrases à trou à partir de cette liste de mots : ${mots.join(', ')}.
 Si moins de mots que de questions, réutilise certains mots.
 
-Contexte pour personnaliser les phrases (utilise ces références quand c'est naturel et varié) :
+Contexte pour personnaliser les phrases (utilise ces références comme contexte narratif, jamais comme mot à deviner) :
 films de Miyazaki (Mon voisin Totoro, Kiki la petite sorcière…), couture, Bigflo & Oli, son frère Nono, Nintendo Switch, mythologie grecque, Japon, Grèce, Algérie, sa Mamie.
 
-Règles :
-- Chaque phrase contient exactement ___ à la place du mot à trouver
-- La phrase est naturelle, adaptée à une enfant de 10 ans, niveau CM2
-- Le contexte permet de deviner le mot sans ambiguïté
-- La phrase fait entre 8 et 20 mots
-- Le mot n'apparaît pas ailleurs dans la phrase
+Règles STRICTES :
+- Utilise UNIQUEMENT les mots de cette liste exacte, sans en inventer d'autres : ${mots.join(', ')}
+- Le mot dans "mot" doit être copié exactement depuis la liste, sans modification
+- La phrase doit contenir le mot EXACTEMENT tel quel (même forme, même orthographe, singulier ou pluriel exactement comme dans la liste)
+- ___ remplace ce mot exact dans la phrase
+- Les centres d'intérêt de Neyla servent uniquement de contexte narratif, jamais comme mot à deviner
+- La phrase doit rendre le mot devinable grâce au contexte, sans ambiguïté sur la forme exacte du mot
+- La phrase est naturelle, adaptée à une enfant de 10 ans, entre 8 et 20 mots
 
 Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises markdown :
-[{"mot":"le mot exact","phrase":"La phrase avec ___ à la place du mot."}]`
+[{"mot":"le mot exact copié depuis la liste","phrase":"La phrase avec ___ à la place du mot."}]`
 
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -121,8 +135,10 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
       const txt = (data2.content?.find((b: any) => b.type === 'text')?.text || '')
         .replace(/```json|```/g, '').trim()
       const parsed: Question[] = JSON.parse(txt)
-      setQuestions(parsed)
-      setCurrent(0)
+      setQueue(parsed)
+      setQuestionNum(1)
+      setTotalQ(parsed.length)
+      setMotsVus(new Set())
       setReponse('')
       setFeedback(null)
       setResultats([])
@@ -138,7 +154,8 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
   const valider = useCallback(() => {
     if (!reponse.trim() || feedback) return
-    const q = questions[current]
+    const q = queue[0]
+    if (!q) return
     const correct = normaliser(reponse) === normaliser(q.mot)
 
     const newStreak = correct ? streak + 1 : 0
@@ -149,18 +166,33 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
     setScore(prev => prev + points)
     setDigoosEarned(prev => prev + digoos)
     setFeedback({ correct })
-    setResultats(prev => [...prev, { mot: q.mot, phrase: q.phrase, correct, donnee: reponse.trim() }])
-  }, [reponse, feedback, questions, current, streak])
+
+    // N'enregistre que le premier passage de chaque mot
+    if (!motsVus.has(q.mot)) {
+      setResultats(prev => [...prev, { mot: q.mot, phrase: q.phrase, correct, donnee: reponse.trim() }])
+      setMotsVus(prev => new Set(prev).add(q.mot))
+    }
+  }, [reponse, feedback, queue, streak, motsVus])
 
   const suivant = useCallback(() => {
-    if (current + 1 >= questions.length) {
+    const q = queue[0]
+    if (!q || !feedback) return
+
+    const newQueue = queue.slice(1)
+    if (!feedback.correct) {
+      newQueue.push(q)          // remet en fin de file si raté
+      setTotalQ(prev => prev + 1)
+    }
+    setQuestionNum(prev => prev + 1)
+
+    if (newQueue.length === 0) {
       finaliser()
     } else {
-      setCurrent(prev => prev + 1)
+      setQueue(newQueue)
       setReponse('')
       setFeedback(null)
     }
-  }, [current, questions.length])
+  }, [queue, feedback])
 
   const finaliser = async () => {
     await addDigoos(digoosEarned)
@@ -180,8 +212,14 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
     }
   }
 
-  const q = questions[current]
+  const q = queue[0]
   const correctCount = resultats.filter(r => r.correct).length
+  // Mots encore à maîtriser : unique mots dans la file (hors mot courant si juste répondu)
+  const motsRestants = new Set(
+    (feedback?.correct ? queue.slice(1) : queue).map(item => item.mot)
+  ).size
+  // Le prochain "Suivant" terminera la session uniquement si la queue n'aura plus rien
+  const isLastRound = queue.length === 1 && feedback?.correct === true
 
   // ---- ÉCRAN SÉLECTION ----
   if (gameState === 'select' || gameState === 'loading') {
@@ -240,13 +278,13 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
   // ---- ÉCRAN RÉSULTAT ----
   if (gameState === 'result') {
-    const pct = Math.round((correctCount / questions.length) * 100)
+    const pct = resultats.length > 0 ? Math.round((correctCount / resultats.length) * 100) : 0
     return (
       <div style={{ maxWidth: '600px' }}>
         <h2 style={{ color: '#2a9d8f', fontSize: '1.8rem', marginBottom: '0.25rem', textAlign: 'center' }}>Exercice terminé !</h2>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2a9d8f' }}>{score} pts</div>
-          <div style={{ color: '#888', fontSize: '0.9rem' }}>{correctCount}/{questions.length} correctes · {pct}%</div>
+          <div style={{ color: '#888', fontSize: '0.9rem' }}>{correctCount}/{resultats.length} correctes · {pct}%</div>
           <div style={{ color: '#e9c46a', fontWeight: 'bold', marginTop: '0.25rem' }}>+{digoosEarned} Digoos gagnés</div>
         </div>
 
@@ -265,7 +303,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-          <button onClick={() => { setGameState('select'); setQuestions([]) }}
+          <button onClick={() => { setGameState('select'); setQueue([]) }}
             style={{ padding: '0.75rem 2rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}
           >Changer de liste</button>
           <button onClick={genererQuestions}
@@ -280,10 +318,15 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
   return (
     <div style={{ maxWidth: '520px', margin: '0 auto' }}>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <div style={{ fontSize: '0.9rem', color: '#888' }}>
-          {current + 1} / {questions.length}
-          {streak >= 3 && <span style={{ color: '#e9c46a', marginLeft: '0.5rem' }}>🔥 {streak}</span>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <div>
+          <div style={{ fontSize: '0.9rem', color: '#888' }}>
+            Question {questionNum} / {totalQ}
+            {streak >= 3 && <span style={{ color: '#e9c46a', marginLeft: '0.5rem' }}>🔥 {streak}</span>}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: '#aaa' }}>
+            {motsRestants} mot{motsRestants > 1 ? 's' : ''} à maîtriser
+          </div>
         </div>
         <div style={{ fontSize: '0.85rem', color: '#e9c46a', fontWeight: 'bold' }}>
           {score} pts · +{digoosEarned} Digoos
@@ -291,11 +334,11 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
       </div>
 
       <div style={{ background: '#e0f0ee', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
-        <div style={{ width: `${(current / questions.length) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem', transition: 'width 0.3s ease' }} />
+        <div style={{ width: `${((questionNum - 1) / totalQ) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem', transition: 'width 0.3s ease' }} />
       </div>
 
       {q && (
-        <div style={{ background: 'white', borderRadius: '1rem', padding: '2rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1.5rem', textAlign: 'center' }}>
+        <div style={{ background: 'white', borderRadius: '1rem', padding: '2rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1rem', textAlign: 'center' }}>
           <div style={{ fontSize: '0.8rem', color: '#2a9d8f', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>
             Quel est le mot manquant ?
           </div>
@@ -305,6 +348,17 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
               : renderPhrase(q.phrase)
             }
           </div>
+        </div>
+      )}
+
+      {q && (
+        <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+          <button
+            onClick={() => dicter(q.mot)}
+            style={{ padding: '0.3rem 0.75rem', background: '#e0f0ee', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
+          >
+            🔊 Écouter le mot
+          </button>
         </div>
       )}
 
@@ -337,7 +391,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
         }}>
           {feedback.correct
             ? <span>✓ Correct !{streak >= 3 ? ' 🔥' : ''}</span>
-            : <span>✗ Réponse : <strong>{q.mot}</strong></span>
+            : <span>✗ Réponse : <strong>{q?.mot}</strong> — on réessaie !</span>
           }
         </div>
       )}
@@ -353,7 +407,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           fontSize: '1rem', fontWeight: 'bold',
         }}
       >
-        {feedback ? (current + 1 >= questions.length ? 'Voir les résultats →' : 'Suivant →') : 'Valider'}
+        {feedback ? (isLastRound ? 'Voir les résultats →' : 'Suivant →') : 'Valider'}
       </button>
 
       <div style={{ marginTop: '0.75rem', textAlign: 'center', fontSize: '0.75rem', color: '#ccc' }}>
