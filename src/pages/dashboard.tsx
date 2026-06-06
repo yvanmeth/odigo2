@@ -99,7 +99,6 @@ export default function Dashboard({ session }: Props) {
   const [viewingChildId, setViewingChildId] = useState<string | null>(null)
   const [viewingChildName, setViewingChildName] = useState<string>('')
   const [firstName, setFirstName] = useState<string>('')
-  const [gender, setGender] = useState<'M' | 'F' | 'X' | null>(null)
   const [activeTitle, setActiveTitle] = useState<string | null>(null)
 
   const now = new Date()
@@ -122,7 +121,6 @@ export default function Dashboard({ session }: Props) {
     if (data) {
       setIsParent(data.role === 'parent')
       setFirstName(data.first_name || '')
-      setGender(data.gender || null)
       if (data.role === 'parent') fetchChildren()
     }
 
