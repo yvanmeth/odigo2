@@ -4,7 +4,26 @@ import type { Evaluation, Revision } from '../type/index'
 import type { Subject } from '../type/index'
 import type { Event as AppEvent } from '../type/index'
 
-type Tab = 'evaluations' | 'revisions' | 'events'
+type Tab = 'evaluations' | 'revisions' | 'events' | 'reminders'
+
+interface Reminder {
+  id: string
+  user_id: string
+  title: string
+  description?: string
+  deadline_date: string
+  deadline_time?: string
+  odigo_remind: 'each_login' | 'one_day' | 'one_week' | 'never'
+  completed: boolean
+  created_at: string
+}
+
+const ODIGO_REMIND_LABELS: Record<string, string> = {
+  each_login: 'À chaque connexion',
+  one_day: 'Un jour avant',
+  one_week: 'Une semaine avant',
+  never: 'Jamais',
+}
 
 const formatDate = (d: string) => {
   if (!d) return ''
@@ -17,6 +36,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
   const [events, setEvents] = useState<AppEvent[]>([])
+  const [reminders, setReminders] = useState<Reminder[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -45,22 +65,31 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
   const [evtEndTime, setEvtEndTime] = useState('')
   const [evtDetails, setEvtDetails] = useState('')
 
+  // Form states — rappels
+  const [remTitle, setRemTitle] = useState('')
+  const [remDescription, setRemDescription] = useState('')
+  const [remDeadlineDate, setRemDeadlineDate] = useState('')
+  const [remDeadlineTime, setRemDeadlineTime] = useState('')
+  const [remOdigoRemind, setRemOdigoRemind] = useState<Reminder['odigo_remind']>('never')
+
   useEffect(() => { fetchAll() }, [userId])
 
   const fetchAll = async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     const targetId = userId || user?.id
-    const [evalsRes, revsRes, eventsRes, subjectsRes] = await Promise.all([
+    const [evalsRes, revsRes, eventsRes, subjectsRes, remindersRes] = await Promise.all([
       supabase.from('evaluations').select('*').eq('user_id', targetId).order('evaluation_date'),
       supabase.from('revisions').select('*').eq('user_id', targetId).order('revision_date'),
       supabase.from('events').select('*').eq('user_id', targetId).order('event_date'),
       supabase.from('subjects').select('*').order('name'),
+      supabase.from('reminders').select('*').eq('user_id', targetId).order('deadline_date'),
     ])
     if (evalsRes.data) setEvaluations(evalsRes.data)
     if (revsRes.data) setRevisions(revsRes.data)
     if (eventsRes.data) setEvents(eventsRes.data)
     if (subjectsRes.data) setSubjects(subjectsRes.data)
+    if (remindersRes.data) setReminders(remindersRes.data)
     setLoading(false)
   }
 
@@ -170,6 +199,38 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     fetchAll()
   }
 
+  // ---- Rappels ----
+
+  const handleEditReminder = (r: Reminder) => {
+    setRemTitle(r.title)
+    setRemDescription(r.description || '')
+    setRemDeadlineDate(r.deadline_date)
+    setRemDeadlineTime(r.deadline_time || '')
+    setRemOdigoRemind(r.odigo_remind)
+    setEditingId(r.id)
+    setShowForm(true)
+  }
+
+  const handleSaveReminder = async () => {
+    if (!remTitle || !remDeadlineDate) return
+    const payload = {
+      title: remTitle,
+      description: remDescription || null,
+      deadline_date: remDeadlineDate,
+      deadline_time: remDeadlineTime || null,
+      odigo_remind: remOdigoRemind,
+    }
+    if (editingId) {
+      await supabase.from('reminders').update(payload).eq('id', editingId)
+    } else {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('reminders').insert({ ...payload, user_id: user?.id, completed: false })
+    }
+    setRemTitle(''); setRemDescription(''); setRemDeadlineDate(''); setRemDeadlineTime(''); setRemOdigoRemind('never')
+    closeForm()
+    fetchAll()
+  }
+
   const handleDelete = async (table: string, id: string) => {
     await supabase.from(table).delete().eq('id', id)
     fetchAll()
@@ -228,6 +289,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
         <button style={tabStyle('evaluations')} onClick={() => { setActiveTab('evaluations'); closeForm() }}>📝 Évaluations</button>
         <button style={tabStyle('revisions')} onClick={() => { setActiveTab('revisions'); closeForm() }}>📖 Révisions</button>
         <button style={tabStyle('events')} onClick={() => { setActiveTab('events'); closeForm() }}>📅 Événements</button>
+        <button style={tabStyle('reminders')} onClick={() => { setActiveTab('reminders'); closeForm() }}>✅ Rappels</button>
       </div>
 
       {/* Bouton ajouter */}
@@ -299,6 +361,28 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
         </div>
       )}
 
+      {/* Formulaire rappels */}
+      {showForm && activeTab === 'reminders' && (
+        <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
+          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>{editingId ? 'Modifier le rappel' : 'Nouveau rappel'}</h3>
+          <input type="text" placeholder="Titre" value={remTitle} onChange={e => setRemTitle(e.target.value)} style={inputStyle} />
+          <textarea placeholder="Description (optionnel)" value={remDescription} onChange={e => setRemDescription(e.target.value)} style={{ ...inputStyle, height: '80px', resize: 'vertical' }} />
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input type="date" value={remDeadlineDate} onChange={e => setRemDeadlineDate(e.target.value)} style={{ ...inputStyle, width: '60%' }} />
+            <input type="time" value={remDeadlineTime} onChange={e => setRemDeadlineTime(e.target.value)} style={{ ...inputStyle, width: '40%' }} />
+          </div>
+          <select value={remOdigoRemind} onChange={e => setRemOdigoRemind(e.target.value as Reminder['odigo_remind'])} style={inputStyle}>
+            <option value="each_login">À chaque connexion</option>
+            <option value="one_day">Un jour avant</option>
+            <option value="one_week">Une semaine avant</option>
+            <option value="never">Jamais</option>
+          </select>
+          <button onClick={handleSaveReminder} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+            {editingId ? 'Mettre à jour' : 'Enregistrer'}
+          </button>
+        </div>
+      )}
+
       {/* Liste évaluations */}
       {activeTab === 'evaluations' && (
         <div>
@@ -360,6 +444,36 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <button onClick={() => handleEditEvt(ev)} style={actionBtnStyle}>✏️</button>
                 <button onClick={() => handleDelete('events', ev.id)} style={actionBtnStyle}>🗑</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Liste rappels */}
+      {activeTab === 'reminders' && (
+        <div>
+          {reminders.length === 0 && <p style={{ color: '#aaa' }}>Aucun rappel.</p>}
+          {reminders.map(r => (
+            <div key={r.id} style={cardStyle}>
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#333' }}>{r.title}</div>
+                {r.description && <div style={{ fontSize: '0.85rem', color: '#888' }}>{r.description}</div>}
+                <div style={{ fontSize: '0.85rem', color: '#888' }}>
+                  {formatDate(r.deadline_date)}{r.deadline_time ? ` · ${r.deadline_time}` : ''}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#2a9d8f', marginTop: '0.2rem' }}>
+                  🔔 {ODIGO_REMIND_LABELS[r.odigo_remind]}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button
+                  onClick={async () => { await supabase.from('reminders').update({ completed: !r.completed }).eq('id', r.id); fetchAll() }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
+                >
+                  {r.completed ? '✅' : '⬜'}
+                </button>
+                <button onClick={() => handleEditReminder(r)} style={actionBtnStyle}>✏️</button>
+                <button onClick={() => handleDelete('reminders', r.id)} style={actionBtnStyle}>🗑</button>
               </div>
             </div>
           ))}
