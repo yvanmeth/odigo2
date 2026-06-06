@@ -25,6 +25,8 @@ interface Child {
   first_name: string
 }
 
+const PRIMARY = 'var(--color-primary)'
+
 const navItems = [
   { id: 'dashboard', label: 'Tableau de bord', icon: '🏠' },
   { id: 'planner', label: 'Planificateur', icon: '📅' },
@@ -41,7 +43,7 @@ const exerciseCards = [
     label: 'Word Drop',
     icon: '🎮',
     description: 'Aligne le mot sur la bonne traduction avant qu\'il touche le sol !',
-    color: '#2a9d8f',
+    color: PRIMARY,
   },
   {
     id: 'qcm',
@@ -62,7 +64,7 @@ const exerciseCards = [
     label: 'Flashcards',
     icon: '🃏',
     description: 'Retourne les cartes et swipe selon si tu fais juste ou pas.',
-    color: '#2a9d8f',
+    color: PRIMARY,
   },
   {
     id: 'conjugaison',
@@ -95,6 +97,8 @@ export default function Dashboard({ session }: Props) {
   const timeStr = now.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })
 
   useEffect(() => {
+    const saved = localStorage.getItem('odigo_theme_color')
+    document.documentElement.style.setProperty('--color-primary', saved || '#2a9d8f')
     fetchProfile()
   }, [])
 
@@ -143,10 +147,8 @@ export default function Dashboard({ session }: Props) {
     }
   }
 
-  // L'userId effectif pour les données
   const effectiveUserId = viewingChildId || session.user.id
   const isViewingChild = !!viewingChildId
-
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif', background: '#f0faf8' }}>
@@ -165,10 +167,10 @@ export default function Dashboard({ session }: Props) {
       }}>
 
         <div style={{ padding: '1.25rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e0f0ee' }}>
-          {!collapsed && <span style={{ color: '#2a9d8f', fontWeight: 'bold', fontSize: '1.2rem' }}>ODIGO</span>}
+          {!collapsed && <span style={{ color: PRIMARY, fontWeight: 'bold', fontSize: '1.2rem' }}>ODIGO</span>}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2a9d8f', fontSize: '1.1rem', padding: '0.25rem' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: PRIMARY, fontSize: '1.1rem', padding: '0.25rem' }}
           >
             {collapsed ? '»' : '«'}
           </button>
@@ -178,7 +180,7 @@ export default function Dashboard({ session }: Props) {
           <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee' }}>
             {firstName && <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#333', marginBottom: '0.25rem' }}>{firstName}</div>}
             <div style={{ fontSize: '0.75rem', color: '#888' }}>{dateStr}</div>
-            <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#2a9d8f' }}>{timeStr}</div>
+            <div style={{ fontSize: '1rem', fontWeight: 'bold', color: PRIMARY }}>{timeStr}</div>
           </div>
         )}
 
@@ -238,9 +240,9 @@ export default function Dashboard({ session }: Props) {
                 padding: '0.75rem 1rem',
                 background: activePage === item.id ? '#f0faf8' : 'none',
                 border: 'none',
-                borderLeft: activePage === item.id ? '3px solid #2a9d8f' : '3px solid transparent',
+                borderLeft: activePage === item.id ? `3px solid ${PRIMARY}` : '3px solid transparent',
                 cursor: 'pointer',
-                color: activePage === item.id ? '#2a9d8f' : '#555',
+                color: activePage === item.id ? PRIMARY : '#555',
                 fontWeight: activePage === item.id ? 'bold' : 'normal',
                 fontSize: '0.9rem',
                 textAlign: 'left',
@@ -294,7 +296,7 @@ export default function Dashboard({ session }: Props) {
           </div>
         )}
 
-        <h1 style={{ color: '#2a9d8f', marginBottom: '0.25rem' }}>
+        <h1 style={{ color: PRIMARY, marginBottom: '0.25rem' }}>
           {activePage === 'exercises' && activeExercise
             ? exerciseCards.find(e => e.id === activeExercise)?.label
             : activePage === 'parent'
@@ -350,7 +352,7 @@ export default function Dashboard({ session }: Props) {
             <div>
               <button
                 onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
                 ← Retour aux exercices
               </button>
@@ -362,7 +364,7 @@ export default function Dashboard({ session }: Props) {
             <div>
               <button
                 onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
                 ← Retour aux exercices
               </button>
@@ -374,7 +376,7 @@ export default function Dashboard({ session }: Props) {
             <div>
               <button
                 onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
                 ← Retour aux exercices
               </button>
@@ -382,40 +384,41 @@ export default function Dashboard({ session }: Props) {
             </div>
           )}
 
-{activePage === 'exercises' && activeExercise === 'flashcards' && (
-  <div>
-    <button
-      onClick={() => setActiveExercise(null)}
-      style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-    >
-      ← Retour aux exercices
-    </button>
-    <Flashcards />
-  </div>
-)}
-{activePage === 'exercises' && activeExercise === 'conjugaison' && (
-  <div>
-    <button
-      onClick={() => setActiveExercise(null)}
-      style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-    >
-      ← Retour aux exercices
-    </button>
-    <Conjugaison />
-  </div>
-)}
-{activePage === 'exercises' && activeExercise === 'vocabulaire' && (
-  <div>
-    <button
-      onClick={() => setActiveExercise(null)}
-      style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-    >
-      ← Retour aux exercices
-    </button>
-    <Vocabulaire />
-  </div>
-)}
+          {activePage === 'exercises' && activeExercise === 'flashcards' && (
+            <div>
+              <button
+                onClick={() => setActiveExercise(null)}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                ← Retour aux exercices
+              </button>
+              <Flashcards />
+            </div>
+          )}
 
+          {activePage === 'exercises' && activeExercise === 'conjugaison' && (
+            <div>
+              <button
+                onClick={() => setActiveExercise(null)}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                ← Retour aux exercices
+              </button>
+              <Conjugaison />
+            </div>
+          )}
+
+          {activePage === 'exercises' && activeExercise === 'vocabulaire' && (
+            <div>
+              <button
+                onClick={() => setActiveExercise(null)}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                ← Retour aux exercices
+              </button>
+              <Vocabulaire />
+            </div>
+          )}
 
           {activePage === 'rewards' && <Rewards userId={effectiveUserId} />}
           {activePage === 'settings' && <Settings />}
