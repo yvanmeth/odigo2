@@ -221,10 +221,20 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
       odigo_remind: remOdigoRemind,
     }
     if (editingId) {
-      await supabase.from('reminders').update(payload).eq('id', editingId)
+      const { error } = await supabase.from('reminders').update(payload).eq('id', editingId)
+      if (error) console.error('Reminder update error:', error)
     } else {
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('reminders').insert({ ...payload, user_id: user?.id, completed: false })
+      const { error } = await supabase.from('reminders').insert({
+        user_id: user?.id,
+        title: remTitle,
+        description: remDescription || null,
+        deadline_date: remDeadlineDate,
+        deadline_time: remDeadlineTime || null,
+        odigo_remind: remOdigoRemind,
+        completed: false,
+      })
+      if (error) console.error('Reminder insert error:', error)
     }
     setRemTitle(''); setRemDescription(''); setRemDeadlineDate(''); setRemDeadlineTime(''); setRemOdigoRemind('never')
     closeForm()
