@@ -346,7 +346,7 @@ export default function Dashboard({ session }: Props) {
           {activePage === 'dashboard' && <Home userId={effectiveUserId} />}
           {activePage === 'planner' && <Planner userId={effectiveUserId} isParent={isParent && isViewingChild} />}
           {activePage === 'subjects' && <Subjects userId={effectiveUserId} />}
-          {activePage === 'wordlists' && <WordLists userId={effectiveUserId} />}
+          {activePage === 'wordlists' && <WordLists userId={effectiveUserId} isParent={isParent && isViewingChild} />}
 
           {activePage === 'exercises' && !activeExercise && (
             <div>
