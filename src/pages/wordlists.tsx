@@ -20,7 +20,7 @@ interface WordItem {
   created_at: string
 }
 
-export default function WordLists({ userId, isParent }: { userId?: string; isParent?: boolean }) {
+export default function WordLists({ userId }: { userId?: string }) {
   const [lists, setLists] = useState<WordList[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [selectedList, setSelectedList] = useState<WordList | null>(null)
@@ -275,16 +275,6 @@ const parsed = JSON.parse(clean)
   if (loading) return <p style={{ color: '#888' }}>Chargement...</p>
 
   return (
-    <div>
-      {isParent && (
-        <div style={{
-          background: '#fff8e0', border: '1px solid #e9c46a',
-          borderRadius: '0.5rem', padding: '0.5rem 0.75rem',
-          fontSize: '0.85rem', color: '#b8860b', marginBottom: '1rem'
-        }}>
-          👨‍👧 Tu gères les listes de cet enfant
-        </div>
-      )}
     <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
 
       {/* Colonne gauche — liste des listes */}
@@ -529,7 +519,6 @@ const parsed = JSON.parse(clean)
           </div>
         )}
       </div>
-    </div>
     </div>
   )
 }
