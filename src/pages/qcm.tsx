@@ -23,6 +23,19 @@ const MODE_CONFIG = {
   expert: { choices: 8, basePoints: 20, bonusSpeed: 10, label: 'Expert', emoji: '💎' },
 }
 
+const speak = (text: string) => {
+  speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = /[Ͱ-Ͽ]/.test(text) ? 'el-GR' : 'en-GB'
+  speechSynthesis.speak(utterance)
+}
+
+const audioButtonStyle: React.CSSProperties = {
+  background: 'none', border: 'none', cursor: 'pointer',
+  fontSize: '0.75rem', color: '#2a9d8f', alignSelf: 'center',
+  padding: '0.1rem 0.5rem',
+}
+
 export default function QCM() {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
@@ -299,10 +312,17 @@ export default function QCM() {
           color: '#333',
           minHeight: '100px',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: '0.5rem',
         }}>
           {displayWord}
+          {direction === 'french' && !feedback && (
+            <button onClick={() => speak(displayWord)} style={audioButtonStyle}>
+              🔊 Écouter
+            </button>
+          )}
         </div>
       )}
 
@@ -315,29 +335,36 @@ export default function QCM() {
         {choices.map((choice, i) => {
           const isCorrect = feedback && choice === feedback.answer
           return (
-            <button
-              key={i}
-              onClick={() => handleAnswer(choice)}
-              disabled={!!feedback}
-              style={{
-                padding: '0.75rem',
-                background: feedback
-                  ? isCorrect ? '#2a9d8f' : '#f5f5f5'
-                  : 'white',
-                color: feedback
-                  ? isCorrect ? 'white' : '#aaa'
-                  : '#333',
-                border: `2px solid ${feedback ? (isCorrect ? '#2a9d8f' : '#eee') : '#e0f0ee'}`,
-                borderRadius: '0.75rem',
-                cursor: feedback ? 'default' : 'pointer',
-                fontSize: '0.9rem',
-                fontWeight: 'bold',
-                transition: 'all 0.15s',
-                textAlign: 'center',
-              }}
-            >
-              {choice}
-            </button>
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <button
+                onClick={() => handleAnswer(choice)}
+                disabled={!!feedback}
+                style={{
+                  padding: '0.75rem',
+                  background: feedback
+                    ? isCorrect ? '#2a9d8f' : '#f5f5f5'
+                    : 'white',
+                  color: feedback
+                    ? isCorrect ? 'white' : '#aaa'
+                    : '#333',
+                  border: `2px solid ${feedback ? (isCorrect ? '#2a9d8f' : '#eee') : '#e0f0ee'}`,
+                  borderRadius: '0.75rem',
+                  cursor: feedback ? 'default' : 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold',
+                  transition: 'all 0.15s',
+                  textAlign: 'center',
+                  width: '100%',
+                }}
+              >
+                {choice}
+              </button>
+              {direction === 'foreign' && !feedback && (
+                <button onClick={() => speak(choice)} style={audioButtonStyle}>
+                  🔊 Écouter
+                </button>
+              )}
+            </div>
           )
         })}
       </div>
