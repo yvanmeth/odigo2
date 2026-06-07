@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { deductDigoos } from '../services/digoos'
 
-type RewardTab = 'rewards' | 'progression'
+type RewardTab = 'rewards' | 'wallet' | 'progression'
 
 interface Progress {
   user_id: string
@@ -21,6 +21,17 @@ interface IrlReward {
   name: string
   cost: number
   description?: string | null
+}
+
+interface IrlPurchase {
+  id: string
+  child_id: string
+  reward_id: string
+  reward_name: string
+  cost: number
+  status: 'valid' | 'used'
+  purchased_at: string
+  used_at?: string | null
 }
 
 interface ShopItem {
@@ -88,7 +99,7 @@ const isAfterSundayReset = () => {
   return now.getDay() === 0 && now.getHours() >= 18
 }
 
-const formatExpiry = (iso: string) => {
+const formatDate = (iso: string) => {
   const d = new Date(iso)
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
 }
@@ -107,12 +118,15 @@ export default function Rewards({ userId }: { userId?: string }) {
   const [purchases, setPurchases] = useState<UserPurchase[]>([])
   const [loadingPurchaseId, setLoadingPurchaseId] = useState<string | null>(null)
   const [gender, setGender] = useState<'M' | 'F' | 'X' | null>(null)
+  const [irlPurchases, setIrlPurchases] = useState<IrlPurchase[]>([])
+  const [showHistory, setShowHistory] = useState(false)
 
   useEffect(() => {
     fetchProgress()
     fetchIrlRewards()
     fetchShop()
     fetchGender()
+    fetchIrlPurchases()
   }, [userId])
 
   const fetchProgress = async () => {
@@ -161,6 +175,18 @@ export default function Rewards({ userId }: { userId?: string }) {
     if (data) setIrlRewards(data)
   }
 
+  const fetchIrlPurchases = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const targetId = userId || user.id
+    const { data } = await supabase
+      .from('irl_purchases')
+      .select('*')
+      .eq('child_id', targetId)
+      .order('purchased_at', { ascending: false })
+    if (data) setIrlPurchases(data)
+  }
+
   const fetchShop = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -205,9 +231,20 @@ export default function Rewards({ userId }: { userId?: string }) {
 
   const handleObtenir = async (reward: IrlReward) => {
     setLoadingRewardId(reward.id)
+    const { data: { user } } = await supabase.auth.getUser()
     await deductDigoos(reward.cost)
+    if (user) {
+      await supabase.from('irl_purchases').insert({
+        child_id: user.id,
+        reward_id: reward.id,
+        reward_name: reward.name,
+        cost: reward.cost,
+        status: 'valid',
+      })
+    }
     setConfirmMsg('🎉 Récompense obtenue ! Demande-la à tes parents.')
     await fetchProgress()
+    await fetchIrlPurchases()
     setLoadingRewardId(null)
   }
 
@@ -353,7 +390,7 @@ export default function Rewards({ userId }: { userId?: string }) {
     } else if (purchase.active) {
       statusNode = (
         <span style={{ fontSize: '0.8rem', color: '#2a9d8f', fontWeight: 'bold' }}>
-          ✓ Actif{purchase.expires_at ? ` jusqu'au ${formatExpiry(purchase.expires_at)}` : ''}
+          ✓ Actif{purchase.expires_at ? ` jusqu'au ${formatDate(purchase.expires_at)}` : ''}
         </span>
       )
     } else {
@@ -386,6 +423,34 @@ export default function Rewards({ userId }: { userId?: string }) {
       </div>
     )
   }
+
+  const renderCoupon = (purchase: IrlPurchase, used: boolean = false) => (
+    <div
+      key={purchase.id}
+      style={{
+        background: 'white', border: '2px dashed #2a9d8f', borderRadius: '0.75rem',
+        padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        opacity: used ? 0.5 : 1,
+      }}
+    >
+      <div>
+        <div style={{ fontWeight: 'bold', color: '#333' }}>🎁 {purchase.reward_name}</div>
+        <div style={{ fontSize: '0.8rem', color: '#888' }}>
+          Acheté le {formatDate(purchase.purchased_at)}
+          {used && purchase.used_at && ` · Utilisé le ${formatDate(purchase.used_at)}`}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ borderLeft: '1px dashed #ccc', alignSelf: 'stretch' }} />
+        <span style={{ background: '#e9c46a', color: 'white', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+          {purchase.cost} Digoos
+        </span>
+        <span style={{ background: '#f0faf8', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+          {used ? 'Utilisée' : '✓ Valable'}
+        </span>
+      </div>
+    </div>
+  )
 
   if (loading) return <p style={{ color: '#888' }}>Chargement...</p>
 
@@ -425,6 +490,7 @@ export default function Rewards({ userId }: { userId?: string }) {
       {/* Onglets */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', justifyContent: 'center' }}>
         <button style={tabStyle('rewards')} onClick={() => setActiveTab('rewards')}>🎁 Récompenses</button>
+        <button style={tabStyle('wallet')} onClick={() => setActiveTab('wallet')}>👛 Portefeuille</button>
         <button style={tabStyle('progression')} onClick={() => setActiveTab('progression')}>📊 Progression</button>
       </div>
 
@@ -507,6 +573,41 @@ export default function Rewards({ userId }: { userId?: string }) {
           )}
         </div>
       )}
+
+      {/* Onglet Portefeuille */}
+      {activeTab === 'wallet' && (() => {
+        const validPurchases = irlPurchases.filter(p => p.status === 'valid')
+        const usedPurchases = irlPurchases.filter(p => p.status === 'used')
+        return (
+          <div>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1.1rem' }}>👛 Portefeuille</h3>
+
+            {validPurchases.length === 0 ? (
+              <p style={{ color: '#aaa' }}>Ton portefeuille est vide. Achète des récompenses dans l'onglet Récompenses !</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {validPurchases.map(p => renderCoupon(p))}
+              </div>
+            )}
+
+            {usedPurchases.length > 0 && (
+              <div style={{ marginTop: '1.5rem' }}>
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  style={{ padding: '0.5rem 1rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                >
+                  {showHistory ? '▲' : '▼'} Voir l'historique ({usedPurchases.length})
+                </button>
+                {showHistory && (
+                  <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {usedPurchases.map(p => renderCoupon(p, true))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Onglet Progression */}
       {activeTab === 'progression' && (
