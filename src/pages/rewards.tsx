@@ -1,16 +1,21 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { deductDigoos } from '../services/digoos'
+import { addDigoos, deductDigoos } from '../services/digoos'
 
 type RewardTab = 'rewards' | 'wallet' | 'progression'
+
+interface ActiveWeek {
+  week: string
+  digoos: number
+}
 
 interface Progress {
   user_id: string
   digoos: number
   digoos_this_week: number
-  active_weeks: string[]
+  active_weeks: ActiveWeek[]
   week_streak: number
-  badges: string[]
+  claimed_badges: string[]
   last_week_reset: string
   updated_at: string
 }
@@ -21,6 +26,8 @@ interface IrlReward {
   name: string
   cost: number
   description?: string | null
+  stock: number
+  valid_until?: string | null
 }
 
 interface IrlPurchase {
@@ -61,19 +68,34 @@ interface Badge {
   description: string
   icon: string
   condition: (p: Progress) => boolean
+  progressLabel: (p: Progress) => string
 }
 
 const WEEK_THRESHOLD = 100
+const WEEK_VERY_ACTIVE_THRESHOLD = 1000
 
 const ALL_BADGES: Badge[] = [
-  { id: 'first_week', label: 'Premier pas', description: 'Première semaine active', icon: '🌱', condition: p => p.active_weeks.length >= 1 },
-  { id: 'two_weeks', label: 'En route', description: '2 semaines consécutives', icon: '🔥', condition: p => p.week_streak >= 2 },
-  { id: 'five_weeks', label: 'Régulier', description: '5 semaines consécutives', icon: '⚡', condition: p => p.week_streak >= 5 },
-  { id: 'ten_weeks', label: 'Champion', description: '10 semaines consécutives', icon: '🏆', condition: p => p.week_streak >= 10 },
-  { id: 'twenty_weeks', label: 'Légendaire', description: '20 semaines consécutives', icon: '💎', condition: p => p.week_streak >= 20 },
-  { id: 'hundred_digoos', label: 'Riche', description: '100 Digoos accumulés', icon: '💰', condition: p => p.digoos >= 100 },
-  { id: 'five_hundred_digoos', label: 'Millionnaire', description: '500 Digoos accumulés', icon: '🤑', condition: p => p.digoos >= 500 },
+  { id: 'first_week', label: 'Premier pas', description: 'Première semaine active', icon: '🌱', condition: p => p.active_weeks.length >= 1, progressLabel: p => `${p.active_weeks.length}/1` },
+  { id: 'two_weeks', label: 'En route', description: '2 semaines consécutives', icon: '🔥', condition: p => p.week_streak >= 2, progressLabel: p => `${p.week_streak}/2` },
+  { id: 'five_weeks', label: 'Régulier', description: '5 semaines consécutives', icon: '⚡', condition: p => p.week_streak >= 5, progressLabel: p => `${p.week_streak}/5` },
+  { id: 'ten_weeks', label: 'Champion', description: '10 semaines consécutives', icon: '🏆', condition: p => p.week_streak >= 10, progressLabel: p => `${p.week_streak}/10` },
+  { id: 'twenty_weeks', label: 'Légendaire', description: '20 semaines consécutives', icon: '💎', condition: p => p.week_streak >= 20, progressLabel: p => `${p.week_streak}/20` },
+  { id: 'hundred_digoos', label: 'Riche', description: '100 Digoos accumulés', icon: '💰', condition: p => p.digoos >= 100, progressLabel: p => `${p.digoos}/100` },
+  { id: 'five_hundred_digoos', label: 'Millionnaire', description: '500 Digoos accumulés', icon: '🤑', condition: p => p.digoos >= 500, progressLabel: p => `${p.digoos}/500` },
 ]
+
+const playBadgeSound = () => {
+  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+  const o = ctx.createOscillator()
+  const g = ctx.createGain()
+  o.connect(g); g.connect(ctx.destination)
+  o.type = 'triangle'
+  o.frequency.setValueAtTime(880, ctx.currentTime)
+  o.frequency.setValueAtTime(1175, ctx.currentTime + 0.06)
+  g.gain.setValueAtTime(0.1, ctx.currentTime)
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25)
+  o.start(); o.stop(ctx.currentTime + 0.25)
+}
 
 const getCurrentWeekKey = () => {
   const now = new Date()
@@ -94,6 +116,42 @@ const getWeekLabel = (key: string) => {
   return `Semaine ${parts[1]} — ${parts[0]}`
 }
 
+const weekKeyForDate = (d: Date) => {
+  const day = d.getDay()
+  const monday = new Date(d)
+  monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1))
+  monday.setHours(0, 0, 0, 0)
+  const year = monday.getFullYear()
+  const startOfYear = new Date(year, 0, 1)
+  const weekNum = Math.ceil(((monday.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
+  return { key: `${year}-S${weekNum.toString().padStart(2, '0')}`, monday }
+}
+
+const FIRST_DISPLAYED_WEEK = '2026-S23'
+const FUTURE_WEEKS_COUNT = 5
+
+const getWeekRange = (currentKey: string): { key: string; isFuture: boolean }[] => {
+  let cursor = new Date(2026, 0, 1)
+  cursor.setDate(cursor.getDate() - (cursor.getDay() === 0 ? 6 : cursor.getDay() - 1))
+  cursor.setHours(0, 0, 0, 0)
+  for (let i = 0; i < 60 && weekKeyForDate(cursor).key !== FIRST_DISPLAYED_WEEK; i++) {
+    cursor.setDate(cursor.getDate() + 7)
+  }
+
+  const weeks: { key: string; isFuture: boolean }[] = []
+  let pastCurrent = false
+  let futureCount = 0
+  for (let i = 0; i < 500 && futureCount <= FUTURE_WEEKS_COUNT; i++) {
+    const key = weekKeyForDate(cursor).key
+    if (pastCurrent) futureCount++
+    if (futureCount > FUTURE_WEEKS_COUNT) break
+    weeks.push({ key, isFuture: pastCurrent })
+    if (key === currentKey) pastCurrent = true
+    cursor.setDate(cursor.getDate() + 7)
+  }
+  return weeks
+}
+
 const isAfterSundayReset = () => {
   const now = new Date()
   return now.getDay() === 0 && now.getHours() >= 18
@@ -108,7 +166,6 @@ export default function Rewards({ userId }: { userId?: string }) {
   const [activeTab, setActiveTab] = useState<RewardTab>('rewards')
   const [progress, setProgress] = useState<Progress | null>(null)
   const [loading, setLoading] = useState(true)
-  const [newBadges, setNewBadges] = useState<string[]>([])
   const [weekSummaryVisible, setWeekSummaryVisible] = useState(false)
   const [irlRewards, setIrlRewards] = useState<IrlReward[]>([])
   const [parentIds, setParentIds] = useState<string[]>([])
@@ -146,7 +203,6 @@ export default function Rewards({ userId }: { userId?: string }) {
     if (data) {
       const updated = isViewingOther ? data : await checkWeekReset(data, targetId)
       setProgress(updated)
-      if (!isViewingOther) checkNewBadges(updated)
     } else if (!isViewingOther) {
       const newProgress: Partial<Progress> = {
         user_id: user.id,
@@ -154,7 +210,7 @@ export default function Rewards({ userId }: { userId?: string }) {
         digoos_this_week: 0,
         active_weeks: [],
         week_streak: 0,
-        badges: [],
+        claimed_badges: [],
         last_week_reset: getCurrentWeekKey(),
       }
       await supabase.from('progress').insert(newProgress)
@@ -171,7 +227,14 @@ export default function Rewards({ userId }: { userId?: string }) {
     if (!links || links.length === 0) { setParentIds([]); return }
     const pIds = links.map((l: any) => l.parent_id)
     setParentIds(pIds)
-    const { data } = await supabase.from('irl_rewards').select('*').in('parent_id', pIds).order('name')
+    const today = new Date().toISOString().slice(0, 10)
+    const { data } = await supabase
+      .from('irl_rewards')
+      .select('*')
+      .in('parent_id', pIds)
+      .gt('stock', 0)
+      .or(`valid_until.is.null,valid_until.gte.${today}`)
+      .order('name')
     if (data) setIrlRewards(data)
   }
 
@@ -203,7 +266,7 @@ export default function Rewards({ userId }: { userId?: string }) {
     if (p.last_week_reset === currentWeek) return p
     const wasActive = p.digoos_this_week >= WEEK_THRESHOLD
     const updatedActiveWeeks = wasActive
-      ? [...(p.active_weeks || []), p.last_week_reset].slice(-52)
+      ? [...(p.active_weeks || []), { week: p.last_week_reset, digoos: p.digoos_this_week }].slice(-52)
       : [...(p.active_weeks || [])].slice(-52)
     const newStreak = wasActive ? (p.week_streak || 0) + 1 : 0
     const updated = { ...p, digoos_this_week: 0, active_weeks: updatedActiveWeeks, week_streak: newStreak, last_week_reset: currentWeek }
@@ -215,18 +278,6 @@ export default function Rewards({ userId }: { userId?: string }) {
     }).eq('user_id', targetUserId)
     if (isAfterSundayReset()) setWeekSummaryVisible(true)
     return updated
-  }
-
-  const checkNewBadges = async (p: Progress) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const earned = ALL_BADGES.filter(b => b.condition(p) && !(p.badges || []).includes(b.id)).map(b => b.id)
-    if (earned.length > 0) {
-      const updatedBadges = [...(p.badges || []), ...earned]
-      await supabase.from('progress').update({ badges: updatedBadges }).eq('user_id', user.id)
-      setProgress(prev => prev ? { ...prev, badges: updatedBadges } : prev)
-      setNewBadges(earned)
-    }
   }
 
   const handleObtenir = async (reward: IrlReward) => {
@@ -241,11 +292,23 @@ export default function Rewards({ userId }: { userId?: string }) {
         cost: reward.cost,
         status: 'valid',
       })
+      await supabase.from('irl_rewards').update({ stock: reward.stock - 1 }).eq('id', reward.id)
     }
     setConfirmMsg('🎉 Récompense obtenue ! Demande-la à tes parents.')
     await fetchProgress()
+    await fetchIrlRewards()
     await fetchIrlPurchases()
     setLoadingRewardId(null)
+  }
+
+  const handleClaimBadge = async (badge: Badge) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user || !progress) return
+    playBadgeSound()
+    await addDigoos(10)
+    const updatedClaimed = [...(progress.claimed_badges || []), badge.id]
+    await supabase.from('progress').update({ claimed_badges: updatedClaimed }).eq('user_id', user.id)
+    await fetchProgress()
   }
 
   const handlePurchase = async (item: ShopItem) => {
@@ -307,24 +370,6 @@ export default function Rewards({ userId }: { userId?: string }) {
   const currentWeek = getCurrentWeekKey()
   const weekProgress = progress ? Math.min((progress.digoos_this_week / WEEK_THRESHOLD) * 100, 100) : 0
   const isCurrentWeekActive = progress ? progress.digoos_this_week >= WEEK_THRESHOLD : false
-
-  const getLast10Weeks = () => {
-    const weeks = []
-    const now = new Date()
-    for (let i = 9; i >= 0; i--) {
-      const d = new Date(now)
-      d.setDate(d.getDate() - i * 7)
-      const day = d.getDay()
-      const monday = new Date(d)
-      monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1))
-      monday.setHours(0, 0, 0, 0)
-      const year = monday.getFullYear()
-      const startOfYear = new Date(year, 0, 1)
-      const weekNum = Math.ceil(((monday.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
-      weeks.push(`${year}-S${weekNum.toString().padStart(2, '0')}`)
-    }
-    return weeks
-  }
 
   const tabStyle = (tab: RewardTab): React.CSSProperties => ({
     padding: '0.6rem 1.2rem',
@@ -456,20 +501,19 @@ export default function Rewards({ userId }: { userId?: string }) {
 
   return (
     <div>
-      {/* Nouveaux badges */}
-      {newBadges.length > 0 && (
-        <div style={{ background: '#f0faf8', border: '2px solid #2a9d8f', borderRadius: '1rem', padding: '1rem', marginBottom: '1.5rem', textAlign: 'center' }}>
-          <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🎉 Nouveau badge débloqué !</div>
-          {newBadges.map(id => {
-            const badge = ALL_BADGES.find(b => b.id === id)
-            return badge ? (
-              <div key={id} style={{ fontSize: '1.1rem', color: '#2a9d8f', fontWeight: 'bold' }}>
-                {badge.icon} {badge.label}
-              </div>
-            ) : null
-          })}
+      {/* Solde Digoos */}
+      <div style={{
+        background: 'white', borderRadius: '1rem',
+        padding: '0.75rem 1.5rem', marginBottom: '1.5rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        display: 'flex', alignItems: 'center', gap: '1rem'
+      }}>
+        <span style={{ fontSize: '1.5rem' }}>💰</span>
+        <div>
+          <div style={{ fontSize: '0.8rem', color: '#888' }}>Mes Digoos</div>
+          <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#2a9d8f' }}>{progress?.digoos || 0}</div>
         </div>
-      )}
+      </div>
 
       {/* Résumé semaine (dimanche 18h) */}
       {weekSummaryVisible && (
@@ -497,37 +541,11 @@ export default function Rewards({ userId }: { userId?: string }) {
       {/* Onglet Récompenses */}
       {activeTab === 'rewards' && (
         <div>
-          {/* Boutique Odigo */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1.1rem' }}>✨ Boutique</h3>
-
-            {themes.length > 0 && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🎨 Thèmes</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-                  {themes.map(renderShopItem)}
-                </div>
-              </div>
-            )}
-
-            {titles.length > 0 && (
-              <div>
-                <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🏷️ Titres</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-                  {titles.map(renderShopItem)}
-                </div>
-              </div>
-            )}
-
-            {shopItems.length === 0 && (
-              <p style={{ color: '#aaa' }}>Aucun article disponible pour l'instant.</p>
-            )}
-          </div>
-
           {/* Récompenses IRL */}
           {parentIds.length > 0 && (
-            <div>
-              <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1.1rem' }}>🎁 Récompenses IRL</h3>
+            <div style={{ marginBottom: '2.5rem' }}>
+              <h3 style={{ color: '#2a9d8f', marginBottom: '0.25rem', fontSize: '1.1rem' }}>🎁 Récompenses IRL</h3>
+              <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>Voici les récompenses actuellement disponibles.</p>
 
               {confirmMsg && (
                 <div style={{ background: '#f0faf8', border: '2px solid #2a9d8f', borderRadius: '0.75rem', padding: '0.85rem 1rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -537,32 +555,36 @@ export default function Rewards({ userId }: { userId?: string }) {
               )}
 
               {irlRewards.length === 0 ? (
-                <p style={{ color: '#aaa' }}>Aucune récompense disponible pour l'instant.</p>
+                <p style={{ color: '#aaa' }}>Aucune récompense disponible pour le moment.</p>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
                   {irlRewards.map(r => {
                     const canAfford = (progress?.digoos || 0) >= r.cost
+                    const inStock = r.stock > 0
+                    const canBuy = canAfford && inStock
                     const isLoading = loadingRewardId === r.id
                     return (
                       <div key={r.id} style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <div style={{ fontWeight: 'bold', color: '#333', fontSize: '1rem' }}>{r.name}</div>
                         {r.description && <div style={{ fontSize: '0.85rem', color: '#888' }}>{r.description}</div>}
+                        {r.stock > 1 && <div style={{ fontSize: '0.8rem', color: '#888' }}>{r.stock} disponible(s)</div>}
+                        {r.valid_until && <div style={{ fontSize: '0.8rem', color: '#888' }}>Valable jusqu'au {formatDate(r.valid_until)}</div>}
                         <div style={{ display: 'inline-block', background: '#e9c46a', color: 'white', fontWeight: 'bold', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem', alignSelf: 'flex-start' }}>
                           {r.cost} Digoos
                         </div>
                         <button
-                          onClick={() => canAfford && !isLoading && handleObtenir(r)}
-                          disabled={!canAfford || isLoading}
+                          onClick={() => canBuy && !isLoading && handleObtenir(r)}
+                          disabled={!canBuy || isLoading}
                           style={{
                             marginTop: '0.25rem', padding: '0.6rem',
-                            background: canAfford ? '#2a9d8f' : '#ddd',
-                            color: canAfford ? 'white' : '#aaa',
+                            background: canBuy ? '#2a9d8f' : '#ddd',
+                            color: canBuy ? 'white' : '#aaa',
                             border: 'none', borderRadius: '0.5rem',
-                            cursor: canAfford && !isLoading ? 'pointer' : 'default',
+                            cursor: canBuy && !isLoading ? 'pointer' : 'default',
                             fontSize: '0.9rem', fontWeight: 'bold',
                           }}
                         >
-                          {isLoading ? '...' : canAfford ? 'Obtenir' : 'Digoos insuffisants'}
+                          {isLoading ? '...' : canBuy ? `Obtenir — ${r.cost} Digoos` : 'Digoos insuffisants'}
                         </button>
                       </div>
                     )
@@ -571,6 +593,48 @@ export default function Rewards({ userId }: { userId?: string }) {
               )}
             </div>
           )}
+
+          {/* Digooland */}
+          <div>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1.1rem' }}>✨ Digooland</h3>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🎨 Personnalise ton Odigo</h4>
+              {themes.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+                  {themes.map(renderShopItem)}
+                </div>
+              ) : (
+                <p style={{ color: '#aaa' }}>Aucun thème disponible pour l'instant.</p>
+              )}
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🏷️ Titres</h4>
+              {titles.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+                  {titles.map(renderShopItem)}
+                </div>
+              ) : (
+                <p style={{ color: '#aaa' }}>Aucun titre disponible pour l'instant.</p>
+              )}
+            </div>
+
+            <div>
+              <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🎮 Divertissement</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+                {[{ icon: '⚔️', label: 'Jeu des allumettes' }, { icon: '📖', label: 'Histoire interactive' }].map(item => (
+                  <div key={item.label} style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>
+                    <span style={{ fontSize: '1.4rem' }}>{item.icon}</span>
+                    <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>{item.label}</div>
+                    <span style={{ display: 'inline-block', background: '#e0e0e0', color: '#888', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', alignSelf: 'flex-start' }}>
+                      Bientôt disponible
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -610,89 +674,103 @@ export default function Rewards({ userId }: { userId?: string }) {
       })()}
 
       {/* Onglet Progression */}
-      {activeTab === 'progression' && (
-        <div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+      {activeTab === 'progression' && (() => {
+        const weekRange = getWeekRange(currentWeek)
+        const getWeekColor = (weekKey: string, isFuture: boolean): string => {
+          if (isFuture) return '#f5f5f5'
+          if (weekKey === currentWeek) return '#e9c46a'
+          const found = progress?.active_weeks?.find(w => w.week === weekKey)
+          if (!found) return '#e0e0e0'
+          return found.digoos >= WEEK_VERY_ACTIVE_THRESHOLD ? '#2a9d8f' : '#a5d6a7'
+        }
+        return (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
 
-            {/* Digoos */}
-            <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1rem' }}>💰 Digoos</h3>
-              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#2a9d8f', marginBottom: '0.25rem' }}>
-                {progress?.digoos || 0}
+              {/* Digoos accumulés */}
+              <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+                <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1rem' }}>💰 Digoos</h3>
+                <div style={{ color: '#555', fontSize: '0.9rem' }}>
+                  Cette semaine : <strong style={{ color: isCurrentWeekActive ? '#2a9d8f' : '#e9c46a' }}>{progress?.digoos_this_week || 0}</strong> / {WEEK_THRESHOLD}
+                </div>
+                <div style={{ marginTop: '0.5rem', background: '#f0f0f0', borderRadius: '1rem', height: '8px', overflow: 'hidden' }}>
+                  <div style={{ width: `${weekProgress}%`, background: isCurrentWeekActive ? '#2a9d8f' : '#e9c46a', height: '100%', borderRadius: '1rem', transition: 'width 0.3s ease' }} />
+                </div>
+                {isCurrentWeekActive && <div style={{ color: '#2a9d8f', fontSize: '0.8rem', marginTop: '0.25rem' }}>✅ Semaine active !</div>}
               </div>
-              <div style={{ color: '#888', fontSize: '0.85rem' }}>Digoos accumulés</div>
-              <div style={{ marginTop: '1rem', color: '#555', fontSize: '0.9rem' }}>
-                Cette semaine : <strong style={{ color: isCurrentWeekActive ? '#2a9d8f' : '#e9c46a' }}>{progress?.digoos_this_week || 0}</strong> / {WEEK_THRESHOLD}
-              </div>
-              <div style={{ marginTop: '0.5rem', background: '#f0f0f0', borderRadius: '1rem', height: '8px', overflow: 'hidden' }}>
-                <div style={{ width: `${weekProgress}%`, background: isCurrentWeekActive ? '#2a9d8f' : '#e9c46a', height: '100%', borderRadius: '1rem', transition: 'width 0.3s ease' }} />
-              </div>
-              {isCurrentWeekActive && <div style={{ color: '#2a9d8f', fontSize: '0.8rem', marginTop: '0.25rem' }}>✅ Semaine active !</div>}
-            </div>
 
-            {/* Streak semaines */}
-            <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1rem' }}>🔥 Série de semaines</h3>
-              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#e9c46a', marginBottom: '0.25rem' }}>
-                {progress?.week_streak || 0}
-              </div>
-              <div style={{ color: '#888', fontSize: '0.85rem' }}>semaines consécutives actives</div>
-              <div style={{ marginTop: '1rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                {getLast10Weeks().map(week => {
-                  const isActive = progress?.active_weeks?.includes(week)
-                  const isCurrent = week === currentWeek
-                  return (
+              {/* Streak semaines */}
+              <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+                <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1rem' }}>🔥 Série de semaines</h3>
+                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#e9c46a', marginBottom: '0.25rem' }}>
+                  {progress?.week_streak || 0}
+                </div>
+                <div style={{ color: '#888', fontSize: '0.85rem' }}>semaines consécutives actives</div>
+                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                  {weekRange.map(({ key, isFuture }) => (
                     <div
-                      key={week}
-                      title={getWeekLabel(week)}
+                      key={key}
+                      title={getWeekLabel(key)}
                       style={{
-                        width: '28px', height: '28px', borderRadius: '0.3rem',
-                        background: isCurrent ? (isCurrentWeekActive ? '#2a9d8f' : '#e9c46a') : isActive ? '#2a9d8f' : '#e0e0e0',
+                        width: '32px', height: '32px', borderRadius: '0.3rem',
+                        background: getWeekColor(key, isFuture),
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '0.65rem', color: 'white', fontWeight: 'bold', cursor: 'default',
+                        fontSize: '0.65rem', color: isFuture ? '#bbb' : 'white', fontWeight: 'bold', cursor: 'default',
                       }}
                     >
-                      {week.split('-S')[1]}
+                      {key.split('-S')[1]}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '0.5rem' }}>
+                  🟠 en cours · 🟢 active · 🟩 très active · ⬜ inactive · 🔲 à venir
+                </div>
+              </div>
+
+            </div>
+
+            {/* Badges */}
+            <div style={{ marginTop: '1.5rem', background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+              <h3 style={{ color: '#2a9d8f', marginBottom: '0.5rem', fontSize: '1rem' }}>
+                🏅 Badges ({progress?.claimed_badges?.length || 0}/{ALL_BADGES.length})
+              </h3>
+              <div>
+                {ALL_BADGES.map(badge => {
+                  const conditionMet = progress ? badge.condition(progress) : false
+                  const claimed = !!progress?.claimed_badges?.includes(badge.id)
+                  const obtainable = conditionMet && !claimed
+                  const statusLabel = claimed ? 'Terminé ✓' : obtainable ? 'Obtenu' : 'En cours'
+                  const statusBg = claimed ? '#f0faf8' : obtainable ? '#e9c46a' : '#f5f5f5'
+                  const statusColor = claimed ? '#2a9d8f' : obtainable ? 'white' : '#888'
+                  return (
+                    <div key={badge.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', borderBottom: '1px solid #f5f5f5' }}>
+                      <span style={{ fontSize: '1.5rem' }}>{badge.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#333' }}>{badge.label}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#888' }}>{badge.description}</div>
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#2a9d8f' }}>{progress ? badge.progressLabel(progress) : ''}</div>
+                      <span
+                        onClick={() => obtainable && handleClaimBadge(badge)}
+                        onMouseEnter={e => { if (obtainable) e.currentTarget.style.background = '#dfb15a' }}
+                        onMouseLeave={e => { if (obtainable) e.currentTarget.style.background = '#e9c46a' }}
+                        style={{
+                          padding: '0.35rem 0.85rem', borderRadius: '1rem', fontSize: '0.8rem', fontWeight: 'bold',
+                          background: statusBg, color: statusColor,
+                          cursor: obtainable ? 'pointer' : 'default',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {statusLabel}
+                      </span>
                     </div>
                   )
                 })}
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '0.5rem' }}>
-                🟢 active · 🟡 en cours · ⬜ inactive
-              </div>
-            </div>
-
-          </div>
-
-          {/* Badges compacts */}
-          <div style={{ marginTop: '1.5rem' }}>
-            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1rem' }}>
-              🏅 Badges ({progress?.badges?.length || 0}/{ALL_BADGES.length})
-            </h3>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-              {ALL_BADGES.map(badge => {
-                const unlocked = progress?.badges?.includes(badge.id)
-                return (
-                  <div
-                    key={badge.id}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                      padding: '0.4rem 0.75rem', borderRadius: '2rem',
-                      background: unlocked ? '#f0faf8' : '#f5f5f5',
-                      border: `1px solid ${unlocked ? '#2a9d8f' : '#eee'}`,
-                      opacity: unlocked ? 1 : 0.45,
-                    }}
-                  >
-                    <span style={{ fontSize: '1.1rem', filter: unlocked ? 'none' : 'grayscale(1)' }}>{badge.icon}</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '0.8rem', color: unlocked ? '#2a9d8f' : '#aaa' }}>{badge.label}</span>
-                    {unlocked && <span style={{ fontSize: '0.75rem', color: '#888' }}>{badge.description}</span>}
-                  </div>
-                )
-              })}
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

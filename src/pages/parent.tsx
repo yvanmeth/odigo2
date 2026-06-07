@@ -7,6 +7,8 @@ interface IrlReward {
   name: string
   cost: number
   description?: string | null
+  stock: number
+  valid_until?: string | null
   created_at: string
 }
 
@@ -52,6 +54,8 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
   const [irlName, setIrlName] = useState('')
   const [irlCost, setIrlCost] = useState('')
   const [irlDescription, setIrlDescription] = useState('')
+  const [irlStock, setIrlStock] = useState('1')
+  const [irlValidUntil, setIrlValidUntil] = useState('')
 
   // Récompenses en attente (coupons des enfants)
   const [pendingPurchases, setPendingPurchases] = useState<PendingPurchase[]>([])
@@ -151,6 +155,8 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     setIrlName(r.name)
     setIrlCost(String(r.cost))
     setIrlDescription(r.description || '')
+    setIrlStock(String(r.stock ?? 1))
+    setIrlValidUntil(r.valid_until || '')
     setIrlEditingId(r.id)
     setShowIrlForm(true)
   }
@@ -159,13 +165,19 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     if (!irlName || !irlCost) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const payload = { name: irlName, cost: parseInt(irlCost), description: irlDescription || null }
+    const payload = {
+      name: irlName,
+      cost: parseInt(irlCost),
+      description: irlDescription || null,
+      stock: parseInt(irlStock) || 1,
+      valid_until: irlValidUntil || null,
+    }
     if (irlEditingId) {
       await supabase.from('irl_rewards').update(payload).eq('id', irlEditingId)
     } else {
       await supabase.from('irl_rewards').insert({ ...payload, parent_id: user.id })
     }
-    setIrlName(''); setIrlCost(''); setIrlDescription(''); setIrlEditingId(null); setShowIrlForm(false)
+    setIrlName(''); setIrlCost(''); setIrlDescription(''); setIrlStock('1'); setIrlValidUntil(''); setIrlEditingId(null); setShowIrlForm(false)
     fetchIrlRewards()
   }
 
@@ -331,7 +343,14 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ color: '#2a9d8f', margin: 0 }}>🎁 Récompenses IRL</h3>
           <button
-            onClick={() => { if (showIrlForm) { setShowIrlForm(false); setIrlEditingId(null) } else { setShowIrlForm(true) } }}
+            onClick={() => {
+              if (showIrlForm) {
+                setShowIrlForm(false); setIrlEditingId(null)
+                setIrlName(''); setIrlCost(''); setIrlDescription(''); setIrlStock('1'); setIrlValidUntil('')
+              } else {
+                setShowIrlForm(true)
+              }
+            }}
             style={{ padding: '0.4rem 0.9rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
           >
             {showIrlForm ? '✕ Annuler' : '+ Ajouter'}
@@ -355,6 +374,22 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
               onChange={e => setIrlDescription(e.target.value)}
               style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem', resize: 'vertical', height: '70px' }}
             />
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.25rem' }}>Quantité disponible</label>
+              <input
+                type="number" min={1} value={irlStock}
+                onChange={e => setIrlStock(e.target.value)}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.25rem' }}>Valable jusqu'au</label>
+              <input
+                type="date" value={irlValidUntil}
+                onChange={e => setIrlValidUntil(e.target.value)}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
+              />
+            </div>
             <button
               onClick={handleSaveIrlReward}
               style={{ padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
