@@ -15,6 +15,7 @@ import Companion from '../components/Companion'
 import Flashcards from './flashcards'
 import Conjugaison from './conjugaison'
 import Vocabulaire from './vocabulaire'
+import Allumettes from './Allumettes'
 
 interface Props {
   session: Session
@@ -87,6 +88,13 @@ const exerciseCards = [
     icon: '📝',
     description: 'Complète les phrases à trou avec le bon mot.',
     color: '#4CAF50',
+  },
+  {
+    id: 'allumettes',
+    label: 'Jeu des allumettes',
+    icon: '⚔️',
+    description: 'Retire des allumettes et force Odigo à prendre la dernière !',
+    color: '#e76f51',
   },
 ]
 
@@ -446,6 +454,18 @@ export default function Dashboard({ session }: Props) {
                 ← Retour aux exercices
               </button>
               <Vocabulaire />
+            </div>
+          )}
+
+          {activePage === 'exercises' && activeExercise === 'allumettes' && (
+            <div>
+              <button
+                onClick={() => setActiveExercise(null)}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                ← Retour aux exercices
+              </button>
+              <Allumettes />
             </div>
           )}
 
