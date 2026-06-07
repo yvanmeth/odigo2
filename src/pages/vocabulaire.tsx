@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
+import { speak } from '../lib/speech'
 
 interface WordList {
   id: string
@@ -17,13 +18,6 @@ type GameState = 'select' | 'loading' | 'playing' | 'result'
 const NB_QUESTIONS = [5, 8, 10, 15]
 
 const normaliser = (s: string) => s.trim().toLowerCase()
-
-const dicter = (mot: string) => {
-  speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(mot)
-  u.lang = 'fr-FR'
-  speechSynthesis.speak(u)
-}
 
 const renderPhrase = (phrase: string, mot?: string, correct?: boolean) => {
   const parts = phrase.split('___')
@@ -354,7 +348,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
       {q && (
         <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
           <button
-            onClick={() => dicter(q.mot)}
+            onClick={() => speak(q.mot, 'fr-FR')}
             style={{ padding: '0.3rem 0.75rem', background: '#e0f0ee', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
           >
             🔊 Écouter le mot

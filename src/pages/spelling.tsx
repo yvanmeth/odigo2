@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
+import { speak as speakWithLang } from '../lib/speech'
 
 interface WordItem {
   id: string
@@ -150,9 +151,7 @@ export default function Spelling() {
   }
 
   const speak = (text: string) => {
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = getDictationLang()
-    speechSynthesis.speak(utterance)
+    speakWithLang(text, getDictationLang())
     setUsedListen(true)
   }
 

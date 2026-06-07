@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
+import { speak } from '../lib/speech'
 
 interface WordItem {
   id: string
@@ -60,13 +61,6 @@ const playFailSound = () => {
       o.start(t); o.stop(t + 0.22)
     })
   } catch { /* silencieux */ }
-}
-
-const speak = (text: string, lang: string) => {
-  speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = lang
-  speechSynthesis.speak(utterance)
 }
 
 export default function Flashcards() {
