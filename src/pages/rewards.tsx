@@ -162,7 +162,7 @@ const formatDate = (iso: string) => {
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
 }
 
-export default function Rewards({ userId }: { userId?: string }) {
+export default function Rewards({ userId, onNavigate }: { userId?: string; onNavigate?: (page: string, exercise?: string) => void }) {
   const [activeTab, setActiveTab] = useState<RewardTab>('rewards')
   const [progress, setProgress] = useState<Progress | null>(null)
   const [loading, setLoading] = useState(true)
@@ -623,15 +623,23 @@ export default function Rewards({ userId }: { userId?: string }) {
             <div>
               <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🎮 Divertissement</h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-                {[{ icon: '⚔️', label: 'Jeu des allumettes' }, { icon: '📖', label: 'Histoire interactive' }].map(item => (
-                  <div key={item.label} style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>
-                    <span style={{ fontSize: '1.4rem' }}>{item.icon}</span>
-                    <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>{item.label}</div>
-                    <span style={{ display: 'inline-block', background: '#e0e0e0', color: '#888', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', alignSelf: 'flex-start' }}>
-                      Bientôt disponible
-                    </span>
-                  </div>
-                ))}
+                <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '1.4rem' }}>⚔️</span>
+                  <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Jeu des allumettes</div>
+                  <button
+                    onClick={() => onNavigate?.('exercises', 'allumettes')}
+                    style={{ alignSelf: 'flex-start', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '1rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    Jouer — 1 Digoo
+                  </button>
+                </div>
+                <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>
+                  <span style={{ fontSize: '1.4rem' }}>📖</span>
+                  <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Histoire interactive</div>
+                  <span style={{ display: 'inline-block', background: '#e0e0e0', color: '#888', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', alignSelf: 'flex-start' }}>
+                    Bientôt disponible
+                  </span>
+                </div>
               </div>
             </div>
           </div>

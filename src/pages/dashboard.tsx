@@ -469,7 +469,15 @@ export default function Dashboard({ session }: Props) {
             </div>
           )}
 
-          {activePage === 'rewards' && <Rewards userId={effectiveUserId} />}
+          {activePage === 'rewards' && (
+            <Rewards
+              userId={effectiveUserId}
+              onNavigate={(page, exercise) => {
+                setActivePage(page)
+                if (exercise) setActiveExercise(exercise)
+              }}
+            />
+          )}
           {activePage === 'settings' && <Settings />}
           {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'rewards' && activePage !== 'settings' && activePage !== 'parent' && (
             <p style={{ color: '#aaa' }}>Contenu à venir...</p>
