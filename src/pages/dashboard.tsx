@@ -89,13 +89,6 @@ const exerciseCards = [
     description: 'Complète les phrases à trou avec le bon mot.',
     color: '#4CAF50',
   },
-  {
-    id: 'allumettes',
-    label: 'Jeu des allumettes',
-    icon: '⚔️',
-    description: 'Retire des allumettes et force Odigo à prendre la dernière !',
-    color: '#e76f51',
-  },
 ]
 
 export default function Dashboard({ session }: Props) {
