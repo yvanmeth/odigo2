@@ -1,11 +1,25 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import { StarterKit } from '@tiptap/starter-kit'
+import { Highlight } from '@tiptap/extension-highlight'
+import { TextStyle } from '@tiptap/extension-text-style'
 import { supabase } from '../lib/supabase'
-import type { Subject } from '../type/index'
+import type { Evaluation, Revision } from '../type/index'
+
+interface SubjectItem {
+  id: number | string
+  name: string
+  emoji: string
+  color: string
+  isCustom: boolean
+  hidden: boolean
+  position: number
+}
 
 interface Note {
   id: string
   user_id: string
-  subject_id: number
+  subject_id: number | string
   title: string
   content: string
   archived: boolean
@@ -18,7 +32,7 @@ interface Note {
 interface Postit {
   id: string
   user_id: string
-  subject_id: number
+  subject_id: number | string
   content: string
   color: 'yellow' | 'green' | 'pink' | 'blue'
   size: 'small' | 'square' | 'large'
@@ -30,12 +44,42 @@ interface Postit {
   updated_at: string
 }
 
-type SubjectTab = 'notes' | 'postits'
-
-const SUBJECT_COLORS: Record<string, string> = {
-  'Français': '#4CAF50', 'Maths': '#2196F3', 'Allemand': '#FF9800', 'Anglais': '#9C27B0',
-  'Grec': '#00BCD4', 'Arabe': '#F44336', 'Géo': '#795548', 'Histoire': '#607D8B',
+interface WordListItem {
+  id: string
+  user_id: string
+  subject_id: number | string
+  name: string
+  list_type: string
+  created_at: string
 }
+
+interface WordEntry {
+  id: string
+  list_id: string
+  source_word: string
+  target_word: string | null
+  context?: string | null
+  created_at: string
+}
+
+type SubjectTab = 'evals' | 'notes' | 'postits' | 'wordlists'
+
+const COLOR_PALETTE = [
+  '#2a9d8f', '#e9c46a', '#e76f51', '#e63946',
+  '#4CAF50', '#5c6bc0', '#e07a9b', '#795548',
+  '#00BCD4', '#9C27B0',
+]
+
+const FIXED_SUBJECTS = [
+  { id: 1, name: 'Français',  emoji: '📖', color: '#4CAF50' },
+  { id: 2, name: 'Maths',     emoji: '🔢', color: '#2196F3' },
+  { id: 3, name: 'Allemand',  emoji: '🇩🇪', color: '#FF9800' },
+  { id: 4, name: 'Anglais',   emoji: '🇬🇧', color: '#9C27B0' },
+  { id: 5, name: 'Grec',      emoji: '🏛️', color: '#00BCD4' },
+  { id: 6, name: 'Arabe',     emoji: '🌙', color: '#F44336' },
+  { id: 7, name: 'Géo',       emoji: '🌍', color: '#795548' },
+  { id: 8, name: 'Histoire',  emoji: '⏳', color: '#607D8B' },
+]
 
 const POSTIT_COLORS = { yellow: '#fff9c4', green: '#c8e6c9', pink: '#f8bbd0', blue: '#bbdefb' }
 
@@ -47,28 +91,14 @@ const POSTIT_SIZES = {
 
 const POSTIT_ICONS = ['❤️', '✏️', '⚠️', '⭐', '📌', '✅', '💡', '🔍', '❓', '🎯']
 
-function getSubjectEmoji(name: string): string {
-  const map: Record<string, string> = {
-    'Français': '📖', 'Maths': '🔢', 'Allemand': '🇩🇪', 'Anglais': '🇬🇧',
-    'Grec': '🏛️', 'Arabe': '🌙', 'Géo': '🌍', 'Histoire': '⏳',
-  }
-  return map[name] || '📚'
+const WORD_LIST_TYPES: Record<string, string> = {
+  vocabulary: 'Vocabulaire',
+  conjugation: 'Conjugaison',
+  dictation: 'Dictée',
 }
 
-function renderMarkdown(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/==(.+?)==/g, '<mark style="background:#fff176">$1</mark>')
-    .replace(/^- (.+)$/gm, '<li style="margin-left:1.2rem;list-style:disc">$1</li>')
-    .replace(/\n/g, '<br>')
-}
-
-function getPreview(content: string): string {
-  const plain = content
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/==(.*?)==/g, '$1')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\n/g, ' ')
+function getPreview(html: string): string {
+  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   return plain.length > 60 ? plain.substring(0, 60) + '…' : plain
 }
 
@@ -76,21 +106,30 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-CH')
 }
 
+function fmtDateDMY(d: string): string {
+  if (!d) return ''
+  const [y, m, day] = d.split('-')
+  return `${day}.${m}.${y}`
+}
+
 export default function Subjects({ userId }: { userId?: string }) {
-  const [subjects, setSubjects] = useState<Subject[]>([])
+  const [subjects, setSubjects] = useState<SubjectItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null)
-  const [subjectTab, setSubjectTab] = useState<SubjectTab>('notes')
+  const [selectedSubject, setSelectedSubject] = useState<SubjectItem | null>(null)
+  const [subjectTab, setSubjectTab] = useState<SubjectTab>('evals')
+  const [manageMode, setManageMode] = useState(false)
+  const [renamingId, setRenamingId] = useState<string | number | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [colorPickerId, setColorPickerId] = useState<string | number | null>(null)
 
   // Notes
   const [notes, setNotes] = useState<Note[]>([])
   const [editingNote, setEditingNote] = useState<Note | null>(null)
-  const [showNotePreview, setShowNotePreview] = useState(false)
   const [showArchives, setShowArchives] = useState(false)
   const [archivingNoteId, setArchivingNoteId] = useState<string | null>(null)
   const [archiveFolderInput, setArchiveFolderInput] = useState('')
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const editingNoteRef = useRef<Note | null>(null)
 
   // Postits
   const [postits, setPostits] = useState<Postit[]>([])
@@ -104,11 +143,47 @@ export default function Subjects({ userId }: { userId?: string }) {
   const [showPostitArchives, setShowPostitArchives] = useState(false)
   const [hoveredPostitId, setHoveredPostitId] = useState<string | null>(null)
 
+  // Évaluations
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([])
+  const [revisions, setRevisions] = useState<Revision[]>([])
+
+  // Listes de mots
+  const [wordLists, setWordLists] = useState<WordListItem[]>([])
+  const [wordCounts, setWordCounts] = useState<Record<string, number>>({})
+  const [showNewListForm, setShowNewListForm] = useState(false)
+  const [newListName, setNewListName] = useState('')
+  const [newListType, setNewListType] = useState('vocabulary')
+  const [renamingListId, setRenamingListId] = useState<string | null>(null)
+  const [renameListValue, setRenameListValue] = useState('')
+  const [editingList, setEditingList] = useState<WordListItem | null>(null)
+  const [listItems, setListItems] = useState<WordEntry[]>([])
+  const [newSource, setNewSource] = useState('')
+  const [newTarget, setNewTarget] = useState('')
+  const [editingItem, setEditingItem] = useState<WordEntry | null>(null)
+  const [editSource, setEditSource] = useState('')
+  const [editTarget, setEditTarget] = useState('')
+
+  const editor = useEditor({
+    extensions: [StarterKit, Highlight.configure({ multicolor: true }), TextStyle],
+    content: '',
+    onUpdate: ({ editor }) => debouncedSaveContent(editor.getHTML()),
+  })
+
   useEffect(() => { fetchSubjects() }, [])
 
   useEffect(() => {
-    if (selectedSubject) { fetchNotes(); fetchPostits() }
+    if (selectedSubject) {
+      fetchNotes(); fetchPostits(); fetchEvaluations(); fetchWordLists()
+      setEditingList(null)
+    }
   }, [selectedSubject])
+
+  useEffect(() => { editingNoteRef.current = editingNote }, [editingNote])
+
+  useEffect(() => {
+    if (!editor) return
+    editor.commands.setContent(editingNote?.content || '', { emitUpdate: false })
+  }, [editor, editingNote?.id])
 
   const getTargetId = async (): Promise<string | undefined> => {
     if (userId) return userId
@@ -116,11 +191,121 @@ export default function Subjects({ userId }: { userId?: string }) {
     return user?.id
   }
 
+  // ==================== MATIÈRES ====================
+
   const fetchSubjects = async () => {
-    const { data, error } = await supabase.from('subjects').select('*').order('name')
-    if (!error && data) setSubjects(data)
+    setLoading(true)
+    const tid = await getTargetId()
+    if (!tid) { setLoading(false); return }
+
+    const { data } = await supabase.from('user_subjects').select('*').eq('user_id', tid)
+    let entries = data || []
+
+    if (entries.length === 0) {
+      const inserts = [1, 2, 3, 4].map(() => ({
+        user_id: tid, subject_id: null,
+        custom_name: 'Matière personnalisée', custom_color: '#9e9e9e', custom_emoji: '📚',
+        hidden: false,
+      }))
+      const { data: inserted } = await supabase.from('user_subjects').insert(inserts).select()
+      entries = inserted || []
+    }
+
+    const list: SubjectItem[] = []
+    FIXED_SUBJECTS.forEach((fs, idx) => {
+      const entry = entries.find(e => e.subject_id === fs.id)
+      list.push({
+        id: fs.id, name: fs.name, emoji: fs.emoji, color: fs.color,
+        isCustom: false, hidden: entry?.hidden || false, position: idx,
+      })
+    })
+    entries.filter(e => e.subject_id === null && e.custom_name).forEach((e, idx) => {
+      list.push({
+        id: e.id, name: e.custom_name, emoji: e.custom_emoji || '📚',
+        color: e.custom_color || '#9e9e9e', isCustom: true,
+        hidden: e.hidden || false, position: FIXED_SUBJECTS.length + idx,
+      })
+    })
+
+    setSubjects(list)
     setLoading(false)
   }
+
+  const handleAddSubject = async () => {
+    const tid = await getTargetId()
+    if (!tid) return
+    const { data } = await supabase.from('user_subjects').insert({
+      user_id: tid, subject_id: null, custom_name: 'Nouvelle matière',
+      custom_color: COLOR_PALETTE[0], custom_emoji: '📚', hidden: false,
+    }).select().single()
+    if (data) {
+      const item: SubjectItem = {
+        id: data.id, name: data.custom_name, emoji: data.custom_emoji,
+        color: data.custom_color, isCustom: true, hidden: false, position: subjects.length,
+      }
+      setSubjects(prev => [...prev, item])
+      setManageMode(true)
+      setRenamingId(item.id)
+      setRenameValue(item.name)
+    }
+  }
+
+  const handleSaveRename = async (item: SubjectItem) => {
+    const name = renameValue.trim()
+    setRenamingId(null)
+    if (!name || name === item.name) return
+    await supabase.from('user_subjects').update({ custom_name: name }).eq('id', item.id)
+    setSubjects(prev => prev.map(s => s.id === item.id ? { ...s, name } : s))
+  }
+
+  const handleSetColor = async (item: SubjectItem, color: string) => {
+    await supabase.from('user_subjects').update({ custom_color: color }).eq('id', item.id)
+    setSubjects(prev => prev.map(s => s.id === item.id ? { ...s, color } : s))
+    setColorPickerId(null)
+  }
+
+  const handleToggleHidden = async (item: SubjectItem) => {
+    const hidden = !item.hidden
+    if (item.isCustom) {
+      await supabase.from('user_subjects').update({ hidden }).eq('id', item.id)
+    } else {
+      const tid = await getTargetId()
+      if (!tid) return
+      const { data: existing } = await supabase.from('user_subjects').select('id')
+        .eq('user_id', tid).eq('subject_id', item.id).maybeSingle()
+      if (existing) {
+        await supabase.from('user_subjects').update({ hidden }).eq('id', existing.id)
+      } else {
+        await supabase.from('user_subjects').insert({ user_id: tid, subject_id: item.id, hidden })
+      }
+    }
+    setSubjects(prev => prev.map(s => s.id === item.id ? { ...s, hidden } : s))
+  }
+
+  const handleDeleteSubject = async (item: SubjectItem) => {
+    if (!item.isCustom) return
+    await supabase.from('user_subjects').delete().eq('id', item.id)
+    setSubjects(prev => prev.filter(s => s.id !== item.id))
+    if (selectedSubject?.id === item.id) setSelectedSubject(null)
+  }
+
+  // ==================== ÉVALUATIONS ====================
+
+  const fetchEvaluations = async () => {
+    const tid = await getTargetId()
+    if (!tid || !selectedSubject) return
+    const today = new Date().toISOString().split('T')[0]
+    const [evalsRes, revsRes] = await Promise.all([
+      supabase.from('evaluations').select('*')
+        .eq('user_id', tid).eq('subject_id', selectedSubject.id)
+        .gte('evaluation_date', today).order('evaluation_date'),
+      supabase.from('revisions').select('*').eq('user_id', tid),
+    ])
+    if (evalsRes.data) setEvaluations(evalsRes.data)
+    if (revsRes.data) setRevisions(revsRes.data)
+  }
+
+  // ==================== NOTES ====================
 
   const fetchNotes = async () => {
     const tid = await getTargetId()
@@ -131,23 +316,6 @@ export default function Subjects({ userId }: { userId?: string }) {
       .order('pinned', { ascending: false }).order('updated_at', { ascending: false })
     if (data) setNotes(data)
   }
-
-  const fetchPostits = async () => {
-    const tid = await getTargetId()
-    if (!tid || !selectedSubject) return
-    const [activeRes, archiveRes] = await Promise.all([
-      supabase.from('postits').select('*')
-        .eq('user_id', tid).eq('subject_id', selectedSubject.id).eq('archived', false)
-        .order('pinned', { ascending: false }).order('position'),
-      supabase.from('postits').select('*')
-        .eq('user_id', tid).eq('subject_id', selectedSubject.id).eq('archived', true)
-        .order('updated_at', { ascending: false }),
-    ])
-    if (activeRes.data) setPostits(activeRes.data)
-    if (archiveRes.data) setArchivedPostits(archiveRes.data)
-  }
-
-  // ---- Note actions ----
 
   const handleNewNote = async () => {
     const tid = await getTargetId()
@@ -165,39 +333,30 @@ export default function Subjects({ userId }: { userId?: string }) {
     }).eq('id', note.id)
   }, [])
 
-  const handleNoteChange = (field: 'title' | 'content', value: string) => {
+  const handleNoteTitleChange = (title: string) => {
     if (!editingNote) return
-    const updated = { ...editingNote, [field]: value }
+    const updated = { ...editingNote, title }
     setEditingNote(updated)
     setNotes(prev => prev.map(n => n.id === updated.id ? updated : n))
     if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
     saveDebounceRef.current = setTimeout(() => handleSaveNote(updated), 2000)
   }
 
+  const debouncedSaveContent = useCallback((html: string) => {
+    const current = editingNoteRef.current
+    if (!current) return
+    const updated = { ...current, content: html }
+    editingNoteRef.current = updated
+    setEditingNote(updated)
+    setNotes(prev => prev.map(n => n.id === updated.id ? updated : n))
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
+    saveDebounceRef.current = setTimeout(() => handleSaveNote(updated), 2000)
+  }, [handleSaveNote])
+
   const handleEditorBack = () => {
     if (saveDebounceRef.current) { clearTimeout(saveDebounceRef.current); saveDebounceRef.current = null }
     if (editingNote) handleSaveNote(editingNote)
     setEditingNote(null)
-    setShowNotePreview(false)
-  }
-
-  const applyMarkdownWrap = (before: string, after: string) => {
-    const ta = textareaRef.current
-    if (!ta || !editingNote) return
-    const start = ta.selectionStart
-    const end = ta.selectionEnd
-    const selected = editingNote.content.substring(start, end)
-    const newContent = editingNote.content.substring(0, start) + before + selected + after + editingNote.content.substring(end)
-    handleNoteChange('content', newContent)
-  }
-
-  const applyBullet = () => {
-    const ta = textareaRef.current
-    if (!ta || !editingNote) return
-    const start = ta.selectionStart
-    const lineStart = editingNote.content.lastIndexOf('\n', start - 1) + 1
-    const newContent = editingNote.content.substring(0, lineStart) + '- ' + editingNote.content.substring(lineStart)
-    handleNoteChange('content', newContent)
   }
 
   const handleTogglePinNote = async (note: Note) => {
@@ -225,7 +384,22 @@ export default function Subjects({ userId }: { userId?: string }) {
     setNotes(prev => prev.filter(n => n.id !== id))
   }
 
-  // ---- Postit actions ----
+  // ==================== POSTITS ====================
+
+  const fetchPostits = async () => {
+    const tid = await getTargetId()
+    if (!tid || !selectedSubject) return
+    const [activeRes, archiveRes] = await Promise.all([
+      supabase.from('postits').select('*')
+        .eq('user_id', tid).eq('subject_id', selectedSubject.id).eq('archived', false)
+        .order('pinned', { ascending: false }).order('position'),
+      supabase.from('postits').select('*')
+        .eq('user_id', tid).eq('subject_id', selectedSubject.id).eq('archived', true)
+        .order('updated_at', { ascending: false }),
+    ])
+    if (activeRes.data) setPostits(activeRes.data)
+    if (archiveRes.data) setArchivedPostits(archiveRes.data)
+  }
 
   const resetPostitForm = () => {
     setPostitContent(''); setPostitColor('yellow'); setPostitSize('square')
@@ -277,14 +451,106 @@ export default function Subjects({ userId }: { userId?: string }) {
     fetchPostits()
   }
 
-  // ---- Derived ----
+  // ==================== LISTES DE MOTS ====================
+
+  const fetchWordLists = async () => {
+    const tid = await getTargetId()
+    if (!tid || !selectedSubject) return
+    const { data } = await supabase.from('word_lists').select('*')
+      .eq('user_id', tid).eq('subject_id', selectedSubject.id).order('name')
+    if (data) {
+      setWordLists(data)
+      const counts: Record<string, number> = {}
+      await Promise.all(data.map(async (l: WordListItem) => {
+        const { count } = await supabase.from('word_items').select('id', { count: 'exact', head: true }).eq('list_id', l.id)
+        counts[l.id] = count || 0
+      }))
+      setWordCounts(counts)
+    }
+  }
+
+  const handleCreateList = async () => {
+    const tid = await getTargetId()
+    if (!tid || !selectedSubject || !newListName.trim()) return
+    const { data } = await supabase.from('word_lists').insert({
+      user_id: tid, subject_id: selectedSubject.id, name: newListName.trim(), list_type: newListType,
+    }).select().single()
+    if (data) {
+      setWordLists(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+      setWordCounts(prev => ({ ...prev, [data.id]: 0 }))
+    }
+    setNewListName(''); setNewListType('vocabulary'); setShowNewListForm(false)
+  }
+
+  const handleSaveListRename = async (list: WordListItem) => {
+    const name = renameListValue.trim()
+    setRenamingListId(null)
+    if (!name || name === list.name) return
+    await supabase.from('word_lists').update({ name }).eq('id', list.id)
+    setWordLists(prev => prev.map(l => l.id === list.id ? { ...l, name } : l))
+    if (editingList?.id === list.id) setEditingList({ ...editingList, name })
+  }
+
+  const handleDeleteList = async (id: string) => {
+    await supabase.from('word_items').delete().eq('list_id', id)
+    await supabase.from('word_lists').delete().eq('id', id)
+    if (editingList?.id === id) setEditingList(null)
+    setWordLists(prev => prev.filter(l => l.id !== id))
+  }
+
+  const fetchListItems = async (listId: string) => {
+    const { data } = await supabase.from('word_items').select('*').eq('list_id', listId).order('created_at')
+    if (data) setListItems(data)
+  }
+
+  const handleSelectList = (list: WordListItem) => {
+    setEditingList(list)
+    setEditingItem(null)
+    setNewSource(''); setNewTarget('')
+    fetchListItems(list.id)
+  }
+
+  const handleAddWord = async () => {
+    if (!editingList || !newSource.trim()) return
+    await supabase.from('word_items').insert({
+      list_id: editingList.id, source_word: newSource.trim(), target_word: newTarget.trim() || null,
+    })
+    setNewSource(''); setNewTarget('')
+    fetchListItems(editingList.id)
+    setWordCounts(prev => ({ ...prev, [editingList.id]: (prev[editingList.id] || 0) + 1 }))
+  }
+
+  const startEditWord = (item: WordEntry) => {
+    setEditingItem(item); setEditSource(item.source_word); setEditTarget(item.target_word || '')
+  }
+
+  const handleSaveWord = async () => {
+    if (!editingItem) return
+    await supabase.from('word_items').update({
+      source_word: editSource.trim(), target_word: editTarget.trim() || null,
+    }).eq('id', editingItem.id)
+    setEditingItem(null)
+    if (editingList) fetchListItems(editingList.id)
+  }
+
+  const handleDeleteWord = async (id: string) => {
+    await supabase.from('word_items').delete().eq('id', id)
+    if (editingList) {
+      fetchListItems(editingList.id)
+      setWordCounts(prev => ({ ...prev, [editingList.id]: Math.max(0, (prev[editingList.id] || 1) - 1) }))
+    }
+  }
+
+  // ==================== DÉRIVÉS / STYLES ====================
 
   const pinnedNotes = notes.filter(n => n.pinned && !n.archived)
   const activeNotes = notes.filter(n => !n.pinned && !n.archived)
   const archivedNotes = notes.filter(n => n.archived)
   const archiveFolders = [...new Set(archivedNotes.map(n => n.archive_folder).filter(Boolean))] as string[]
 
-  const subjectColor = selectedSubject ? (SUBJECT_COLORS[selectedSubject.name] || '#2a9d8f') : '#2a9d8f'
+  const subjectColor = selectedSubject?.color || '#2a9d8f'
+  const visibleSubjects = subjects.filter(s => !s.hidden)
+  const hiddenSubjects = subjects.filter(s => s.hidden)
 
   const tabStyle = (tab: SubjectTab): React.CSSProperties => ({
     padding: '0.6rem 1.2rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
@@ -293,40 +559,143 @@ export default function Subjects({ userId }: { userId?: string }) {
     fontWeight: subjectTab === tab ? 'bold' : 'normal', fontSize: '0.9rem',
   })
 
+  const toolBtnStyle = (active: boolean): React.CSSProperties => ({
+    padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.4rem', cursor: 'pointer',
+    background: active ? '#2a9d8f' : '#e0f0ee', color: active ? 'white' : '#2a9d8f',
+    fontSize: '0.85rem', fontWeight: 'bold',
+  })
+
   const actionBtn: React.CSSProperties = {
     background: '#f0f0f0', border: 'none', borderRadius: '0.3rem',
     padding: '0.25rem 0.45rem', cursor: 'pointer', fontSize: '0.85rem',
   }
 
+  const actionBtnStyle: React.CSSProperties = {
+    background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.4rem',
+    padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.85rem',
+  }
+
+  const cardStyle: React.CSSProperties = {
+    background: 'white', borderRadius: '0.75rem', padding: '1rem 1.25rem',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '0.75rem',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd',
+    fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '0.75rem',
+  }
+
+  const subjectCardBase: React.CSSProperties = {
+    background: 'white', borderRadius: '1rem', padding: '1.5rem 1rem',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.06)', textAlign: 'center',
+    cursor: 'pointer', transition: 'transform 0.15s ease',
+  }
+
   if (loading) return <p style={{ color: '#888' }}>Chargement...</p>
 
-  // ===================== GRILLE MATIÈRES =====================
+  // ===================== VUE PRINCIPALE =====================
   if (!selectedSubject) {
     return (
       <div>
-        {subjects.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#aaa', padding: '2rem' }}>
-            Aucune matière trouvée. Les matières seront ajoutées par l'administrateur.
-          </div>
-        ) : (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h2 style={{ margin: 0, color: '#2a9d8f' }}>Matières</h2>
+          <button
+            onClick={() => { setManageMode(!manageMode); setRenamingId(null); setColorPickerId(null) }}
+            style={{
+              padding: '0.5rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
+              fontSize: '0.9rem', fontWeight: 'bold',
+              background: manageMode ? '#2a9d8f' : '#e0f0ee',
+              color: manageMode ? 'white' : '#2a9d8f',
+            }}
+          >
+            {manageMode ? '✓ Terminer' : '⚙️ Gérer'}
+          </button>
+        </div>
+
+        {!manageMode ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-            {subjects.map(subject => (
+            {visibleSubjects.map(subject => (
               <div
                 key={subject.id}
-                onClick={() => { setSelectedSubject(subject); setSubjectTab('notes') }}
-                style={{
-                  background: 'white', borderRadius: '1rem', padding: '1.5rem 1rem',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)', textAlign: 'center',
-                  borderTop: `4px solid ${SUBJECT_COLORS[subject.name] || '#2a9d8f'}`,
-                  cursor: 'pointer', transition: 'transform 0.15s ease',
-                }}
+                onClick={() => { setSelectedSubject(subject); setSubjectTab('evals') }}
+                style={{ ...subjectCardBase, borderTop: `4px solid ${subject.color}` }}
                 onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
                 onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
               >
-                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{getSubjectEmoji(subject.name)}</div>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{subject.emoji}</div>
                 <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>{subject.name}</div>
               </div>
             ))}
+            <div
+              onClick={handleAddSubject}
+              style={{ ...subjectCardBase, border: '2px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '92px' }}
+              onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+            >
+              <div style={{ fontSize: '2rem', color: '#aaa' }}>+</div>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
+              {subjects.map(subject => (
+                <div key={subject.id} style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: `4px solid ${subject.color}`, position: 'relative' }}>
+                  <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '0.4rem' }}>{subject.emoji}</div>
+                    {renamingId === subject.id ? (
+                      <input
+                        autoFocus
+                        value={renameValue}
+                        onChange={e => setRenameValue(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveRename(subject) }}
+                        onBlur={() => handleSaveRename(subject)}
+                        style={{ width: '100%', textAlign: 'center', fontWeight: 'bold', border: '1px solid #2a9d8f', borderRadius: '0.4rem', padding: '0.3rem', fontSize: '0.9rem', boxSizing: 'border-box' }}
+                      />
+                    ) : (
+                      <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}>
+                        {subject.name}
+                        {subject.hidden && <span style={{ color: '#aaa', fontSize: '0.72rem', display: 'block' }}>(masquée)</span>}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    {subject.isCustom && (
+                      <>
+                        <button onClick={() => { setRenamingId(subject.id); setRenameValue(subject.name); setColorPickerId(null) }} style={actionBtn} title="Renommer">✏️</button>
+                        <button onClick={() => { setColorPickerId(colorPickerId === subject.id ? null : subject.id); setRenamingId(null) }} style={actionBtn} title="Couleur">🎨</button>
+                      </>
+                    )}
+                    <button onClick={() => handleToggleHidden(subject)} style={actionBtn} title={subject.hidden ? 'Afficher' : 'Masquer'}>👁️ Masquer</button>
+                    {subject.isCustom && (
+                      <button onClick={() => handleDeleteSubject(subject)} style={{ ...actionBtn, color: '#e63946' }} title="Supprimer">🗑️</button>
+                    )}
+                  </div>
+                  {colorPickerId === subject.id && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, background: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', padding: '0.6rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.4rem' }}>
+                      {COLOR_PALETTE.map(c => (
+                        <button key={c} onClick={() => handleSetColor(subject, c)} style={{ width: '26px', height: '26px', borderRadius: '50%', background: c, border: subject.color === c ? '3px solid #333' : '2px solid transparent', cursor: 'pointer' }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {hiddenSubjects.length > 0 && (
+              <div style={{ marginTop: '2rem' }}>
+                <h3 style={{ color: '#888', fontSize: '1rem', marginBottom: '0.75rem' }}>👁️ Matières masquées</h3>
+                {hiddenSubjects.map(s => (
+                  <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', borderRadius: '0.75rem', padding: '0.6rem 1rem', marginBottom: '0.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <span style={{ fontSize: '1.3rem' }}>{s.emoji}</span>
+                      <span style={{ fontWeight: 'bold', color: '#555' }}>{s.name}</span>
+                    </div>
+                    <button onClick={() => handleToggleHidden(s)} style={actionBtnStyle}>Afficher</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -341,49 +710,36 @@ export default function Subjects({ userId }: { userId?: string }) {
           <button onClick={handleEditorBack} style={{ padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
             ← Retour aux notes
           </button>
-          <button
-            onClick={() => setShowNotePreview(!showNotePreview)}
-            style={{ padding: '0.4rem 0.8rem', background: showNotePreview ? '#2a9d8f' : '#e0f0ee', color: showNotePreview ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-          >
-            {showNotePreview ? '✏️ Éditer' : '👁️ Aperçu'}
-          </button>
         </div>
 
         <input
           value={editingNote.title}
-          onChange={e => handleNoteChange('title', e.target.value)}
+          onChange={e => handleNoteTitleChange(e.target.value)}
           placeholder="Titre de la note"
           style={{ width: '100%', fontSize: '1.3rem', fontWeight: 'bold', border: 'none', borderBottom: '2px solid #e0f0ee', padding: '0.5rem 0', marginBottom: '1rem', outline: 'none', boxSizing: 'border-box' }}
         />
 
-        {!showNotePreview ? (
-          <div>
-            {/* Barre d'outils */}
-            <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-              <button onClick={() => applyMarkdownWrap('**', '**')} title="Gras" style={{ padding: '0.3rem 0.6rem', border: '1px solid #ddd', borderRadius: '0.3rem', background: 'white', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>B</button>
-              <button onClick={() => applyMarkdownWrap('==', '==')} title="Surlignage jaune" style={{ padding: '0.3rem 0.6rem', border: '1px solid #ddd', borderRadius: '0.3rem', background: '#fff176', cursor: 'pointer', fontSize: '0.82rem' }}>==</button>
-              <button onClick={() => applyMarkdownWrap('<mark style="background:#fff176">', '</mark>')} title="Surlignage jaune" style={{ padding: '0.3rem 0.6rem', border: '1px solid #ddd', borderRadius: '0.3rem', background: '#fff176', cursor: 'pointer', fontSize: '0.82rem' }}>🟡</button>
-              <button onClick={() => applyMarkdownWrap('<mark style="background:#a8e6a3">', '</mark>')} title="Surlignage vert" style={{ padding: '0.3rem 0.6rem', border: '1px solid #ddd', borderRadius: '0.3rem', background: '#a8e6a3', cursor: 'pointer', fontSize: '0.82rem' }}>🟢</button>
-              <button onClick={() => applyMarkdownWrap('<mark style="background:#f9c0c0">', '</mark>')} title="Surlignage rose" style={{ padding: '0.3rem 0.6rem', border: '1px solid #ddd', borderRadius: '0.3rem', background: '#f9c0c0', cursor: 'pointer', fontSize: '0.82rem' }}>🌸</button>
-              <button onClick={applyBullet} title="Liste à puces" style={{ padding: '0.3rem 0.6rem', border: '1px solid #ddd', borderRadius: '0.3rem', background: 'white', cursor: 'pointer', fontSize: '0.9rem' }}>•</button>
-            </div>
+        <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+          <button onClick={() => editor?.chain().focus().toggleBold().run()} title="Gras" style={toolBtnStyle(!!editor?.isActive('bold'))}>B</button>
+          <button onClick={() => editor?.chain().focus().toggleItalic().run()} title="Italique" style={{ ...toolBtnStyle(!!editor?.isActive('italic')), fontStyle: 'italic' }}>I</button>
+          <button onClick={() => editor?.chain().focus().toggleBulletList().run()} title="Liste à puces" style={toolBtnStyle(!!editor?.isActive('bulletList'))}>• Liste</button>
+          <button onClick={() => editor?.chain().focus().toggleHighlight({ color: '#fff176' }).run()} title="Surligner en jaune" style={toolBtnStyle(!!editor?.isActive('highlight', { color: '#fff176' }))}>🟡</button>
+          <button onClick={() => editor?.chain().focus().toggleHighlight({ color: '#a8e6a3' }).run()} title="Surligner en vert" style={toolBtnStyle(!!editor?.isActive('highlight', { color: '#a8e6a3' }))}>🟢</button>
+          <button onClick={() => editor?.chain().focus().toggleHighlight({ color: '#f9c0c0' }).run()} title="Surligner en rose" style={toolBtnStyle(!!editor?.isActive('highlight', { color: '#f9c0c0' }))}>🌸</button>
+        </div>
 
-            <textarea
-              ref={textareaRef}
-              value={editingNote.content}
-              onChange={e => handleNoteChange('content', e.target.value)}
-              placeholder="Commence à écrire ta note..."
-              style={{ width: '100%', minHeight: '420px', padding: '0.75rem', border: '1px solid #e0f0ee', borderRadius: '0.5rem', fontSize: '0.95rem', fontFamily: 'monospace', lineHeight: '1.6', resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
-            />
-          </div>
-        ) : (
-          <div
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(editingNote.content) || '<em style="color:#aaa">Aucun contenu</em>' }}
-            style={{ minHeight: '200px', padding: '1rem', border: '1px solid #e0f0ee', borderRadius: '0.5rem', lineHeight: '1.8', fontSize: '0.95rem' }}
-          />
-        )}
+        <div className="odigo-note-editor" style={{ border: '1px solid #e0f0ee', borderRadius: '0.5rem', padding: '0.75rem', minHeight: '420px' }}>
+          <EditorContent editor={editor} />
+        </div>
 
         <p style={{ color: '#bbb', fontSize: '0.78rem', marginTop: '0.5rem' }}>Sauvegarde automatique 2s après la dernière frappe</p>
+
+        <style>{`
+          .odigo-note-editor .ProseMirror { outline: none; font-size: 0.95rem; line-height: 1.7; min-height: 380px; }
+          .odigo-note-editor .ProseMirror p { margin: 0 0 0.6rem 0; }
+          .odigo-note-editor .ProseMirror ul { margin: 0 0 0.6rem 1.2rem; padding: 0; }
+          .odigo-note-editor .ProseMirror mark { border-radius: 0.2rem; padding: 0 0.15rem; }
+        `}</style>
       </div>
     )
   }
@@ -400,15 +756,45 @@ export default function Subjects({ userId }: { userId?: string }) {
           ← Retour
         </button>
         <h2 style={{ margin: 0, color: subjectColor }}>
-          {getSubjectEmoji(selectedSubject.name)} {selectedSubject.name}
+          {selectedSubject.emoji} {selectedSubject.name}
         </h2>
       </div>
 
       {/* Onglets */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+        <button style={tabStyle('evals')} onClick={() => setSubjectTab('evals')}>📅 Évaluations</button>
         <button style={tabStyle('notes')} onClick={() => setSubjectTab('notes')}>📝 Notes</button>
         <button style={tabStyle('postits')} onClick={() => setSubjectTab('postits')}>🗒️ Post-its</button>
+        <button style={tabStyle('wordlists')} onClick={() => setSubjectTab('wordlists')}>📋 Listes</button>
       </div>
+
+      {/* ==================== ONGLET ÉVALUATIONS ==================== */}
+      {subjectTab === 'evals' && (
+        <div>
+          {evaluations.length === 0 ? (
+            <p style={{ color: '#aaa', textAlign: 'center', padding: '2rem' }}>Aucune évaluation à venir dans cette matière.</p>
+          ) : (
+            evaluations.map(e => {
+              const total = revisions.filter(r => r.evaluation_id === e.id).length
+              const done = revisions.filter(r => r.evaluation_id === e.id && r.completed).length
+              return (
+                <div key={e.id} style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem 1.25rem', marginBottom: '0.6rem', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontWeight: 'bold', color: '#333' }}>{e.topic}</div>
+                  <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.2rem' }}>
+                    {fmtDateDMY(e.evaluation_date)} · révisions {done}/{total}
+                  </div>
+                  {e.readiness !== null && e.readiness !== undefined && (
+                    <div style={{ fontSize: '0.85rem', color: '#2a9d8f', marginTop: '0.2rem' }}>Note attendue : {e.readiness}/6</div>
+                  )}
+                  {e.grade !== null && e.grade !== undefined && (
+                    <div style={{ fontSize: '0.85rem', color: '#2a9d8f' }}>Note obtenue : {e.grade}/6</div>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
 
       {/* ==================== ONGLET NOTES ==================== */}
       {subjectTab === 'notes' && (
@@ -633,6 +1019,108 @@ export default function Subjects({ userId }: { userId?: string }) {
                     )
                   })}
                 </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ==================== ONGLET LISTES ==================== */}
+      {subjectTab === 'wordlists' && (
+        <div>
+          {!editingList ? (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                <button onClick={() => setShowNewListForm(!showNewListForm)} style={{ padding: '0.5rem 1rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                  {showNewListForm ? '✕ Annuler' : '+ Nouvelle liste'}
+                </button>
+              </div>
+
+              {showNewListForm && (
+                <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem', maxWidth: '420px' }}>
+                  <input type="text" placeholder="Nom de la liste" value={newListName} onChange={e => setNewListName(e.target.value)} style={inputStyle} />
+                  <select value={newListType} onChange={e => setNewListType(e.target.value)} style={inputStyle}>
+                    <option value="vocabulary">Vocabulaire</option>
+                    <option value="conjugation">Conjugaison</option>
+                    <option value="dictation">Dictée</option>
+                  </select>
+                  <button onClick={handleCreateList} style={{ width: '100%', padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}>Créer</button>
+                </div>
+              )}
+
+              {wordLists.length === 0 ? (
+                <p style={{ color: '#aaa', textAlign: 'center', padding: '2rem' }}>Aucune liste de mots dans cette matière.</p>
+              ) : (
+                wordLists.map(list => (
+                  <div key={list.id} style={cardStyle}>
+                    {renamingListId === list.id ? (
+                      <input
+                        autoFocus
+                        value={renameListValue}
+                        onChange={e => setRenameListValue(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveListRename(list) }}
+                        onBlur={() => handleSaveListRename(list)}
+                        style={{ flex: 1, padding: '0.4rem 0.6rem', borderRadius: '0.4rem', border: '1px solid #2a9d8f', fontSize: '0.9rem', marginRight: '0.75rem' }}
+                      />
+                    ) : (
+                      <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => handleSelectList(list)}>
+                        <div style={{ fontWeight: 'bold', color: '#333' }}>{list.name}</div>
+                        <div style={{ fontSize: '0.85rem', color: '#888' }}>
+                          {WORD_LIST_TYPES[list.list_type] || list.list_type} · {wordCounts[list.id] ?? 0} mot{(wordCounts[list.id] ?? 0) > 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <button onClick={() => { setRenamingListId(list.id); setRenameListValue(list.name) }} style={actionBtnStyle} title="Renommer">✏️</button>
+                      <button onClick={() => handleDeleteList(list.id)} style={actionBtnStyle} title="Supprimer">🗑️</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                <button onClick={() => setEditingList(null)} style={{ padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  ← Retour aux listes
+                </button>
+                <h3 style={{ margin: 0, color: '#2a9d8f', fontSize: '1.1rem' }}>{editingList.name}</h3>
+              </div>
+
+              <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <input type="text" placeholder="Mot source" value={newSource} onChange={e => setNewSource(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '140px', marginBottom: 0 }} />
+                  <input type="text" placeholder="Traduction" value={newTarget} onChange={e => setNewTarget(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '140px', marginBottom: 0 }} />
+                  <button onClick={handleAddWord} style={{ padding: '0.6rem 1rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Ajouter</button>
+                </div>
+              </div>
+
+              {listItems.length === 0 ? (
+                <p style={{ color: '#aaa' }}>Aucun mot dans cette liste.</p>
+              ) : (
+                listItems.map(item => (
+                  editingItem?.id === item.id ? (
+                    <div key={item.id} style={{ background: '#f0faf8', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '0.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <input type="text" value={editSource} onChange={e => setEditSource(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '120px', marginBottom: 0 }} />
+                        <input type="text" value={editTarget} onChange={e => setEditTarget(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '120px', marginBottom: 0 }} />
+                        <button onClick={handleSaveWord} style={{ padding: '0.6rem 1rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>✓</button>
+                        <button onClick={() => setEditingItem(null)} style={{ padding: '0.6rem 1rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>✕</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={item.id} style={{ background: 'white', borderRadius: '0.75rem', padding: '0.75rem 1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span style={{ fontWeight: 'bold', color: '#333' }}>{item.source_word}</span>
+                        {item.target_word && <span style={{ color: '#2a9d8f' }}> → {item.target_word}</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={() => startEditWord(item)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem' }}>✏️</button>
+                        <button onClick={() => handleDeleteWord(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '1rem' }}>🗑️</button>
+                      </div>
+                    </div>
+                  )
+                ))
               )}
             </div>
           )}
