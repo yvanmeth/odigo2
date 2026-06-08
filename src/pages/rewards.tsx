@@ -177,6 +177,8 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
   const [gender, setGender] = useState<'M' | 'F' | 'X' | null>(null)
   const [irlPurchases, setIrlPurchases] = useState<IrlPurchase[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [expandedReward, setExpandedReward] = useState<string | null>(null)
+  const [digoolandSection, setDigoolandSection] = useState<'divertissement' | 'personnaliser' | null>(null)
 
   useEffect(() => {
     fetchProgress()
@@ -566,26 +568,51 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
                     return (
                       <div key={r.id} style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <div style={{ fontWeight: 'bold', color: '#333', fontSize: '1rem' }}>{r.name}</div>
-                        {r.description && <div style={{ fontSize: '0.85rem', color: '#888' }}>{r.description}</div>}
+                        {r.description && (
+                          <>
+                            <div style={{
+                              overflow: 'hidden',
+                              display: '-webkit-box',
+                              WebkitLineClamp: expandedReward === r.id ? 'unset' : 2,
+                              WebkitBoxOrient: 'vertical',
+                              fontSize: '0.85rem',
+                              color: '#555',
+                            }}>
+                              {r.description}
+                            </div>
+                            {r.description.length > 80 && (
+                              <button onClick={() => setExpandedReward(
+                                expandedReward === r.id ? null : r.id
+                              )} style={{
+                                background: 'none', border: 'none', color: '#2a9d8f',
+                                cursor: 'pointer', fontSize: '0.8rem', padding: 0,
+                              }}>
+                                {expandedReward === r.id ? 'Voir moins ▲' : 'Voir plus ▼'}
+                              </button>
+                            )}
+                          </>
+                        )}
                         {r.stock > 1 && <div style={{ fontSize: '0.8rem', color: '#888' }}>{r.stock} disponible(s)</div>}
                         {r.valid_until && <div style={{ fontSize: '0.8rem', color: '#888' }}>Valable jusqu'au {formatDate(r.valid_until)}</div>}
-                        <div style={{ display: 'inline-block', background: '#e9c46a', color: 'white', fontWeight: 'bold', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem', alignSelf: 'flex-start' }}>
-                          {r.cost} Digoos
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.5rem' }}>
+                          <div style={{ display: 'inline-block', background: '#e9c46a', color: 'white', fontWeight: 'bold', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem' }}>
+                            {r.cost} Digoos
+                          </div>
+                          <button
+                            onClick={() => canBuy && !isLoading && handleObtenir(r)}
+                            disabled={!canBuy || isLoading}
+                            style={{
+                              width: '100%', marginTop: '0.25rem', padding: '0.6rem',
+                              background: canBuy ? '#2a9d8f' : '#ddd',
+                              color: canBuy ? 'white' : '#aaa',
+                              border: 'none', borderRadius: '0.5rem',
+                              cursor: canBuy && !isLoading ? 'pointer' : 'default',
+                              fontSize: '0.9rem', fontWeight: 'bold',
+                            }}
+                          >
+                            {isLoading ? '...' : canBuy ? `Obtenir — ${r.cost} Digoos` : 'Digoos insuffisants'}
+                          </button>
                         </div>
-                        <button
-                          onClick={() => canBuy && !isLoading && handleObtenir(r)}
-                          disabled={!canBuy || isLoading}
-                          style={{
-                            marginTop: '0.25rem', padding: '0.6rem',
-                            background: canBuy ? '#2a9d8f' : '#ddd',
-                            color: canBuy ? 'white' : '#aaa',
-                            border: 'none', borderRadius: '0.5rem',
-                            cursor: canBuy && !isLoading ? 'pointer' : 'default',
-                            fontSize: '0.9rem', fontWeight: 'bold',
-                          }}
-                        >
-                          {isLoading ? '...' : canBuy ? `Obtenir — ${r.cost} Digoos` : 'Digoos insuffisants'}
-                        </button>
                       </div>
                     )
                   })}
@@ -598,50 +625,121 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
           <div>
             <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1.1rem' }}>✨ Digooland</h3>
 
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🎨 Personnalise ton Odigo</h4>
-              {themes.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-                  {themes.map(renderShopItem)}
+            {digoolandSection === null && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                <div
+                  onClick={() => setDigoolandSection('divertissement')}
+                  style={{
+                    background: 'white', borderRadius: '1rem', padding: '1.5rem',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)', textAlign: 'center',
+                    borderTop: '4px solid #e76f51', cursor: 'pointer', transition: 'transform 0.15s ease',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                  onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                >
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🎮</div>
+                  <div style={{ fontWeight: 'bold', color: '#333', fontSize: '1rem', marginBottom: '0.5rem' }}>Divertissement</div>
+                  <div style={{ fontSize: '0.85rem', color: '#888', lineHeight: '1.4' }}>Jeux, histoires et plus à venir...</div>
                 </div>
-              ) : (
-                <p style={{ color: '#aaa' }}>Aucun thème disponible pour l'instant.</p>
-              )}
-            </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🏷️ Titres</h4>
-              {titles.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-                  {titles.map(renderShopItem)}
-                </div>
-              ) : (
-                <p style={{ color: '#aaa' }}>Aucun titre disponible pour l'instant.</p>
-              )}
-            </div>
-
-            <div>
-              <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🎮 Divertissement</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-                <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '1.4rem' }}>⚔️</span>
-                  <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Jeu des allumettes</div>
-                  <button
-                    onClick={() => onNavigate?.('exercises', 'allumettes')}
-                    style={{ alignSelf: 'flex-start', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '1rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
-                  >
-                    Jouer — 1 Digoo
-                  </button>
-                </div>
-                <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>
-                  <span style={{ fontSize: '1.4rem' }}>📖</span>
-                  <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Histoire interactive</div>
-                  <span style={{ display: 'inline-block', background: '#e0e0e0', color: '#888', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', alignSelf: 'flex-start' }}>
-                    Bientôt disponible
-                  </span>
+                <div
+                  onClick={() => setDigoolandSection('personnaliser')}
+                  style={{
+                    background: 'white', borderRadius: '1rem', padding: '1.5rem',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)', textAlign: 'center',
+                    borderTop: '4px solid #2a9d8f', cursor: 'pointer', transition: 'transform 0.15s ease',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                  onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+                >
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🎨</div>
+                  <div style={{ fontWeight: 'bold', color: '#333', fontSize: '1rem', marginBottom: '0.5rem' }}>Personnaliser</div>
+                  <div style={{ fontSize: '0.85rem', color: '#888', lineHeight: '1.4' }}>Thèmes, titres et avatars</div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {digoolandSection === 'divertissement' && (
+              <div>
+                <button
+                  onClick={() => setDigoolandSection(null)}
+                  style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  ← Retour
+                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+                  <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.4rem' }}>⚔️</span>
+                    <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Jeu des allumettes</div>
+                    <button
+                      onClick={() => onNavigate?.('exercises', 'allumettes')}
+                      style={{ alignSelf: 'flex-start', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '1rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+                    >
+                      Jouer — 1 Digoo
+                    </button>
+                  </div>
+                  <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>
+                    <span style={{ fontSize: '1.4rem' }}>📖</span>
+                    <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Histoire interactive</div>
+                    <span style={{ display: 'inline-block', background: '#e0e0e0', color: '#888', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', alignSelf: 'flex-start' }}>
+                      Bientôt disponible
+                    </span>
+                  </div>
+                  <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>
+                    <span style={{ fontSize: '1.4rem' }}>🃏</span>
+                    <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Cartes à collectionner</div>
+                    <span style={{ display: 'inline-block', background: '#e0e0e0', color: '#888', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', alignSelf: 'flex-start' }}>
+                      Bientôt disponible
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {digoolandSection === 'personnaliser' && (
+              <div>
+                <button
+                  onClick={() => setDigoolandSection(null)}
+                  style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  ← Retour
+                </button>
+
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🎨 Personnalise ton Odigo</h4>
+                  {themes.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+                      {themes.map(renderShopItem)}
+                    </div>
+                  ) : (
+                    <p style={{ color: '#aaa' }}>Aucun thème disponible pour l'instant.</p>
+                  )}
+                </div>
+
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🏷️ Titres</h4>
+                  {titles.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+                      {titles.map(renderShopItem)}
+                    </div>
+                  ) : (
+                    <p style={{ color: '#aaa' }}>Aucun titre disponible pour l'instant.</p>
+                  )}
+                </div>
+
+                <div>
+                  <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🐾 Avatars</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+                    <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>
+                      <span style={{ fontSize: '1.4rem' }}>🐾</span>
+                      <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Avatar Odigo</div>
+                      <span style={{ display: 'inline-block', background: '#e0e0e0', color: '#888', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', alignSelf: 'flex-start' }}>
+                        Bientôt disponible
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -684,12 +782,22 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
       {/* Onglet Progression */}
       {activeTab === 'progression' && (() => {
         const weekRange = getWeekRange(currentWeek)
+        const isWeekActive = (weekKey: string): boolean =>
+          (progress?.active_weeks || []).some((w: any) => (typeof w === 'string' ? w : w.week) === weekKey)
+
+        const getWeekDigoos = (weekKey: string): number =>
+          (progress?.active_weeks || [])
+            .filter((w: any) => (typeof w === 'string' ? w : w.week) === weekKey)
+            .reduce((sum: number, w: any) => sum + (typeof w === 'object' ? (w.digoos || 0) : 0), 0)
+
         const getWeekColor = (weekKey: string, isFuture: boolean): string => {
           if (isFuture) return '#f5f5f5'
           if (weekKey === currentWeek) return '#e9c46a'
-          const found = progress?.active_weeks?.find(w => w.week === weekKey)
-          if (!found) return '#e0e0e0'
-          return found.digoos >= WEEK_VERY_ACTIVE_THRESHOLD ? '#2a9d8f' : '#a5d6a7'
+          if (!isWeekActive(weekKey)) return '#e0e0e0'
+          const weekDigoos = getWeekDigoos(weekKey)
+          if (weekDigoos >= WEEK_VERY_ACTIVE_THRESHOLD) return '#2a9d8f'
+          if (weekDigoos >= WEEK_THRESHOLD) return '#a5d6a7'
+          return '#e0e0e0'
         }
         return (
           <div>
