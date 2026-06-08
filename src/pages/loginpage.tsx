@@ -59,7 +59,7 @@ export default function LoginPage() {
         )}
         {isSignUp && (
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Tu es...</label>
+            <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Ton profil :</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
                 type="button"
