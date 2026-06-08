@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [gender, setGender] = useState<'M' | 'F' | 'X'>('X')
+  const [role, setRole] = useState<'student' | 'parent'>('student')
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -16,7 +17,7 @@ export default function LoginPage() {
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) { setError(error.message); setLoading(false); return }
       if (data.user) {
-        await supabase.from('profiles').upsert({ id: data.user.id, gender })
+        await supabase.from('profiles').upsert({ id: data.user.id, gender, role })
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -53,6 +54,39 @@ export default function LoginPage() {
                   {['Garçon', 'Fille', 'Préférer ne pas préciser'][i]}
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+        {isSignUp && (
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Tu es...</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setRole('student')}
+                style={{
+                  flex: 1, padding: '0.6rem',
+                  background: role === 'student' ? '#2a9d8f' : '#e0f0ee',
+                  color: role === 'student' ? 'white' : '#2a9d8f',
+                  border: 'none', borderRadius: '0.5rem',
+                  cursor: 'pointer', fontSize: '0.85rem',
+                }}
+              >
+                👦 Élève
+              </button>
+              <button
+                type="button"
+                onClick={() => setRole('parent')}
+                style={{
+                  flex: 1, padding: '0.6rem',
+                  background: role === 'parent' ? '#2a9d8f' : '#e0f0ee',
+                  color: role === 'parent' ? 'white' : '#2a9d8f',
+                  border: 'none', borderRadius: '0.5rem',
+                  cursor: 'pointer', fontSize: '0.85rem',
+                }}
+              >
+                👨‍👧 Parent
+              </button>
             </div>
           </div>
         )}

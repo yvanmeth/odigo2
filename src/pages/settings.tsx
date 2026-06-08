@@ -32,9 +32,22 @@ export default function Settings() {
   const [showReset, setShowReset] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [parentCode, setParentCode] = useState('')
+  const [role, setRole] = useState<'student' | 'parent'>('student')
+  const [savingRole, setSavingRole] = useState(false)
 
   useEffect(() => {
     fetchProfile()
+  }, [])
+
+  useEffect(() => {
+    const fetchRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase.from('profiles')
+        .select('role').eq('id', user.id).single()
+      if (data?.role === 'parent') setRole('parent')
+    }
+    fetchRole()
   }, [])
 
   const fetchProfile = async () => {
@@ -140,6 +153,15 @@ export default function Settings() {
     await supabase.auth.signOut()
   }
 
+  const handleSaveRole = async () => {
+    setSavingRole(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('profiles').update({ role }).eq('id', user.id)
+    }
+    window.location.reload()
+  }
+
   const inputStyle = {
     width: '100%',
     padding: '0.6rem',
@@ -214,6 +236,39 @@ export default function Settings() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Rôle */}
+      <div style={sectionStyle}>
+        <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🎭 Rôle</h3>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <button
+            onClick={() => setRole('student')}
+            style={{ flex: 1, padding: '0.6rem', background: role === 'student' ? '#2a9d8f' : '#e0f0ee', color: role === 'student' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+          >
+            👦 Élève
+          </button>
+          <button
+            onClick={() => setRole('parent')}
+            style={{ flex: 1, padding: '0.6rem', background: role === 'parent' ? '#2a9d8f' : '#e0f0ee', color: role === 'parent' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+          >
+            👨‍👧 Parent
+          </button>
+        </div>
+
+        {role === 'parent' && (
+          <p style={{ background: '#fff8e0', border: '1px solid #e9c46a', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.85rem', marginTop: '0.5rem', color: '#555' }}>
+            En mode parent, tu accèdes à l'espace de supervision de tes enfants. Tu peux revenir en mode élève à tout moment.
+          </p>
+        )}
+
+        <button
+          onClick={handleSaveRole}
+          disabled={savingRole}
+          style={{ marginTop: '1rem', padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+        >
+          {savingRole ? 'Enregistrement...' : 'Enregistrer'}
+        </button>
       </div>
 
       {/* Centres d'intérêt */}
