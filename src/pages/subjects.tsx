@@ -3,6 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import { StarterKit } from '@tiptap/starter-kit'
 import { Highlight } from '@tiptap/extension-highlight'
 import { TextStyle } from '@tiptap/extension-text-style'
+import TextAlign from '@tiptap/extension-text-align'
 import { supabase } from '../lib/supabase'
 import type { Evaluation, Revision } from '../type/index'
 
@@ -164,7 +165,12 @@ export default function Subjects({ userId }: { userId?: string }) {
   const [editTarget, setEditTarget] = useState('')
 
   const editor = useEditor({
-    extensions: [StarterKit, Highlight.configure({ multicolor: true }), TextStyle],
+    extensions: [
+      StarterKit,
+      Highlight.configure({ multicolor: true }),
+      TextStyle,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    ],
     content: '',
     onUpdate: ({ editor }) => debouncedSaveContent(editor.getHTML()),
   })
@@ -719,10 +725,32 @@ export default function Subjects({ userId }: { userId?: string }) {
           style={{ width: '100%', fontSize: '1.3rem', fontWeight: 'bold', border: 'none', borderBottom: '2px solid #e0f0ee', padding: '0.5rem 0', marginBottom: '1rem', outline: 'none', boxSizing: 'border-box' }}
         />
 
-        <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <select
+            value={editor?.isActive('heading', { level: 1 }) ? 'titre' : editor?.isActive('heading', { level: 2 }) ? 'sous-titre' : 'normal'}
+            onChange={e => {
+              const val = e.target.value
+              if (val === 'normal') editor?.chain().focus().setParagraph().run()
+              if (val === 'titre') editor?.chain().focus().toggleHeading({ level: 1 }).run()
+              if (val === 'sous-titre') editor?.chain().focus().toggleHeading({ level: 2 }).run()
+            }}
+            style={{ padding: '0.3rem 0.5rem', borderRadius: '0.4rem', border: '1px solid #e0f0ee', fontSize: '0.85rem', cursor: 'pointer', color: '#2a9d8f' }}
+          >
+            <option value="normal">Normal</option>
+            <option value="titre">Titre</option>
+            <option value="sous-titre">Sous-titre</option>
+          </select>
+          <span style={{ width: '1px', background: '#e0f0ee', alignSelf: 'stretch', margin: '0 0.25rem' }} />
           <button onClick={() => editor?.chain().focus().toggleBold().run()} title="Gras" style={toolBtnStyle(!!editor?.isActive('bold'))}>B</button>
           <button onClick={() => editor?.chain().focus().toggleItalic().run()} title="Italique" style={{ ...toolBtnStyle(!!editor?.isActive('italic')), fontStyle: 'italic' }}>I</button>
+          <span style={{ width: '1px', background: '#e0f0ee', alignSelf: 'stretch', margin: '0 0.25rem' }} />
           <button onClick={() => editor?.chain().focus().toggleBulletList().run()} title="Liste à puces" style={toolBtnStyle(!!editor?.isActive('bulletList'))}>• Liste</button>
+          <button onClick={() => editor?.chain().focus().toggleOrderedList().run()} title="Liste numérotée" style={toolBtnStyle(!!editor?.isActive('orderedList'))}>1. Liste</button>
+          <span style={{ width: '1px', background: '#e0f0ee', alignSelf: 'stretch', margin: '0 0.25rem' }} />
+          <button onClick={() => editor?.chain().focus().setTextAlign('left').run()} title="Aligner à gauche" style={toolBtnStyle(!!editor?.isActive({ textAlign: 'left' }))}>⬅</button>
+          <button onClick={() => editor?.chain().focus().setTextAlign('center').run()} title="Centrer" style={toolBtnStyle(!!editor?.isActive({ textAlign: 'center' }))}>↔</button>
+          <button onClick={() => editor?.chain().focus().setTextAlign('right').run()} title="Aligner à droite" style={toolBtnStyle(!!editor?.isActive({ textAlign: 'right' }))}>➡</button>
+          <span style={{ width: '1px', background: '#e0f0ee', alignSelf: 'stretch', margin: '0 0.25rem' }} />
           <button onClick={() => editor?.chain().focus().toggleHighlight({ color: '#fff176' }).run()} title="Surligner en jaune" style={toolBtnStyle(!!editor?.isActive('highlight', { color: '#fff176' }))}>🟡</button>
           <button onClick={() => editor?.chain().focus().toggleHighlight({ color: '#a8e6a3' }).run()} title="Surligner en vert" style={toolBtnStyle(!!editor?.isActive('highlight', { color: '#a8e6a3' }))}>🟢</button>
           <button onClick={() => editor?.chain().focus().toggleHighlight({ color: '#f9c0c0' }).run()} title="Surligner en rose" style={toolBtnStyle(!!editor?.isActive('highlight', { color: '#f9c0c0' }))}>🌸</button>
@@ -737,8 +765,10 @@ export default function Subjects({ userId }: { userId?: string }) {
         <style>{`
           .odigo-note-editor .ProseMirror { outline: none; font-size: 0.95rem; line-height: 1.7; min-height: 380px; }
           .odigo-note-editor .ProseMirror p { margin: 0 0 0.6rem 0; }
-          .odigo-note-editor .ProseMirror ul { margin: 0 0 0.6rem 1.2rem; padding: 0; }
+          .odigo-note-editor .ProseMirror ul, .odigo-note-editor .ProseMirror ol { margin: 0 0 0.6rem 1.2rem; padding: 0; }
           .odigo-note-editor .ProseMirror mark { border-radius: 0.2rem; padding: 0 0.15rem; }
+          .odigo-note-editor .ProseMirror h1 { font-size: 1.5rem; font-weight: bold; margin: 0.4rem 0 0.6rem 0; }
+          .odigo-note-editor .ProseMirror h2 { font-size: 1.2rem; font-weight: bold; margin: 0.4rem 0 0.6rem 0; }
         `}</style>
       </div>
     )
