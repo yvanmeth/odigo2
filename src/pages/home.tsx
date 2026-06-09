@@ -5,6 +5,7 @@ import { generateGreeting } from '../lib/greeting'
 import type { Evaluation, Revision } from '../type/index'
 import type { Event as AppEvent } from '../type/index'
 import { logActivity } from '../services/activity'
+import { parseLocalDate } from '../lib/dates'
 
 // ==================== INTERFACES ====================
 
@@ -57,7 +58,7 @@ function getWeekBounds(weekOffset: number): { start: string; end: string } {
 }
 
 function getWeekNumber(dateStr: string): number {
-  const date = new Date(dateStr + 'T12:00:00')
+  const date = parseLocalDate(dateStr)
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
   const dayNum = d.getUTCDay() || 7
   d.setUTCDate(d.getUTCDate() + 4 - dayNum)
@@ -189,12 +190,12 @@ export default function Home({ userId }: { userId?: string }) {
       .sort((a, b) => a.evaluation_date.localeCompare(b.evaluation_date))
     const nextEvalItem = upcomingEvals[0]
     const daysUntilNextEval = nextEvalItem
-      ? Math.ceil((new Date(nextEvalItem.evaluation_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.ceil((parseLocalDate(nextEvalItem.evaluation_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       : undefined
 
     const birthDate = profile?.birth_date
     const hasBirthday = birthDate
-      ? new Date(birthDate).getMonth() === now.getMonth() && new Date(birthDate).getDate() === now.getDate()
+      ? parseLocalDate(birthDate).getMonth() === now.getMonth() && parseLocalDate(birthDate).getDate() === now.getDate()
       : false
 
     const greetingText = generateGreeting({

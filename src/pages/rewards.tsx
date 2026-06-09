@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { supabase } from '../lib/supabase'
 import { addDigoos, deductDigoos } from '../services/digoos'
+import { formatDateDMY } from '../lib/dates'
 import { useToast } from '../components/Toast'
 
 type RewardTab = 'rewards' | 'wallet' | 'progression'
@@ -593,7 +594,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
                           </>
                         )}
                         {r.stock > 1 && <div style={{ fontSize: '0.8rem', color: '#888' }}>{r.stock} disponible(s)</div>}
-                        {r.valid_until && <div style={{ fontSize: '0.8rem', color: '#888' }}>Valable jusqu'au {formatDate(r.valid_until)}</div>}
+                        {r.valid_until && <div style={{ fontSize: '0.8rem', color: '#888' }}>Valable jusqu'au {formatDateDMY(r.valid_until)}</div>}
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.5rem' }}>
                           <div style={{ display: 'inline-block', background: '#e9c46a', color: 'white', fontWeight: 'bold', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem' }}>
                             {r.cost} Digoos
