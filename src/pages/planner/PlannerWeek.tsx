@@ -26,10 +26,12 @@ export default function PlannerWeek({ calDate, items, onItemClick }: Props) {
 
   const chipClick = (item: CalendarItem, e: React.MouseEvent) => {
     e.stopPropagation()
-    onItemClick(item, {
-      x: Math.min(e.clientX, window.innerWidth - 210),
-      y: Math.min(e.clientY + 8, window.innerHeight - 130),
-    })
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const popoverWidth = 200, popoverHeight = 100
+    const spaceRight = window.innerWidth - rect.right
+    const x = spaceRight >= popoverWidth ? rect.right + 8 : rect.left - popoverWidth - 8
+    const y = Math.min(rect.top, window.innerHeight - popoverHeight - 8)
+    onItemClick(item, { x, y })
   }
 
   return (
