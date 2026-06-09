@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Evaluation, Revision } from '../type/index'
-import type { Subject } from '../type/index'
 import type { Event as AppEvent } from '../type/index'
+
+interface SubjectOption {
+  id: number | string
+  name: string
+  emoji?: string | null
+  isCustom: boolean
+}
 
 type Tab = 'evaluations' | 'revisions' | 'events' | 'reminders'
 
@@ -37,7 +43,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
   const [revisions, setRevisions] = useState<Revision[]>([])
   const [events, setEvents] = useState<AppEvent[]>([])
   const [reminders, setReminders] = useState<Reminder[]>([])
-  const [subjects, setSubjects] = useState<Subject[]>([])
+  const [subjects, setSubjects] = useState<SubjectOption[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -78,18 +84,29 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     const targetId = userId || user?.id
-    const [evalsRes, revsRes, eventsRes, subjectsRes, remindersRes] = await Promise.all([
+    const [evalsRes, revsRes, eventsRes, fixedRes, remindersRes, prefsRes] = await Promise.all([
       supabase.from('evaluations').select('*').eq('user_id', targetId).order('evaluation_date'),
       supabase.from('revisions').select('*').eq('user_id', targetId).order('revision_date'),
       supabase.from('events').select('*').eq('user_id', targetId).order('event_date'),
       supabase.from('subjects').select('*').order('name'),
       supabase.from('reminders').select('*').eq('user_id', targetId).order('deadline_date'),
+      supabase.from('user_subjects').select('*').eq('user_id', targetId),
     ])
     if (evalsRes.data) setEvaluations(evalsRes.data)
     if (revsRes.data) setRevisions(revsRes.data)
     if (eventsRes.data) setEvents(eventsRes.data)
-    if (subjectsRes.data) setSubjects(subjectsRes.data)
     if (remindersRes.data) setReminders(remindersRes.data)
+
+    const userPrefs = prefsRes.data || []
+    const hiddenFixedIds = userPrefs.filter(p => p.subject_id && p.hidden).map(p => p.subject_id)
+    const visibleFixed: SubjectOption[] = (fixedRes.data || [])
+      .filter((s: { id: number; name: string }) => !hiddenFixedIds.includes(s.id))
+      .map((s: { id: number; name: string }) => ({ id: s.id, name: s.name, emoji: null, isCustom: false }))
+    const customSubjects: SubjectOption[] = userPrefs
+      .filter(p => p.custom_name && !p.hidden)
+      .map(p => ({ id: p.id, name: p.custom_name, emoji: p.custom_emoji || '📚', isCustom: true }))
+    setSubjects([...visibleFixed, ...customSubjects])
+
     setLoading(false)
   }
 
@@ -114,9 +131,12 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
 
   const handleSaveEval = async () => {
     if (!evalDate || !evalSubject || !evalTopic) return
+    const selectedSubject = subjects.find(s => String(s.id) === evalSubject)
+    // Note : si evaluations.subject_id est de type integer en base, les UUIDs
+    // de matières custom seront rejetés — migrer la colonne en text si besoin.
     const payload = {
       evaluation_date: evalDate,
-      subject_id: parseInt(evalSubject),
+      subject_id: selectedSubject?.isCustom ? evalSubject : parseInt(evalSubject),
       topic: evalTopic,
       readiness: evalReadiness ? parseFloat(evalReadiness) : null,
       grade: evalGrade ? parseFloat(evalGrade) : null,
@@ -246,7 +266,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     fetchAll()
   }
 
-  const getSubjectName = (id: number) => subjects.find(s => Number(s.id) === id)?.name || '?'
+  const getSubjectName = (id: unknown) => subjects.find(s => String(s.id) === String(id))?.name || '?'
 
   const tabStyle = (tab: Tab) => ({
     padding: '0.6rem 1.2rem',
@@ -319,7 +339,11 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
           <input type="date" value={evalDate} onChange={e => setEvalDate(e.target.value)} style={inputStyle} />
           <select value={evalSubject} onChange={e => setEvalSubject(e.target.value)} style={inputStyle}>
             <option value="">Choisir une matière</option>
-            {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {subjects.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.emoji ? `${s.emoji} ${s.name}` : s.name}
+              </option>
+            ))}
           </select>
           <input type="text" placeholder="Sujet / Chapitre" value={evalTopic} onChange={e => setEvalTopic(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Note attendue (0-6)" min="0" max="6" step="0.5" value={evalReadiness} onChange={e => setEvalReadiness(e.target.value)} style={inputStyle} />
