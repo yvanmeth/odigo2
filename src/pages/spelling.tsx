@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
+import { logActivity } from '../services/activity'
 import { speak as speakWithLang } from '../lib/speech'
 
 interface WordItem {
@@ -255,6 +256,12 @@ export default function Spelling() {
     const updated = [...existing, newScore].sort((a, b) => b.score - a.score).slice(0, 10)
     localStorage.setItem(key, JSON.stringify(updated))
     await addDigoos(5 + Math.floor(score / 10))
+    await logActivity({
+      action_type: 'exercise_completed',
+      questions_total: wordsCompleted,
+      questions_correct: wordsCompleted - failedWords.length,
+      metadata: { exercise: 'spelling' },
+    })
     setHighScores(updated)
   }
 

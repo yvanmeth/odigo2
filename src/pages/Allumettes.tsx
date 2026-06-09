@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { deductDigoos } from '../services/digoos'
+import { logActivity } from '../services/activity'
 
 type GameState = 'select' | 'drawing' | 'playing' | 'result'
 type Difficulty = 'easy' | 'medium' | 'hard'
@@ -142,8 +143,10 @@ const Allumettes = () => {
   }
 
   const endGame = (lastToMove: Turn) => {
-    setWinner(lastToMove === 'player' ? 'odigo' : 'player')
+    const w: Turn = lastToMove === 'player' ? 'odigo' : 'player'
+    setWinner(w)
     setGameState('result')
+    logActivity({ action_type: 'exercise_completed', metadata: { exercise: 'allumettes', winner: w } })
   }
 
   const triggerOdigoTurn = (currentBoard: Board) => {

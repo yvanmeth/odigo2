@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
+import { logActivity } from '../services/activity'
 import { speak } from '../lib/speech'
 
 interface WordList {
@@ -190,6 +191,12 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
   const finaliser = async () => {
     await addDigoos(digoosEarned)
+    await logActivity({
+      action_type: 'exercise_completed',
+      questions_total: resultats.length,
+      questions_correct: resultats.filter(r => r.correct).length,
+      metadata: { exercise: 'vocabulaire' },
+    })
     const key = `vocabulaire_scores_${selectedList}`
     const existing = JSON.parse(localStorage.getItem(key) || '[]')
     const newEntry = { score, date: new Date().toLocaleDateString('fr-CH') }

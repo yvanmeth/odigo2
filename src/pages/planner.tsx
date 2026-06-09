@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Evaluation, Revision } from '../type/index'
 import type { Event as AppEvent } from '../type/index'
+import { logActivity } from '../services/activity'
 
 interface SubjectOption {
   id: number | string
@@ -148,6 +149,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     } else {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('evaluations').insert({ ...payload, user_id: user?.id })
+      await logActivity({ action_type: 'planner_entry', metadata: { type: 'evaluation' } })
     }
     setEvalDate(''); setEvalSubject(''); setEvalTopic(''); setEvalReadiness('')
     setEvalGrade(''); setEvalStartTime(''); setEvalEndTime('')
@@ -181,6 +183,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     } else {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('revisions').insert({ ...payload, user_id: user?.id, completed: false })
+      await logActivity({ action_type: 'planner_entry', metadata: { type: 'revision' } })
     }
     setRevDate(''); setRevStartTime(''); setRevEndTime(''); setRevDetails(''); setRevEvalId('')
     closeForm()
@@ -213,6 +216,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     } else {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('events').insert({ ...payload, user_id: user?.id })
+      await logActivity({ action_type: 'planner_entry', metadata: { type: 'event' } })
     }
     setEvtTitle(''); setEvtDate(''); setEvtStartTime(''); setEvtEndTime(''); setEvtDetails('')
     closeForm()
@@ -255,6 +259,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
         completed: false,
       })
       if (error) console.error('Reminder insert error:', error)
+      else await logActivity({ action_type: 'planner_entry', metadata: { type: 'reminder' } })
     }
     setRemTitle(''); setRemDescription(''); setRemDeadlineDate(''); setRemDeadlineTime(''); setRemOdigoRemind('never')
     closeForm()
@@ -451,7 +456,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <button
-                  onClick={async () => { await supabase.from('revisions').update({ completed: !r.completed }).eq('id', r.id); fetchAll() }}
+                  onClick={async () => { await supabase.from('revisions').update({ completed: !r.completed }).eq('id', r.id); await logActivity({ action_type: 'revision_checked', metadata: { completed: !r.completed } }); fetchAll() }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
                 >
                   {r.completed ? '✅' : '⬜'}

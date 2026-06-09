@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Evaluation, Revision } from '../type/index'
 import type { Event as AppEvent } from '../type/index'
+import { logActivity } from '../services/activity'
 
 // ==================== INTERFACES ====================
 
@@ -230,6 +231,7 @@ export default function Home({ userId }: { userId?: string }) {
   const updateEvalField = async (id: string, field: 'readiness' | 'grade', value: string) => {
     const numVal = value === '' ? null : parseFloat(value)
     await supabase.from('evaluations').update({ [field]: numVal }).eq('id', id)
+    await logActivity({ action_type: 'grade_updated', metadata: { field } })
     setEvaluations(prev => prev.map(e => e.id === id ? { ...e, [field]: numVal } : e))
   }
 

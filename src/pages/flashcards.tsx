@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
+import { logActivity } from '../services/activity'
 import { speak } from '../lib/speech'
 
 interface WordItem {
@@ -209,6 +210,12 @@ export default function Flashcards() {
 
   const saveScore = async () => {
     await addDigoos(digoosEarned)
+    await logActivity({
+      action_type: 'exercise_completed',
+      questions_total: totalCards,
+      questions_correct: knownCount,
+      metadata: { exercise: 'flashcards' },
+    })
     const key = `flashcards_scores_${selectedList}`
     const existing = JSON.parse(localStorage.getItem(key) || '[]')
     const newEntry = { known: knownCount, passes: passCount, date: new Date().toLocaleDateString('fr-CH') }
