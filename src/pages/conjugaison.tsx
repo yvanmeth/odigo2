@@ -443,7 +443,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
       </div>
 
       <div style={{ background: '#e0f0ee', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
-        <div style={{ width: `${(current / questions.length) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem', transition: 'width 0.3s ease' }} />
+        <div className="progress-bar" style={{ width: `${(current / questions.length) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem' }} />
       </div>
 
       {q && (

@@ -193,7 +193,7 @@ export default function Dashboard({ session }: Props) {
         borderRight: '1px solid #e0f0ee',
         display: 'flex',
         flexDirection: 'column',
-        transition: 'width 0.2s ease',
+        transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         overflow: 'hidden',
         minHeight: '100vh',
         boxShadow: '2px 0 8px rgba(0,0,0,0.04)'
@@ -313,7 +313,7 @@ export default function Dashboard({ session }: Props) {
       </div>
 
       {/* Zone de contenu */}
-      <div style={{ flex: 1, padding: '2rem' }}>
+      <div key={activePage + (activeExercise || '')} className="page-enter" style={{ flex: 1, padding: '2rem' }}>
 
         {/* Bandeau vue enfant */}
         {isViewingChild && (
@@ -360,6 +360,7 @@ export default function Dashboard({ session }: Props) {
                   <div
                     key={ex.id}
                     onClick={() => setActiveExercise(ex.id)}
+                    className="card-hover"
                     style={{
                       background: 'white',
                       borderRadius: '1rem',
@@ -367,11 +368,7 @@ export default function Dashboard({ session }: Props) {
                       boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
                       textAlign: 'center',
                       borderTop: `4px solid ${ex.color}`,
-                      cursor: 'pointer',
-                      transition: 'transform 0.15s ease',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                    onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
                   >
                     <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>{ex.icon}</div>
                     <div style={{ fontWeight: 'bold', color: '#333', fontSize: '1rem', marginBottom: '0.5rem' }}>{ex.label}</div>

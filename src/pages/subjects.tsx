@@ -595,7 +595,6 @@ export default function Subjects({ userId }: { userId?: string }) {
   const subjectCardBase: React.CSSProperties = {
     background: 'white', borderRadius: '1rem', padding: '1.5rem 1rem',
     boxShadow: '0 2px 12px rgba(0,0,0,0.06)', textAlign: 'center',
-    cursor: 'pointer', transition: 'transform 0.15s ease',
   }
 
   if (loading) return <p style={{ color: '#888' }}>Chargement...</p>
@@ -625,9 +624,8 @@ export default function Subjects({ userId }: { userId?: string }) {
               <div
                 key={subject.id}
                 onClick={() => { setSelectedSubject(subject); setSubjectTab('evals') }}
+                className="card-hover"
                 style={{ ...subjectCardBase, borderTop: `4px solid ${subject.color}` }}
-                onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
               >
                 <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{subject.emoji}</div>
                 <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>{subject.name}</div>
@@ -635,9 +633,8 @@ export default function Subjects({ userId }: { userId?: string }) {
             ))}
             <div
               onClick={handleAddSubject}
+              className="card-hover"
               style={{ ...subjectCardBase, border: '2px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '92px' }}
-              onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-              onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
             >
               <div style={{ fontSize: '2rem', color: '#aaa' }}>+</div>
             </div>

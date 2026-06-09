@@ -406,9 +406,9 @@ export default function Flashcards() {
 
       {/* Barre de progression */}
       <div style={{ background: '#e0f0ee', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
-        <div style={{
+        <div className="progress-bar" style={{
           width: `${totalCards > 0 ? (knownCount / totalCards) * 100 : 0}%`,
-          background: '#2a9d8f', height: '100%', borderRadius: '1rem', transition: 'width 0.4s ease',
+          background: '#2a9d8f', height: '100%', borderRadius: '1rem',
         }} />
       </div>
 

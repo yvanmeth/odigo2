@@ -809,7 +809,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
                   Cette semaine : <strong style={{ color: isCurrentWeekActive ? '#2a9d8f' : '#e9c46a' }}>{progress?.digoos_this_week || 0}</strong> / {WEEK_THRESHOLD}
                 </div>
                 <div style={{ marginTop: '0.5rem', background: '#f0f0f0', borderRadius: '1rem', height: '8px', overflow: 'hidden' }}>
-                  <div style={{ width: `${weekProgress}%`, background: isCurrentWeekActive ? '#2a9d8f' : '#e9c46a', height: '100%', borderRadius: '1rem', transition: 'width 0.3s ease' }} />
+                  <div className="progress-bar" style={{ width: `${weekProgress}%`, background: isCurrentWeekActive ? '#2a9d8f' : '#e9c46a', height: '100%', borderRadius: '1rem' }} />
                 </div>
                 {isCurrentWeekActive && <div style={{ color: '#2a9d8f', fontSize: '0.8rem', marginTop: '0.25rem' }}>✅ Semaine active !</div>}
               </div>
