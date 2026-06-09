@@ -6,7 +6,12 @@ export const formatDate = (d: string): string => {
   return `${day}.${m}.${y}`
 }
 
-export const toDateStr = (d: Date): string => d.toISOString().split('T')[0]
+export const toDateStr = (d: Date): string => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 export const isSameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() &&
