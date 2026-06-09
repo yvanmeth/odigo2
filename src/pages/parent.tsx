@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { Pencil, Trash2 } from 'lucide-react'
+import { useToast } from '../components/Toast'
 
 interface IrlReward {
   id: string
@@ -40,6 +42,7 @@ interface InviteCode {
 const REACTIONS = ['👍', '❤️', '👏', '🔥', '💯', '😎', '🤩', '⭐', '🙌', '🫶']
 
 export default function ParentDashboard({ onSelectChild }: { onSelectChild: (childId: string | null) => void }) {
+  const { showToast } = useToast()
   const [children, setChildren] = useState<Child[]>([])
   const [inviteCode, setInviteCode] = useState<InviteCode | null>(null)
   const [loading, setLoading] = useState(true)
@@ -174,8 +177,10 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     }
     if (irlEditingId) {
       await supabase.from('irl_rewards').update(payload).eq('id', irlEditingId)
+      showToast('Récompense mise à jour')
     } else {
       await supabase.from('irl_rewards').insert({ ...payload, parent_id: user.id })
+      showToast('Récompense créée')
     }
     setIrlName(''); setIrlCost(''); setIrlDescription(''); setIrlStock('1'); setIrlValidUntil(''); setIrlEditingId(null); setShowIrlForm(false)
     fetchIrlRewards()
@@ -183,6 +188,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
 
   const handleDeleteIrlReward = async (id: string) => {
     await supabase.from('irl_rewards').delete().eq('id', id)
+    showToast('Supprimé', 'info')
     fetchIrlRewards()
   }
 
@@ -208,6 +214,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
   const handleMarkUsed = async (purchase: PendingPurchase) => {
     setMarkingUsedId(purchase.id)
     await supabase.from('irl_purchases').update({ status: 'used', used_at: new Date().toISOString() }).eq('id', purchase.id)
+    showToast('Récompense marquée comme utilisée')
     await fetchPendingPurchases()
     setMarkingUsedId(null)
   }
@@ -411,8 +418,8 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                   <div style={{ fontSize: '0.82rem', color: '#e9c46a', fontWeight: 'bold', marginTop: '0.15rem' }}>{r.cost} Digoos</div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => handleEditIrlReward(r)} style={{ background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.4rem', padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.85rem' }}>✏️</button>
-                  <button onClick={() => handleDeleteIrlReward(r.id)} style={{ background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.4rem', padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.85rem' }}>🗑</button>
+                  <button onClick={() => handleEditIrlReward(r)} style={{ background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.4rem', padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center' }}><Pencil size={14} /></button>
+                  <button onClick={() => handleDeleteIrlReward(r.id)} style={{ background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.4rem', padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center' }}><Trash2 size={14} /></button>
                 </div>
               </div>
             ))}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { addDigoos, deductDigoos } from '../services/digoos'
+import { useToast } from '../components/Toast'
 
 type RewardTab = 'rewards' | 'wallet' | 'progression'
 
@@ -169,7 +170,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
   const [weekSummaryVisible, setWeekSummaryVisible] = useState(false)
   const [irlRewards, setIrlRewards] = useState<IrlReward[]>([])
   const [parentIds, setParentIds] = useState<string[]>([])
-  const [confirmMsg, setConfirmMsg] = useState<string | null>(null)
+  const { showToast } = useToast()
   const [loadingRewardId, setLoadingRewardId] = useState<string | null>(null)
   const [shopItems, setShopItems] = useState<ShopItem[]>([])
   const [purchases, setPurchases] = useState<UserPurchase[]>([])
@@ -296,7 +297,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
       })
       await supabase.from('irl_rewards').update({ stock: reward.stock - 1 }).eq('id', reward.id)
     }
-    setConfirmMsg('🎉 Récompense obtenue ! Demande-la à tes parents.')
+    showToast('🎁 Récompense obtenue ! Demande-la à tes parents.')
     await fetchProgress()
     await fetchIrlRewards()
     await fetchIrlPurchases()
@@ -314,7 +315,11 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
   }
 
   const handlePurchase = async (item: ShopItem) => {
-    if ((progress?.digoos || 0) < item.price || !!loadingPurchaseId) return
+    if (!!loadingPurchaseId) return
+    if ((progress?.digoos || 0) < item.price) {
+      showToast('Digoos insuffisants', 'error')
+      return
+    }
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     setLoadingPurchaseId(item.id)
@@ -330,6 +335,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
       expires_at: expiresAt,
       active: false,
     })
+    showToast('✨ Acheté !')
     await fetchProgress()
     await fetchShop()
     setLoadingPurchaseId(null)
@@ -548,13 +554,6 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
             <div style={{ marginBottom: '2.5rem' }}>
               <h3 style={{ color: '#2a9d8f', marginBottom: '0.25rem', fontSize: '1.1rem' }}>🎁 Récompenses IRL</h3>
               <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>Voici les récompenses actuellement disponibles.</p>
-
-              {confirmMsg && (
-                <div style={{ background: '#f0faf8', border: '2px solid #2a9d8f', borderRadius: '0.75rem', padding: '0.85rem 1rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#2a9d8f', fontWeight: 'bold' }}>{confirmMsg}</span>
-                  <button onClick={() => setConfirmMsg(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: '1rem' }}>✕</button>
-                </div>
-              )}
 
               {irlRewards.length === 0 ? (
                 <p style={{ color: '#aaa' }}>Aucune récompense disponible pour le moment.</p>

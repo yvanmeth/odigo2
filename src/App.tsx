@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import type { Session } from '@supabase/supabase-js'
 import LoginPage from './pages/loginpage'
 import Dashboard from './pages/dashboard'
+import { ToastProvider } from './components/Toast'
 
 function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -23,7 +24,11 @@ function App() {
 
   if (loading) return <div style={{ padding: '2rem' }}>Chargement...</div>
 
-  return session ? <Dashboard session={session} /> : <LoginPage />
+  return (
+    <ToastProvider>
+      {session ? <Dashboard session={session} /> : <LoginPage />}
+    </ToastProvider>
+  )
 }
 
 export default App

@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import type { Evaluation, Revision } from '../type/index'
 import type { Event as AppEvent } from '../type/index'
 import { logActivity } from '../services/activity'
+import { Pencil, Trash2, Plus } from 'lucide-react'
+import { useToast } from '../components/Toast'
 
 interface SubjectOption {
   id: number | string
@@ -45,6 +47,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
   const [events, setEvents] = useState<AppEvent[]>([])
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
+  const { showToast } = useToast()
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -150,6 +153,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('evaluations').insert({ ...payload, user_id: user?.id })
       await logActivity({ action_type: 'planner_entry', metadata: { type: 'evaluation' } })
+      showToast('Évaluation ajoutée')
     }
     setEvalDate(''); setEvalSubject(''); setEvalTopic(''); setEvalReadiness('')
     setEvalGrade(''); setEvalStartTime(''); setEvalEndTime('')
@@ -184,6 +188,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('revisions').insert({ ...payload, user_id: user?.id, completed: false })
       await logActivity({ action_type: 'planner_entry', metadata: { type: 'revision' } })
+      showToast('Révision ajoutée')
     }
     setRevDate(''); setRevStartTime(''); setRevEndTime(''); setRevDetails(''); setRevEvalId('')
     closeForm()
@@ -217,6 +222,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('events').insert({ ...payload, user_id: user?.id })
       await logActivity({ action_type: 'planner_entry', metadata: { type: 'event' } })
+      showToast('Événement ajouté')
     }
     setEvtTitle(''); setEvtDate(''); setEvtStartTime(''); setEvtEndTime(''); setEvtDetails('')
     closeForm()
@@ -258,8 +264,8 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
         odigo_remind: remOdigoRemind,
         completed: false,
       })
-      if (error) console.error('Reminder insert error:', error)
-      else await logActivity({ action_type: 'planner_entry', metadata: { type: 'reminder' } })
+      if (error) { console.error('Reminder insert error:', error); showToast('Une erreur est survenue', 'error') }
+      else { await logActivity({ action_type: 'planner_entry', metadata: { type: 'reminder' } }); showToast('Rappel ajouté') }
     }
     setRemTitle(''); setRemDescription(''); setRemDeadlineDate(''); setRemDeadlineTime(''); setRemOdigoRemind('never')
     closeForm()
@@ -268,6 +274,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
 
   const handleDelete = async (table: string, id: string) => {
     await supabase.from(table).delete().eq('id', id)
+    showToast('Supprimé', 'info')
     fetchAll()
   }
 
@@ -333,7 +340,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
           onClick={() => { if (showForm) { closeForm() } else { setShowForm(true) } }}
           style={{ padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
         >
-          {showForm ? '✕ Annuler' : '+ Ajouter'}
+          {showForm ? '✕ Annuler' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Plus size={16} />Ajouter</span>}
         </button>
       </div>
 
@@ -435,8 +442,8 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
                 {e.grade !== null && e.grade !== undefined && <div style={{ fontSize: '0.85rem', color: '#2a9d8f' }}>Note obtenue : {e.grade}/6</div>}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button onClick={() => handleEditEval(e)} style={actionBtnStyle}>✏️</button>
-                <button onClick={() => handleDelete('evaluations', e.id)} style={actionBtnStyle}>🗑</button>
+                <button onClick={() => handleEditEval(e)} style={actionBtnStyle}><Pencil size={14} /></button>
+                <button onClick={() => handleDelete('evaluations', e.id)} style={actionBtnStyle}><Trash2 size={14} /></button>
               </div>
             </div>
           ))}
@@ -461,8 +468,8 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
                 >
                   {r.completed ? '✅' : '⬜'}
                 </button>
-                <button onClick={() => handleEditRev(r)} style={actionBtnStyle}>✏️</button>
-                <button onClick={() => handleDelete('revisions', r.id)} style={actionBtnStyle}>🗑</button>
+                <button onClick={() => handleEditRev(r)} style={actionBtnStyle}><Pencil size={14} /></button>
+                <button onClick={() => handleDelete('revisions', r.id)} style={actionBtnStyle}><Trash2 size={14} /></button>
               </div>
             </div>
           ))}
@@ -481,8 +488,8 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
                 {ev.details && <div style={{ fontSize: '0.85rem', color: '#888' }}>{ev.details}</div>}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button onClick={() => handleEditEvt(ev)} style={actionBtnStyle}>✏️</button>
-                <button onClick={() => handleDelete('events', ev.id)} style={actionBtnStyle}>🗑</button>
+                <button onClick={() => handleEditEvt(ev)} style={actionBtnStyle}><Pencil size={14} /></button>
+                <button onClick={() => handleDelete('events', ev.id)} style={actionBtnStyle}><Trash2 size={14} /></button>
               </div>
             </div>
           ))}
@@ -511,8 +518,8 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
                 >
                   {r.completed ? '✅' : '⬜'}
                 </button>
-                <button onClick={() => handleEditReminder(r)} style={actionBtnStyle}>✏️</button>
-                <button onClick={() => handleDelete('reminders', r.id)} style={actionBtnStyle}>🗑</button>
+                <button onClick={() => handleEditReminder(r)} style={actionBtnStyle}><Pencil size={14} /></button>
+                <button onClick={() => handleDelete('reminders', r.id)} style={actionBtnStyle}><Trash2 size={14} /></button>
               </div>
             </div>
           ))}

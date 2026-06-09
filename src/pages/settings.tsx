@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../components/Toast'
 
 interface Profile {
   id: string
@@ -22,8 +23,8 @@ const LANGUAGES = ['Français', 'Anglais', 'Allemand', 'Espagnol', 'Grec', 'Arab
 export default function Settings() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const { showToast } = useToast()
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [newInterest, setNewInterest] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -98,8 +99,7 @@ export default function Settings() {
       dark_mode: profile.dark_mode,
     })
     setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    showToast('Profil mis à jour')
   }
 
   const toggleInterest = (interest: string) => {
@@ -159,7 +159,8 @@ export default function Settings() {
     if (user) {
       await supabase.from('profiles').update({ role }).eq('id', user.id)
     }
-    window.location.reload()
+    showToast('Rôle mis à jour')
+    setTimeout(() => window.location.reload(), 1000)
   }
 
   const inputStyle = {
@@ -377,7 +378,7 @@ export default function Settings() {
         disabled={saving}
         style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold', marginBottom: '1.5rem' }}
       >
-        {saving ? 'Sauvegarde...' : saved ? '✓ Sauvegardé !' : 'Sauvegarder'}
+        {saving ? 'Sauvegarde...' : 'Sauvegarder'}
       </button>
 
       {/* Mot de passe */}

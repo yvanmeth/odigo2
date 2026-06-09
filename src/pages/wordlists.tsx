@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, CSSProperties } from 'react'
 import { supabase } from '../lib/supabase'
+import { Pencil, Trash2 } from 'lucide-react'
+import { useToast } from '../components/Toast'
 
 interface WordList {
   id: string
@@ -52,6 +54,7 @@ function isSingleColumn(list: WordList): boolean {
 }
 
 export default function WordLists({ userId }: { userId?: string }) {
+  const { showToast } = useToast()
   const [lists, setLists] = useState<WordList[]>([])
   const [wordCounts, setWordCounts] = useState<Record<string, number>>({})
   const [subjects, setSubjects] = useState<{ id: number; name: string }[]>([])
@@ -151,6 +154,7 @@ export default function WordLists({ userId }: { userId?: string }) {
     })
     setNewListName(''); setNewListSubjectId(''); setNewListType('vocabulary'); setNewListLang('Anglais')
     setShowNewList(false)
+    showToast('Liste créée')
     fetchLists()
   }
 
@@ -179,6 +183,7 @@ export default function WordLists({ userId }: { userId?: string }) {
     await supabase.from('word_items').delete().eq('list_id', id)
     await supabase.from('word_lists').delete().eq('id', id)
     if (selectedList?.id === id) setSelectedList(null)
+    showToast('Supprimé', 'info')
     fetchLists()
   }
 
@@ -198,12 +203,14 @@ export default function WordLists({ userId }: { userId?: string }) {
       target_word: newTarget.trim() || null,
     })
     setNewSource(''); setNewTarget('')
+    showToast('Mot ajouté')
     fetchItems(selectedList.id)
     setWordCounts(prev => ({ ...prev, [selectedList.id]: (prev[selectedList.id] || 0) + 1 }))
   }
 
   const handleDeleteWord = async (id: string) => {
     await supabase.from('word_items').delete().eq('id', id)
+    showToast('Supprimé', 'info')
     if (selectedList) {
       fetchItems(selectedList.id)
       setWordCounts(prev => ({ ...prev, [selectedList.id]: Math.max(0, (prev[selectedList.id] || 1) - 1) }))
@@ -427,8 +434,8 @@ export default function WordLists({ userId }: { userId?: string }) {
                     {!singleCol && <td style={{ padding: '0.75rem 1rem', color: '#2a9d8f' }}>{item.target_word || '—'}</td>}
                     <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
-                        <button onClick={() => startEdit(item)} style={actionBtnStyle}>✏️</button>
-                        <button onClick={() => handleDeleteWord(item.id)} style={{ ...actionBtnStyle, background: '#e63946' }}>🗑️</button>
+                        <button onClick={() => startEdit(item)} style={actionBtnStyle}><Pencil size={14} /></button>
+                        <button onClick={() => handleDeleteWord(item.id)} style={{ ...actionBtnStyle, background: '#e63946' }}><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>
@@ -693,8 +700,8 @@ export default function WordLists({ userId }: { userId?: string }) {
                     </td>
                     <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
-                        <button onClick={() => openEditList(list)} style={actionBtnStyle}>✏️</button>
-                        <button onClick={() => handleDeleteList(list.id)} style={{ ...actionBtnStyle, background: '#e63946' }}>🗑️</button>
+                        <button onClick={() => openEditList(list)} style={actionBtnStyle}><Pencil size={14} /></button>
+                        <button onClick={() => handleDeleteList(list.id)} style={{ ...actionBtnStyle, background: '#e63946' }}><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>

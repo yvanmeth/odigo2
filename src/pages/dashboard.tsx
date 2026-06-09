@@ -1,6 +1,8 @@
 import type { Session } from '@supabase/supabase-js'
+import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { Home as HomeIcon, Calendar, BookOpen, List as ListIcon, Target, Trophy, Settings as SettingsIcon, Users, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import Subjects from './subjects'
 import Planner from './planner'
 import Home from './home'
@@ -36,14 +38,16 @@ const getTitleName = (item: { type: string; name: string; name_masculine?: strin
     : item.name
 }
 
-const navItems = [
-  { id: 'dashboard', label: 'Tableau de bord', icon: '🏠' },
-  { id: 'planner', label: 'Planificateur', icon: '📅' },
-  { id: 'subjects', label: 'Matières', icon: '📚' },
-  { id: 'wordlists', label: 'Listes de mots', icon: '📝' },
-  { id: 'exercises', label: 'Exercices', icon: '🎯' },
-  { id: 'rewards', label: 'Récompenses', icon: '🏆' },
-  { id: 'settings', label: 'Paramètres', icon: '⚙️' },
+interface NavItem { id: string; label: string; icon: ReactNode }
+
+const navItems: NavItem[] = [
+  { id: 'dashboard', label: 'Tableau de bord', icon: <HomeIcon size={18} /> },
+  { id: 'planner', label: 'Planificateur', icon: <Calendar size={18} /> },
+  { id: 'subjects', label: 'Matières', icon: <BookOpen size={18} /> },
+  { id: 'wordlists', label: 'Listes de mots', icon: <ListIcon size={18} /> },
+  { id: 'exercises', label: 'Exercices', icon: <Target size={18} /> },
+  { id: 'rewards', label: 'Récompenses', icon: <Trophy size={18} /> },
+  { id: 'settings', label: 'Paramètres', icon: <SettingsIcon size={18} /> },
 ]
 
 const exerciseCards = [
@@ -201,7 +205,7 @@ export default function Dashboard({ session }: Props) {
             onClick={() => setCollapsed(!collapsed)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: PRIMARY, fontSize: '1.1rem', padding: '0.25rem' }}
           >
-            {collapsed ? '»' : '«'}
+            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
           </button>
         </div>
 
@@ -253,7 +257,7 @@ export default function Dashboard({ session }: Props) {
                 whiteSpace: 'nowrap'
               }}
             >
-              <span style={{ fontSize: '1.1rem' }}>👨‍👧</span>
+              <Users size={18} />
               {!collapsed && 'Espace parent'}
             </button>
           )}
@@ -279,7 +283,7 @@ export default function Dashboard({ session }: Props) {
                 whiteSpace: 'nowrap'
               }}
             >
-              <span style={{ fontSize: '1.1rem' }}>{item.icon}</span>
+              {item.icon}
               {!collapsed && item.label}
             </button>
           ))}
@@ -302,7 +306,7 @@ export default function Dashboard({ session }: Props) {
               whiteSpace: 'nowrap'
             }}
           >
-            <span>🚪</span>
+            <LogOut size={18} />
             {!collapsed && 'Se déconnecter'}
           </button>
         </div>
