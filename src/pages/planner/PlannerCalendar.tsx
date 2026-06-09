@@ -1,0 +1,105 @@
+import { useState } from 'react'
+import type { CalendarItem, CalendarView } from './types'
+import { formatDateHeader } from './helpers'
+import PlannerDay from './PlannerDay'
+import PlannerWeek from './PlannerWeek'
+import PlannerMonth from './PlannerMonth'
+
+interface Props {
+  items: CalendarItem[]
+  onEdit: (item: CalendarItem) => void
+  onDelete: (table: string, id: string) => void
+}
+
+const TABLE_MAP: Record<CalendarItem['type'], string> = {
+  evaluation: 'evaluations',
+  revision: 'revisions',
+  event: 'events',
+  reminder: 'reminders',
+}
+
+export default function PlannerCalendar({ items, onEdit, onDelete }: Props) {
+  const [calView, setCalView] = useState<CalendarView>('week')
+  const [calDate, setCalDate] = useState(new Date())
+  const [editingItem, setEditingItem] = useState<CalendarItem | null>(null)
+  const [editPopoverPos, setEditPopoverPos] = useState({ x: 0, y: 0 })
+
+  const navigate = (dir: -1 | 1) => {
+    setCalDate(prev => {
+      const d = new Date(prev)
+      if (calView === 'day') d.setDate(d.getDate() + dir)
+      else if (calView === 'week') d.setDate(d.getDate() + dir * 7)
+      else { d.setMonth(d.getMonth() + dir); d.setDate(1) }
+      return d
+    })
+  }
+
+  const handleItemClick = (item: CalendarItem, pos: { x: number; y: number }) => {
+    setEditingItem(item)
+    setEditPopoverPos(pos)
+  }
+
+  const calViewToggle = (v: CalendarView) => ({
+    padding: '0.35rem 0.65rem', border: 'none', borderRadius: '0.4rem', cursor: 'pointer' as const,
+    background: calView === v ? '#2a9d8f' : 'transparent',
+    color: calView === v ? 'white' : '#2a9d8f',
+    fontSize: '0.8rem', fontWeight: calView === v ? 'bold' : ('normal' as const),
+  })
+
+  const navBtnStyle = {
+    padding: '0.35rem 0.65rem', border: 'none', borderRadius: '0.4rem', cursor: 'pointer' as const,
+    background: '#e0f0ee', color: '#2a9d8f', fontSize: '0.9rem',
+  }
+
+  return (
+    <div style={{ background: 'white', borderRadius: '1rem', overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+      {/* Barre navigation */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.35rem' }}>
+          <button onClick={() => navigate(-1)} style={navBtnStyle}>←</button>
+          <button onClick={() => setCalDate(new Date())} style={navBtnStyle}>Aujourd'hui</button>
+          <button onClick={() => navigate(1)} style={navBtnStyle}>→</button>
+        </div>
+        <div style={{ flex: 1, fontWeight: 'bold', color: '#333', fontSize: '0.9rem', textAlign: 'center' }}>
+          {formatDateHeader(calDate, calView)}
+        </div>
+        <div style={{ display: 'flex', gap: '0.2rem', background: '#f0faf8', borderRadius: '0.5rem', padding: '0.2rem' }}>
+          <button style={calViewToggle('day')} onClick={() => setCalView('day')}>Jour</button>
+          <button style={calViewToggle('week')} onClick={() => setCalView('week')}>Semaine</button>
+          <button style={calViewToggle('month')} onClick={() => setCalView('month')}>Mois</button>
+        </div>
+      </div>
+
+      {calView === 'day' && <PlannerDay calDate={calDate} items={items} onItemClick={handleItemClick} />}
+      {calView === 'week' && <PlannerWeek calDate={calDate} items={items} onItemClick={handleItemClick} />}
+      {calView === 'month' && <PlannerMonth calDate={calDate} items={items} onItemClick={handleItemClick} />}
+
+      {/* Popover édition */}
+      {editingItem && (
+        <>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 499 }} onClick={() => setEditingItem(null)} />
+          <div style={{
+            position: 'fixed', left: editPopoverPos.x, top: editPopoverPos.y, zIndex: 500,
+            background: 'white', borderRadius: '0.75rem', boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            padding: '0.75rem 1rem', minWidth: '190px',
+          }}>
+            <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.88rem', marginBottom: '0.5rem', paddingBottom: '0.4rem', borderBottom: '1px solid #f0f0f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '170px' }}>
+              {editingItem.title}
+            </div>
+            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+              <button onClick={() => { onEdit(editingItem); setEditingItem(null) }} style={{ background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.7rem', cursor: 'pointer', fontSize: '0.82rem' }}>
+                ✏️ Modifier
+              </button>
+              <button onClick={() => { onDelete(TABLE_MAP[editingItem.type], editingItem.id); setEditingItem(null) }} style={{ background: '#fee', color: '#e63946', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.82rem' }}>
+                🗑️
+              </button>
+              <button onClick={() => setEditingItem(null)} style={{ background: 'none', color: '#aaa', border: 'none', cursor: 'pointer', fontSize: '1rem', marginLeft: 'auto' }}>
+                ✕
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
