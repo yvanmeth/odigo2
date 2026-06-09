@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { supabase } from '../lib/supabase'
+import { generateGreeting } from '../lib/greeting'
 import type { Evaluation, Revision } from '../type/index'
 import type { Event as AppEvent } from '../type/index'
 import { logActivity } from '../services/activity'
@@ -118,6 +119,7 @@ function ProgressCircle({ value, max, streak, label, color }: {
 
 export default function Home({ userId }: { userId?: string }) {
   const [loading, setLoading] = useState(true)
+  const [greeting, setGreeting] = useState<string>('')
   const [progressData, setProgressData] = useState<ProgressData | null>(null)
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
@@ -136,9 +138,11 @@ export default function Home({ userId }: { userId?: string }) {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     const targetId = userId || user?.id
-    const twoYearsAgo = `${new Date().getFullYear() - 2}-01-01`
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
+    const twoYearsAgo = `${now.getFullYear() - 2}-01-01`
 
-    const [progressRes, evalsRes, revisionsRes, eventsRes, remindersRes, activityRes, fixedRes, prefsRes] =
+    const [progressRes, evalsRes, revisionsRes, eventsRes, remindersRes, activityRes, fixedRes, prefsRes, profileRes] =
       await Promise.all([
         supabase.from('progress').select('week_streak, digoos_this_week, digoos').eq('user_id', targetId).single(),
         supabase.from('evaluations').select('*').eq('user_id', targetId).order('evaluation_date'),
@@ -148,6 +152,7 @@ export default function Home({ userId }: { userId?: string }) {
         supabase.from('daily_activity').select('date').eq('user_id', targetId).gte('date', twoYearsAgo),
         supabase.from('subjects').select('id, name').order('name'),
         supabase.from('user_subjects').select('id, subject_id, custom_name, custom_emoji, hidden').eq('user_id', targetId),
+        supabase.from('profiles').select('first_name, birth_date, last_seen_at').eq('id', targetId).single(),
       ])
 
     if (progressRes.data) setProgressData(progressRes.data as ProgressData)
@@ -167,6 +172,42 @@ export default function Home({ userId }: { userId?: string }) {
       .filter(p => p.custom_name && !p.hidden)
       .map(p => ({ id: p.id, name: p.custom_name!, emoji: p.custom_emoji }))
     setSubjects([...visibleFixed, ...customSubjects])
+
+    // Mise à jour last_seen_at + calcul de la salutation
+    const profile = profileRes.data as { first_name: string | null; birth_date: string | null; last_seen_at: string | null } | null
+    if (targetId) {
+      supabase.from('profiles').update({ last_seen_at: now.toISOString() }).eq('id', targetId)
+    }
+
+    const lastSeenAt = profile?.last_seen_at
+    const daysSinceLastSeen = lastSeenAt
+      ? Math.floor((now.getTime() - new Date(lastSeenAt).getTime()) / (1000 * 60 * 60 * 24))
+      : 0
+
+    const upcomingEvals = ((evalsRes.data as Evaluation[] | null) || [])
+      .filter(e => e.evaluation_date >= today)
+      .sort((a, b) => a.evaluation_date.localeCompare(b.evaluation_date))
+    const nextEvalItem = upcomingEvals[0]
+    const daysUntilNextEval = nextEvalItem
+      ? Math.ceil((new Date(nextEvalItem.evaluation_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      : undefined
+
+    const birthDate = profile?.birth_date
+    const hasBirthday = birthDate
+      ? new Date(birthDate).getMonth() === now.getMonth() && new Date(birthDate).getDate() === now.getDate()
+      : false
+
+    const greetingText = generateGreeting({
+      firstName: profile?.first_name || '',
+      hour: now.getHours(),
+      daysSinceLastSeen,
+      digoosThisWeek: (progressRes.data as ProgressData | null)?.digoos_this_week || 0,
+      weekStreak: (progressRes.data as ProgressData | null)?.week_streak || 0,
+      nextEval: nextEvalItem ? { topic: nextEvalItem.topic, daysUntil: daysUntilNextEval! } : undefined,
+      isFirstDayOfWeek: now.getDay() === 1,
+      hasBirthday,
+    })
+    setGreeting(greetingText)
 
     setLoading(false)
   }
@@ -515,6 +556,23 @@ export default function Home({ userId }: { userId?: string }) {
 
   return (
     <div>
+      {/* ==================== 0. SALUTATION ==================== */}
+      {greeting && (
+        <div style={{
+          background: 'white',
+          borderRadius: '1rem',
+          padding: '1.25rem 1.5rem',
+          marginBottom: '1.5rem',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          borderLeft: '4px solid #2a9d8f',
+          fontSize: '1.05rem',
+          color: '#333',
+          lineHeight: '1.5',
+        }}>
+          {greeting}
+        </div>
+      )}
+
       {/* ==================== 1. SÉRIES EN COURS ==================== */}
       <div style={cardStyle}>
         {sectionHeader('🔥 Séries en cours')}
