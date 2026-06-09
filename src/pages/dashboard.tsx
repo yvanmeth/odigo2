@@ -30,6 +30,9 @@ interface Child {
 
 const PRIMARY = 'var(--color-primary)'
 
+const getInitials = (name: string) =>
+  name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+
 const getTitleName = (item: { type: string; name: string; name_masculine?: string | null; name_feminine?: string | null }, gender: string | null): string => {
   if (gender === 'M') return item.name_masculine || item.name
   if (gender === 'F') return item.name_feminine || item.name
@@ -105,6 +108,7 @@ export default function Dashboard({ session }: Props) {
   const [viewingChildName, setViewingChildName] = useState<string>('')
   const [firstName, setFirstName] = useState<string>('')
   const [activeTitle, setActiveTitle] = useState<string | null>(null)
+  const [digoos, setDigoos] = useState<number>(0)
 
   const now = new Date()
   const dateStr = now.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -183,6 +187,19 @@ export default function Dashboard({ session }: Props) {
   const effectiveUserId = viewingChildId || session.user.id
   const isViewingChild = !!viewingChildId
 
+  const fetchDigoos = async () => {
+    const { data } = await supabase
+      .from('progress')
+      .select('digoos')
+      .eq('user_id', effectiveUserId)
+      .single()
+    if (data) setDigoos(data.digoos)
+  }
+
+  useEffect(() => {
+    fetchDigoos()
+  }, [activePage, effectiveUserId])
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif', background: '#f0faf8' }}>
 
@@ -209,12 +226,43 @@ export default function Dashboard({ session }: Props) {
           </button>
         </div>
 
-        {!collapsed && (
-          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee' }}>
+        {collapsed ? (
+          <div style={{ padding: '0.75rem 0.5rem', borderBottom: '1px solid #e0f0ee', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{
+              width: '44px', height: '44px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #2a9d8f, #4CAF50)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', fontWeight: 'bold', fontSize: '1rem',
+              boxShadow: '0 2px 8px rgba(42,157,143,0.3)',
+            }}>
+              {getInitials(firstName || 'U')}
+            </div>
+            <div style={{ fontSize: '1rem' }}>💰</div>
+          </div>
+        ) : (
+          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee', textAlign: 'center' }}>
+            <div style={{
+              width: '44px', height: '44px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #2a9d8f, #4CAF50)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', fontWeight: 'bold', fontSize: '1rem',
+              margin: '0 auto 0.5rem',
+              boxShadow: '0 2px 8px rgba(42,157,143,0.3)',
+            }}>
+              {getInitials(firstName || 'U')}
+            </div>
             {firstName && <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#333', marginBottom: '0.1rem' }}>{firstName}</div>}
             {activeTitle && <div style={{ fontSize: '0.75rem', color: PRIMARY, fontStyle: 'italic', marginBottom: '0.1rem' }}>{activeTitle}</div>}
             <div style={{ fontSize: '0.75rem', color: '#888' }}>{dateStr}</div>
             <div style={{ fontSize: '1rem', fontWeight: 'bold', color: PRIMARY }}>{timeStr}</div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center',
+              marginTop: '0.5rem', padding: '0.3rem 0.75rem',
+              background: '#fff8e0', borderRadius: '1rem',
+              fontSize: '0.85rem', color: '#b8860b', fontWeight: 'bold',
+            }}>
+              💰 {digoos.toLocaleString('fr-CH')} Digoos
+            </div>
           </div>
         )}
 
