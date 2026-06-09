@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { EmptyState } from '../components/EmptyState'
 import { supabase } from '../lib/supabase'
 import type { Evaluation, Revision } from '../type/index'
 import type { Event as AppEvent } from '../type/index'
@@ -268,9 +269,7 @@ export default function Home({ userId }: { userId?: string }) {
   )
 
   const emptyMsg = (
-    <p style={{ color: '#aaa', textAlign: 'center', padding: '0.5rem 0', margin: 0, fontSize: '0.88rem' }}>
-      Aucun élément.
-    </p>
+    <EmptyState emoji="🌟" title="Semaine vierge" subtitle="Ajoute des évaluations, révisions ou événements dans le Planificateur." />
   )
 
   const filterButtons = (

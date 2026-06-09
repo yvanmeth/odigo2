@@ -5,6 +5,7 @@ import type { Event as AppEvent } from '../type/index'
 import { logActivity } from '../services/activity'
 import { Pencil, Trash2, Plus } from 'lucide-react'
 import { useToast } from '../components/Toast'
+import { EmptyState } from '../components/EmptyState'
 
 interface SubjectOption {
   id: number | string
@@ -432,7 +433,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
       {/* Liste évaluations */}
       {activeTab === 'evaluations' && (
         <div>
-          {evaluations.length === 0 && <p style={{ color: '#aaa' }}>Aucune évaluation.</p>}
+          {evaluations.length === 0 && <EmptyState emoji="📝" title="Aucune évaluation" subtitle="Ajoute ta première évaluation pour commencer." actionLabel="+ Ajouter" onAction={() => setShowForm(true)} />}
           {evaluations.map(e => (
             <div key={e.id} style={cardStyle}>
               <div>
@@ -453,7 +454,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
       {/* Liste révisions */}
       {activeTab === 'revisions' && (
         <div>
-          {revisions.length === 0 && <p style={{ color: '#aaa' }}>Aucune révision.</p>}
+          {revisions.length === 0 && <EmptyState emoji="📖" title="Aucune révision planifiée" subtitle="Planifie tes révisions pour rester organisé." actionLabel="+ Ajouter" onAction={() => setShowForm(true)} />}
           {revisions.map(r => (
             <div key={r.id} style={cardStyle}>
               <div>
@@ -479,7 +480,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
       {/* Liste événements */}
       {activeTab === 'events' && (
         <div>
-          {events.length === 0 && <p style={{ color: '#aaa' }}>Aucun événement.</p>}
+          {events.length === 0 && <EmptyState emoji="📅" title="Aucun événement" subtitle="Ajoute des événements importants à ton agenda." actionLabel="+ Ajouter" onAction={() => setShowForm(true)} />}
           {events.map(ev => (
             <div key={ev.id} style={cardStyle}>
               <div>
@@ -498,7 +499,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
       {/* Liste rappels */}
       {activeTab === 'reminders' && (
         <div>
-          {reminders.length === 0 && <p style={{ color: '#aaa' }}>Aucun rappel.</p>}
+          {reminders.length === 0 && <EmptyState emoji="🔔" title="Aucun rappel" subtitle="Crée des rappels pour ne rien oublier." actionLabel="+ Ajouter" onAction={() => setShowForm(true)} />}
           {reminders.map(r => (
             <div key={r.id} style={cardStyle}>
               <div>

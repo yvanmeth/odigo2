@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { EmptyState } from '../components/EmptyState'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { StarterKit } from '@tiptap/starter-kit'
 import { Highlight } from '@tiptap/extension-highlight'
@@ -799,7 +800,7 @@ export default function Subjects({ userId }: { userId?: string }) {
       {subjectTab === 'evals' && (
         <div>
           {evaluations.length === 0 ? (
-            <p style={{ color: '#aaa', textAlign: 'center', padding: '2rem' }}>Aucune évaluation à venir dans cette matière.</p>
+            <EmptyState emoji="📅" title="Aucune évaluation à venir" subtitle="Les évaluations planifiées pour cette matière apparaîtront ici." />
           ) : (
             evaluations.map(e => {
               const total = revisions.filter(r => r.evaluation_id === e.id).length
@@ -833,7 +834,7 @@ export default function Subjects({ userId }: { userId?: string }) {
           </div>
 
           {[...pinnedNotes, ...activeNotes].length === 0 && (
-            <p style={{ color: '#aaa', textAlign: 'center', padding: '2rem' }}>Aucune note. Crée ta première note !</p>
+            <EmptyState emoji="📝" title="Aucune note" subtitle="Commence à prendre des notes pour cette matière." />
           )}
 
           {[...pinnedNotes, ...activeNotes].map(note => (
@@ -991,7 +992,7 @@ export default function Subjects({ userId }: { userId?: string }) {
 
           {/* Grille post-its */}
           {postits.length === 0 ? (
-            <p style={{ color: '#aaa', textAlign: 'center', padding: '2rem' }}>Aucun post-it. Crée ton premier post-it !</p>
+            <EmptyState emoji="🗒️" title="Aucun post-it" subtitle="Ajoute des post-its pour les infos importantes." />
           ) : (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
               {postits.map(p => {

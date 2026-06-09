@@ -3,6 +3,7 @@ import type { ChangeEvent, CSSProperties } from 'react'
 import { supabase } from '../lib/supabase'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
+import { EmptyState } from '../components/EmptyState'
 
 interface WordList {
   id: string
@@ -403,8 +404,8 @@ export default function WordLists({ userId }: { userId?: string }) {
             <tbody>
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={singleCol ? 3 : 4} style={{ padding: '2rem', textAlign: 'center', color: '#aaa' }}>
-                    Aucun mot dans cette liste.
+                  <td colSpan={singleCol ? 3 : 4}>
+                    <EmptyState emoji="✏️" title="Cette liste est vide" subtitle="Ajoute des mots pour pouvoir faire des exercices." />
                   </td>
                 </tr>
               )}
@@ -652,7 +653,7 @@ export default function WordLists({ userId }: { userId?: string }) {
       )}
 
       {lists.length === 0 ? (
-        <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucune liste de mots. Crée ta première liste !</p>
+        <EmptyState emoji="📋" title="Aucune liste de mots" subtitle="Crée ta première liste pour commencer les exercices." actionLabel="+ Nouvelle liste" onAction={() => setShowNewList(true)} />
       ) : (
         <div style={{ background: 'white', borderRadius: '0.75rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>

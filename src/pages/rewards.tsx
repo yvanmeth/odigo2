@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { EmptyState } from '../components/EmptyState'
 import { supabase } from '../lib/supabase'
 import { addDigoos, deductDigoos } from '../services/digoos'
 import { useToast } from '../components/Toast'
@@ -556,7 +557,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
               <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>Voici les récompenses actuellement disponibles.</p>
 
               {irlRewards.length === 0 ? (
-                <p style={{ color: '#aaa' }}>Aucune récompense disponible pour le moment.</p>
+                <EmptyState emoji="🎁" title="Aucune récompense disponible" subtitle="Demande à tes parents de créer des récompenses dans leur espace." />
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
                   {irlRewards.map(r => {
@@ -752,7 +753,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
             <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1.1rem' }}>👛 Portefeuille</h3>
 
             {validPurchases.length === 0 ? (
-              <p style={{ color: '#aaa' }}>Ton portefeuille est vide. Achète des récompenses dans l'onglet Récompenses !</p>
+              <EmptyState emoji="👛" title="Ton portefeuille est vide" subtitle="Achète des récompenses dans l'onglet Récompenses !" />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {validPurchases.map(p => renderCoupon(p))}
