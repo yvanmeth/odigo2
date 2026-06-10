@@ -47,6 +47,13 @@ type TypeFilters = Record<FilterKey, boolean>
 
 // ==================== HELPERS ====================
 
+function toDateStr(d: Date): string {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function getWeekBounds(weekOffset: number): { start: string; end: string } {
   const now = new Date()
   const day = now.getDay()
@@ -56,16 +63,24 @@ function getWeekBounds(weekOffset: number): { start: string; end: string } {
   mon.setHours(0, 0, 0, 0)
   const sun = new Date(mon)
   sun.setDate(mon.getDate() + 6)
-  return { start: mon.toISOString().split('T')[0], end: sun.toISOString().split('T')[0] }
+  return { start: toDateStr(mon), end: toDateStr(sun) }
 }
 
-function getWeekNumber(dateStr: string): number {
-  const date = parseLocalDate(dateStr)
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayNum = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+function getISOWeekNumber(date: Date): number {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
+  const week1 = new Date(d.getFullYear(), 0, 4)
+  return 1 + Math.round(((d.getTime() - week1.getTime())
+    / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
+}
+
+function formatWeekRange(weekOffset: number): string {
+  const { start, end } = getWeekBounds(weekOffset)
+  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' }
+  const startStr = parseLocalDate(start).toLocaleDateString('fr-FR', opts)
+  const endStr = parseLocalDate(end).toLocaleDateString('fr-FR', opts)
+  return `du lundi ${startStr} au dimanche ${endStr}`
 }
 
 function fmtDate(iso: string): string {
@@ -224,7 +239,7 @@ export default function Home({ userId }: { userId?: string }) {
   const thisMonthPrefix = todayStr.substring(0, 7)
   const monthAct = dailyActivity.filter(a => a.date.startsWith(thisMonthPrefix))
   const activeDaysThisMonth = new Set(monthAct.map(a => a.date.split('T')[0])).size
-  const activeWeeksThisMonth = new Set(monthAct.map(a => getWeekNumber(a.date.split('T')[0]))).size
+  const activeWeeksThisMonth = new Set(monthAct.map(a => getISOWeekNumber(parseLocalDate(a.date.split('T')[0])))).size
   const monthSteps = Math.min(activeDaysThisMonth, 15) + Math.min(activeWeeksThisMonth, 2) + Math.min(monthAct.length, 15)
 
   const weekStreak = progressData?.week_streak || 0
@@ -233,7 +248,7 @@ export default function Home({ userId }: { userId?: string }) {
 
   const weekActivity = dailyActivity.filter(a => inRange(a.date.split('T')[0], weekStart, weekEnd))
   const exercisesThisWeek = weekActivity.length
-  const currentWeekNo = getWeekNumber(todayStr)
+  const currentWeekNo = getISOWeekNumber(parseLocalDate(weekStart))
 
   const getSubjectName = (id: unknown) =>
     subjects.find(s => String(s.id) === String(id))?.name || '?'
@@ -330,7 +345,7 @@ export default function Home({ userId }: { userId?: string }) {
   )
 
   // ---- Week section renderer ----
-  const renderWeekSection = (start: string, end: string, weekNo: number, isCurrentWeek: boolean) => {
+  const renderWeekSection = (start: string, end: string, weekNo: number, isCurrentWeek: boolean, weekOffset: number) => {
     const weekEvals = evaluations.filter(e => inRange(e.evaluation_date, start, end))
     const weekRevs = revisions.filter(r => inRange(r.revision_date, start, end))
     const weekEvts = events.filter(e => inRange(e.event_date, start, end))
@@ -357,6 +372,10 @@ export default function Home({ userId }: { userId?: string }) {
             </span>
           ) : undefined
         )}
+
+        <div style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '0.75rem' }}>
+          {formatWeekRange(weekOffset)}
+        </div>
 
         {isCurrentWeek && (
           <div style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '1rem', marginTop: '-0.5rem' }}>
@@ -569,11 +588,11 @@ export default function Home({ userId }: { userId?: string }) {
       </div>
 
       {/* ==================== 2. SEMAINE EN COURS ==================== */}
-      {renderWeekSection(weekStart, weekEnd, currentWeekNo, true)}
+      {renderWeekSection(weekStart, weekEnd, currentWeekNo, true, 0)}
 
       {/* ==================== 3. SEMAINES À VENIR ==================== */}
-      {renderWeekSection(w1Start, w1End, getWeekNumber(w1Start), false)}
-      {renderWeekSection(w2Start, w2End, getWeekNumber(w2Start), false)}
+      {renderWeekSection(w1Start, w1End, getISOWeekNumber(parseLocalDate(w1Start)), false, 1)}
+      {renderWeekSection(w2Start, w2End, getISOWeekNumber(parseLocalDate(w2Start)), false, 2)}
 
       {/* ==================== 4. ÉVÉNEMENTS PASSÉS ==================== */}
       <div style={cardStyle}>
