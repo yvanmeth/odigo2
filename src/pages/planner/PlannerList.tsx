@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import type { Evaluation, Revision, AppEvent, Reminder, SubjectOption, Tab, CalendarItem } from './types'
 import { ODIGO_REMIND_LABELS, formatDate } from './types'
 import { logActivity } from '../../services/activity'
+import { addPlannerDigoos } from '../../services/digoos'
 import { Pencil, Trash2, Plus } from 'lucide-react'
 import { useToast } from '../../components/Toast'
 import { EmptyState } from '../../components/EmptyState'
@@ -102,10 +103,12 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
     }
     if (editingId) {
       await supabase.from('evaluations').update(payload).eq('id', editingId)
+      if (payload.grade !== null) await addPlannerDigoos('grade_received')
     } else {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('evaluations').insert({ ...payload, user_id: user?.id })
       await logActivity({ action_type: 'planner_entry', metadata: { type: 'evaluation' } })
+      await addPlannerDigoos('eval_added')
       showToast('Évaluation ajoutée')
     }
     setEvalDate(''); setEvalSubject(''); setEvalTopic(''); setEvalReadiness('')
@@ -146,6 +149,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
         start_time: evtStartTime || null, end_time: evtEndTime || null, details: evtDetails || null,
       })))
       await logActivity({ action_type: 'planner_entry', metadata: { type: 'event_repeat' } })
+      await addPlannerDigoos('event_added')
       showToast(`${dates.length} événements récurrents ajoutés`)
     } else {
       const payload = {
@@ -158,6 +162,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
         const { data: { user } } = await supabase.auth.getUser()
         await supabase.from('events').insert({ ...payload, user_id: user?.id })
         await logActivity({ action_type: 'planner_entry', metadata: { type: 'event' } })
+        await addPlannerDigoos('event_added')
         showToast('Événement ajouté')
       }
     }
@@ -179,7 +184,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
       const { data: { user } } = await supabase.auth.getUser()
       const { error } = await supabase.from('reminders').insert({ user_id: user?.id, ...payload, completed: false })
       if (error) { console.error('Reminder insert error:', error); showToast('Une erreur est survenue', 'error') }
-      else { await logActivity({ action_type: 'planner_entry', metadata: { type: 'reminder' } }); showToast('Rappel ajouté') }
+      else { await logActivity({ action_type: 'planner_entry', metadata: { type: 'reminder' } }); await addPlannerDigoos('reminder_added'); showToast('Rappel ajouté') }
     }
     setRemTitle(''); setRemDescription(''); setRemDeadlineDate(''); setRemDeadlineTime(''); setRemOdigoRemind('never')
     closeForm(); onRefresh()
@@ -354,7 +359,13 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <button
-                  onClick={async () => { await supabase.from('revisions').update({ completed: !r.completed }).eq('id', r.id); await logActivity({ action_type: 'revision_checked', metadata: { completed: !r.completed } }); onRefresh() }}
+                  onClick={async () => {
+                    const completed = !r.completed
+                    await supabase.from('revisions').update({ completed }).eq('id', r.id)
+                    await logActivity({ action_type: 'revision_checked', metadata: { completed } })
+                    if (completed) await addPlannerDigoos('revision_checked')
+                    onRefresh()
+                  }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
                 >
                   {r.completed ? '✅' : '⬜'}

@@ -92,7 +92,7 @@ export default function Sidebar({
             background: '#fff8e0', borderRadius: '1rem',
             fontSize: '0.85rem', color: '#b8860b', fontWeight: 'bold',
           }}>
-            💰 {digoos.toLocaleString('fr-CH')} Digoos
+            💰 {digoos.toLocaleString('fr-CH')} Δ
           </div>
         </div>
       )}

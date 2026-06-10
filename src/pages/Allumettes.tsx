@@ -305,7 +305,7 @@ const Allumettes = () => {
           </div>
 
           <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
-            Coût : 1 Digoo · Solde actuel : {digoos} Digoo{digoos !== 1 ? 's' : ''}
+            Coût : 1 Δ · Solde actuel : {digoos} Δ
           </p>
 
           <button

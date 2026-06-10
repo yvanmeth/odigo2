@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import Subjects from '../subjects/index'
 import Planner from '../planner'
@@ -12,6 +12,7 @@ import Rewards from '../rewards'
 import Settings from '../settings'
 import ParentDashboard from '../parent'
 import Companion from '../../components/Companion'
+import { DigoosAnimation } from '../../components/DigoosAnimation'
 import Flashcards from '../flashcards'
 import Conjugaison from '../conjugaison'
 import Vocabulaire from '../vocabulaire'
@@ -47,11 +48,17 @@ export default function Dashboard({ session }: Props) {
   const [activeTitle, setActiveTitle] = useState<string | null>(null)
   const [digoos, setDigoos] = useState<number>(0)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const digoosAnimRef = useRef<((amount: number) => void) | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('odigo_theme_color')
     document.documentElement.style.setProperty('--color-primary', saved || '#2a9d8f')
     fetchProfile()
+  }, [])
+
+  useEffect(() => {
+    (window as any).triggerDigoosAnimation =
+      (amount: number) => digoosAnimRef.current?.(amount)
   }, [])
 
   const fetchProfile = async () => {
@@ -313,6 +320,8 @@ export default function Dashboard({ session }: Props) {
       {!isViewingChild && <Companion userId={session.user.id} />}
 
       {showOnboarding && <OnboardingModal onComplete={handleFinishOnboarding} />}
+
+      <DigoosAnimation onRef={trigger => { digoosAnimRef.current = trigger }} />
     </div>
   )
 }

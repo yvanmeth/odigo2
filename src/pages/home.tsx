@@ -5,7 +5,9 @@ import { generateGreeting } from '../lib/greeting'
 import type { Evaluation, Revision } from '../type/index'
 import type { Event as AppEvent } from '../type/index'
 import { logActivity } from '../services/activity'
+import { addPlannerDigoos } from '../services/digoos'
 import { parseLocalDate } from '../lib/dates'
+import ProgressCircle from './rewards/ProgressCircle'
 
 // ==================== INTERFACES ====================
 
@@ -83,37 +85,6 @@ function isPastInFilter(dateStr: string, filter: PastFilter, todayStr: string): 
   const d = new Date()
   d.setDate(d.getDate() - 30)
   return dateStr >= d.toISOString().split('T')[0]
-}
-
-// ==================== PROGRESS CIRCLE ====================
-
-function ProgressCircle({ value, max, streak, label, color }: {
-  value: number; max: number; streak: number; label: string; color: string
-}) {
-  const radius = 36
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference * (1 - Math.min(value / max, 1))
-  return (
-    <div style={{ textAlign: 'center', flex: 1 }}>
-      <svg width="96" height="96" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="48" cy="48" r={radius} fill="none" stroke="#e0f0ee" strokeWidth="8" />
-        <circle
-          cx="48" cy="48" r={radius} fill="none" stroke={color} strokeWidth="8"
-          strokeDasharray={circumference} strokeDashoffset={offset}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-        />
-        <text
-          x="48" y="48" textAnchor="middle" dominantBaseline="middle"
-          fontSize="22" fontWeight="bold" fill="#333"
-          style={{ transform: 'rotate(90deg)', transformOrigin: '48px 48px' }}
-        >
-          {streak}
-        </text>
-      </svg>
-      <div style={{ fontSize: '0.82rem', color: '#888', marginTop: '0.25rem' }}>{label}</div>
-    </div>
-  )
 }
 
 // ==================== MAIN COMPONENT ====================
@@ -275,6 +246,10 @@ export default function Home({ userId }: { userId?: string }) {
     const numVal = value === '' ? null : parseFloat(value)
     await supabase.from('evaluations').update({ [field]: numVal }).eq('id', id)
     await logActivity({ action_type: 'grade_updated', metadata: { field } })
+    if (numVal !== null) {
+      if (field === 'grade') await addPlannerDigoos('grade_received')
+      else await addPlannerDigoos('eval_added')
+    }
     setEvaluations(prev => prev.map(e => e.id === id ? { ...e, [field]: numVal } : e))
   }
 
@@ -378,7 +353,7 @@ export default function Home({ userId }: { userId?: string }) {
               padding: '0.2rem 0.65rem', borderRadius: '1rem',
               background: weekColor, color: 'white', fontSize: '0.78rem', fontWeight: 'bold',
             }}>
-              {digoosThisWeek} Digoos
+              {digoosThisWeek} Δ
             </span>
           ) : undefined
         )}
