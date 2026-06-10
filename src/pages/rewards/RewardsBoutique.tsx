@@ -314,12 +314,15 @@ export default function RewardsBoutique({
                   Jouer — 1 Digoo
                 </button>
               </div>
-              <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>
+              <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <span style={{ fontSize: '1.4rem' }}>📖</span>
                 <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Histoire interactive</div>
-                <span style={{ display: 'inline-block', background: '#e0e0e0', color: '#888', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', alignSelf: 'flex-start' }}>
-                  Bientôt disponible
-                </span>
+                <button
+                  onClick={() => onNavigate?.('exercises', 'histoire')}
+                  style={{ alignSelf: 'flex-start', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '1rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Jouer — 1 Δ par choix
+                </button>
               </div>
               <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>
                 <span style={{ fontSize: '1.4rem' }}>🃏</span>
