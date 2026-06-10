@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import type { Session } from '@supabase/supabase-js'
 import LoginPage from './pages/loginpage'
-import Dashboard from './pages/dashboard'
+import Dashboard from './pages/dashboard/index'
 import { ToastProvider } from './components/Toast'
 
 function App() {
