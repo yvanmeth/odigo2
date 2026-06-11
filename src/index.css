@@ -167,6 +167,43 @@ button:disabled {
   background: #f0faf8;
 }
 
+.cartes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+@media (max-width: 600px) {
+  .cartes-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.card-flip {
+  transition: transform 0.6s ease;
+  transform-style: preserve-3d;
+}
+
+.card-flip.flipped {
+  transform: rotateY(180deg);
+}
+
+.card-front,
+.card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.card-back {
+  transform: rotateY(180deg);
+}
+
 input[type="text"],
 input[type="email"],
 input[type="password"],

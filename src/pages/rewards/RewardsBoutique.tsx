@@ -327,12 +327,15 @@ export default function RewardsBoutique({
                   <span style={{ color: '#ffffff', fontSize: '0.85rem' }}>1 <Delta size={14} /> par choix</span>
                 </button>
               </div>
-              <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>
+              <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <span style={{ fontSize: '1.4rem' }}>🃏</span>
                 <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Cartes à collectionner</div>
-                <span style={{ display: 'inline-block', background: '#e0e0e0', color: '#888', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', alignSelf: 'flex-start' }}>
-                  Bientôt disponible
-                </span>
+                <button
+                  onClick={() => onNavigate?.('exercises', 'cartes')}
+                  style={{ alignSelf: 'flex-start', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '1rem', padding: '0.4rem 0.8rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+                >
+                  Voir la collection
+                </button>
               </div>
             </div>
           </div>
