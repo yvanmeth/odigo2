@@ -205,6 +205,17 @@ const callAPI = async (
     ?.replace(/```json|```/g, '').trim() || ''
 }
 
+const removeEmojis = (str: string) => str
+  .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+  .replace(/[\u{2600}-\u{26FF}]/gu, '')
+  .replace(/[\u{2700}-\u{27BF}]/gu, '')
+  .replace(/[\u{FE00}-\u{FEFF}]/gu, '')
+  .replace(/[\u{1F900}-\u{1F9FF}]/gu, '')
+  // eslint-disable-next-line no-control-regex -- plage ASCII volontaire pour ne garder que le texte latin
+  .replace(/[^\x00-\x7FÀ-ɏ]/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
+
 const renderHighlighted = (context: string, highlight: string) => {
   const idx = context.indexOf(highlight)
   if (idx === -1) return context
@@ -437,52 +448,99 @@ export default function Histoire() {
     const { jsPDF } = await import('jspdf')
     const doc = new jsPDF()
 
-    const title = capitalize(currentTitle.full)
+    const titleText = capitalize(currentTitle.full)
+    const margin = 25
     const pageWidth = doc.internal.pageSize.getWidth()
-    const margin = 20
-    const maxWidth = pageWidth - margin * 2
-    let y = 30
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const contentWidth = pageWidth - margin * 2
+    const lineHeight = 7
+    let y = 60
 
-    doc.setFontSize(18)
-    doc.setTextColor('#2a9d8f')
-    doc.text(title, pageWidth / 2, y, { align: 'center', maxWidth })
-    y += 15
+    const checkNewPage = (neededSpace: number) => {
+      if (y + neededSpace > pageHeight - 20) {
+        doc.addPage()
+        y = 25
+      }
+    }
+
+    // Page de titre
+    doc.setFillColor('#2a9d8f')
+    doc.rect(0, 0, pageWidth, 45, 'F')
+
+    doc.setFontSize(20)
+    doc.setTextColor('#ffffff')
+    doc.setFont('helvetica', 'bold')
+    doc.text(titleText, pageWidth / 2, 22, { align: 'center', maxWidth: contentWidth })
 
     doc.setFontSize(10)
-    doc.setTextColor('#aaaaaa')
-    doc.text('Une histoire créée avec ODIGO', pageWidth / 2, y, { align: 'center' })
-    y += 15
+    doc.setFont('helvetica', 'italic')
+    doc.text('Une histoire créée avec ODIGO', pageWidth / 2, 34, { align: 'center' })
 
-    nodes.forEach((node) => {
-      if (y > 260) { doc.addPage(); y = 20 }
+    nodes.forEach((node, i) => {
+      // Numéro de chapitre
+      checkNewPage(20)
+      doc.setFontSize(9)
+      doc.setTextColor('#2a9d8f')
+      doc.setFont('helvetica', 'bold')
+      doc.text(`CHAPITRE ${i + 1}`, margin, y)
+      y += 6
 
-      const cleanText = node.text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()
+      // Ligne décorative
+      doc.setDrawColor('#e0f0ee')
+      doc.setLineWidth(0.3)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 6
 
+      // Texte du nœud
+      const cleanText = removeEmojis(node.text)
       doc.setFontSize(11)
       doc.setTextColor('#333333')
-      const lines = doc.splitTextToSize(cleanText, maxWidth)
-      doc.text(lines, margin, y)
-      y += lines.length * 6 + 4
+      doc.setFont('helvetica', 'normal')
+      const lines: string[] = doc.splitTextToSize(cleanText, contentWidth)
+      lines.forEach((line: string) => {
+        checkNewPage(lineHeight)
+        doc.text(line, margin, y, { maxWidth: contentWidth })
+        y += lineHeight
+      })
+      y += 4
 
+      // Choix fait — encadré
       if (node.choiceIndex !== undefined) {
-        doc.setFontSize(9)
+        const choiceText = removeEmojis(node.choices[node.choiceIndex])
+        const choiceLines: string[] = doc.splitTextToSize(`→ ${choiceText}`, contentWidth - 10)
+        checkNewPage(choiceLines.length * 6 + 8)
+
+        doc.setFillColor('#f0faf8')
+        doc.roundedRect(margin, y - 4, contentWidth, choiceLines.length * 6 + 6, 2, 2, 'F')
+
+        doc.setFontSize(10)
         doc.setTextColor('#2a9d8f')
-        const choice = `→ ${node.choices[node.choiceIndex]}`
-        const clines = doc.splitTextToSize(choice, maxWidth - 10)
-        doc.text(clines, margin + 5, y)
-        y += clines.length * 5 + 8
+        doc.setFont('helvetica', 'italic')
+        choiceLines.forEach((line: string) => {
+          doc.text(line, margin + 4, y + 2)
+          y += 6
+        })
+        y += 8
       }
     })
 
-    if (y > 260) { doc.addPage(); y = 20 }
-    doc.setFontSize(9)
-    doc.setTextColor('#aaaaaa')
-    doc.text(
-      `Histoire créée avec ODIGO — ${new Date().toLocaleDateString('fr-CH')}`,
-      pageWidth / 2, 285, { align: 'center' }
-    )
+    // Pied de page sur chaque page
+    const totalPages = doc.getNumberOfPages()
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p)
+      doc.setFontSize(8)
+      doc.setTextColor('#cccccc')
+      doc.setFont('helvetica', 'normal')
+      doc.text(
+        `Histoire créée avec ODIGO — ${new Date().toLocaleDateString('fr-CH')} — Page ${p}/${totalPages}`,
+        pageWidth / 2, pageHeight - 8, { align: 'center' }
+      )
+      doc.setDrawColor('#eeeeee')
+      doc.setLineWidth(0.2)
+      doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12)
+    }
 
-    doc.save(`${title.replace(/\s+/g, '_')}.pdf`)
+    doc.save(`${titleText.replace(/\s+/g, '_')}.pdf`)
   }
 
   // ---- ÉCRAN SÉLECTION ----
@@ -523,6 +581,22 @@ export default function Histoire() {
           >
             📖 Commencer
           </button>
+        </div>
+
+        <div style={{
+          marginTop: '0.75rem',
+          background: '#fff8e0',
+          border: '1px solid #e9c46a',
+          borderRadius: '0.5rem',
+          padding: '0.6rem 0.75rem',
+          fontSize: '0.82rem',
+          color: '#b8860b',
+          lineHeight: '1.5',
+          textAlign: 'center',
+        }}>
+          💡 À la fin de l'histoire, une question t'attend !
+          Réponds correctement pour récupérer jusqu'à 3 <Delta size={14} />.
+          Sois attentif·ve en lisant 👀
         </div>
       </div>
     )
