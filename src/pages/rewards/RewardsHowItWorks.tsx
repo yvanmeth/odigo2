@@ -16,20 +16,20 @@ export default function RewardsHowItWorks() {
 
       {/* Les Δ (Digoos) */}
       <div style={cardStyle}>
-        <h3 style={titleStyle}>💰 Les Δ (Digoos)</h3>
+        <h3 style={titleStyle}>💰 Les <Delta size={16} /> (Digoos)</h3>
         <p style={textStyle}>
-          Les Δ sont la monnaie d'ODIGO. Tu en gagnes en travaillant régulièrement, et tu peux les
+          Les <Delta size={16} /> sont la monnaie d'ODIGO. Tu en gagnes en travaillant régulièrement, et tu peux les
           dépenser dans la Boutique pour personnaliser ton espace ou obtenir des récompenses.
         </p>
       </div>
 
       {/* Comment gagner des Δ */}
       <div style={cardStyle}>
-        <h3 style={titleStyle}>🎯 Comment gagner des Δ</h3>
+        <h3 style={titleStyle}>🎯 Comment gagner des <Delta size={16} /></h3>
 
         <h4 style={subTitleStyle}>Exercices</h4>
         <ul style={listStyle}>
-          <li>Chaque session d'exercice terminée rapporte des Δ</li>
+          <li>Chaque session d'exercice terminée rapporte des <Delta size={16} /></li>
           <li>Les 10 premiers exercices du jour sont récompensés à 100%</li>
           <li>Du 11e au 20e : 80%</li>
           <li>À partir du 21e : 60%</li>
@@ -62,7 +62,7 @@ export default function RewardsHowItWorks() {
 
       {/* Comment dépenser des Δ */}
       <div style={cardStyle}>
-        <h3 style={titleStyle}>🛍️ Comment dépenser des Δ</h3>
+        <h3 style={titleStyle}>🛍️ Comment dépenser des <Delta size={16} /></h3>
         <ul style={listStyle}>
           <li>Thèmes de couleur : 50 <Delta size={16} /> (valable 30 jours)</li>
           <li>Titres : 30 <Delta size={16} /> (permanent)</li>

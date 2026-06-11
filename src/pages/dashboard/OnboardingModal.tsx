@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { OdigoAvatar } from '../../components/OdigoAvatar'
 
 interface OnboardingModalProps {
   onComplete: () => void
@@ -13,7 +14,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
 
         {onboardingStep === 1 && (
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🟢</div>
+            <div style={{ marginBottom: '1rem' }}><OdigoAvatar size={64} /></div>
             <h2 style={{ color: '#333', margin: '0 0 0.75rem', fontSize: '1.4rem' }}>Bienvenue sur ODIGO !</h2>
             <p style={{ color: '#555', lineHeight: '1.7', margin: 0 }}>
               Je m'appelle Odigo, ton compagnon d'apprentissage.

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { OdigoAvatar } from './OdigoAvatar'
 
 interface CompanionProps {
   userId: string
@@ -23,8 +24,6 @@ interface Progress {
   digoos_this_week: number
   week_streak: number
 }
-
-const ODIGO_AVATAR = '🟢'
 
 export default function Companion({ userId }: CompanionProps) {
   const [open, setOpen] = useState(false)
@@ -207,7 +206,7 @@ Règles importantes :
         onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
         title="Odigo — ton compagnon"
       >
-        {open ? '✕' : ODIGO_AVATAR}
+        {open ? '✕' : <OdigoAvatar size={32} />}
       </button>
 
       {/* Fenêtre de chat */}
@@ -229,7 +228,7 @@ Règles importantes :
 
           {/* Header */}
           <div style={{ background: '#2a9d8f', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.2rem' }}>🟢</span>
+            <OdigoAvatar size={24} />
             <div>
               <div style={{ color: 'white', fontWeight: 'bold', fontSize: '0.95rem' }}>Odigo</div>
               <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem' }}>ton compagnon</div>

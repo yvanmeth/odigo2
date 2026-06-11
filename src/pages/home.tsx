@@ -367,7 +367,7 @@ export default function Home({ userId }: { userId?: string }) {
           isCurrentWeek ? (
             <span style={{
               padding: '0.2rem 0.65rem', borderRadius: '1rem',
-              background: weekColor, color: 'white', fontSize: '0.78rem', fontWeight: 'bold',
+              background: '#fff8e0', color: '#b8860b', fontSize: '0.78rem', fontWeight: 'bold',
             }}>
               {digoosThisWeek} <Delta size={16} />
             </span>
