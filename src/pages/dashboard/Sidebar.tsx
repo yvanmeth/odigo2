@@ -48,7 +48,7 @@ export default function Sidebar({
     }}>
 
       <div style={{ padding: '1.25rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e0f0ee' }}>
-        {!collapsed && <span style={{ color: PRIMARY, fontWeight: 'bold', fontSize: '1.2rem' }}>ODIGO</span>}
+        {!collapsed && <img src="/logo-full.svg" alt="ODIGO" style={{ height: '28px', objectFit: 'contain' }} />}
         <button
           onClick={onToggle}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: PRIMARY, fontSize: '1.1rem', padding: '0.25rem' }}

@@ -97,10 +97,7 @@ export default function LoginPage() {
 
   const logo = (
     <div style={{ marginBottom: '0.5rem' }}>
-      <h1 style={{ color: '#2a9d8f', margin: '0 0 0.25rem' }}>ODIGO</h1>
-      <p style={{ color: '#2a9d8f', fontSize: '0.85rem', fontStyle: 'italic', margin: '0 0 1.5rem' }}>
-        Planifier, apprendre, s'amuser
-      </p>
+      <img src="/logo-full.svg" alt="ODIGO" style={{ width: '180px', marginBottom: '0.5rem' }} />
     </div>
   )
 
