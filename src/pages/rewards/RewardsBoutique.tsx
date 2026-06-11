@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Delta } from '../../components/Delta'
 import { EmptyState } from '../../components/EmptyState'
 import { supabase } from '../../lib/supabase'
 import { deductDigoos } from '../../services/digoos'
@@ -124,7 +125,7 @@ export default function RewardsBoutique({
             fontSize: '0.8rem', fontWeight: 'bold',
           }}
         >
-          {isLoading ? '...' : canAfford ? `Obtenir — ${item.price} Δ` : 'Digoos insuffisants'}
+          {isLoading ? '...' : canAfford ? <span>Obtenir — {item.price} <Delta size={16} /></span> : 'Digoos insuffisants'}
         </button>
       )
     } else if (expired) {
@@ -178,7 +179,7 @@ export default function RewardsBoutique({
         <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>{getItemName(item)}</div>
         {item.description && <div style={{ fontSize: '0.82rem', color: '#888' }}>{item.description}</div>}
         {item.price > 0 && (
-          <div style={{ fontSize: '0.8rem', color: '#e9c46a', fontWeight: 'bold' }}>{item.price} Δ</div>
+          <div style={{ fontSize: '0.8rem', color: '#e9c46a', fontWeight: 'bold' }}>{item.price} <Delta size={16} /></div>
         )}
         {statusNode}
       </div>
@@ -233,7 +234,7 @@ export default function RewardsBoutique({
                     {r.valid_until && <div style={{ fontSize: '0.8rem', color: '#888' }}>Valable jusqu'au {formatDateDMY(r.valid_until)}</div>}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.5rem' }}>
                       <div style={{ display: 'inline-block', background: '#e9c46a', color: 'white', fontWeight: 'bold', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem' }}>
-                        {r.cost} Δ
+                        {r.cost} <Delta size={16} />
                       </div>
                       <button
                         onClick={() => canBuy && !isLoading && handleObtenir(r)}
@@ -247,7 +248,7 @@ export default function RewardsBoutique({
                           fontSize: '0.9rem', fontWeight: 'bold',
                         }}
                       >
-                        {isLoading ? '...' : canBuy ? `Obtenir — ${r.cost} Δ` : 'Digoos insuffisants'}
+                        {isLoading ? '...' : canBuy ? <span>Obtenir — {r.cost} <Delta size={16} /></span> : 'Digoos insuffisants'}
                       </button>
                     </div>
                   </div>
@@ -321,7 +322,7 @@ export default function RewardsBoutique({
                   onClick={() => onNavigate?.('exercises', 'histoire')}
                   style={{ alignSelf: 'flex-start', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '1rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
                 >
-                  Jouer — 1 Δ par choix
+                  Jouer — 1 <Delta size={16} /> par choix
                 </button>
               </div>
               <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>

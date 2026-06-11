@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Delta } from './Delta'
 
 interface DigoosAnimationItem {
   id: string
@@ -64,7 +65,7 @@ export const DigoosAnimation = ({ onRef }: DigoosAnimationProps) => {
           textShadow: '0 1px 4px rgba(0,0,0,0.2)',
           whiteSpace: 'nowrap',
         }}>
-          +{item.amount} Δ
+          +{item.amount} <Delta size={22} />
         </div>
       ))}
     </>

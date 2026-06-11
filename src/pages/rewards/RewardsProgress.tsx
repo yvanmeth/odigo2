@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { Delta } from '../../components/Delta'
 import { addDigoos } from '../../services/digoos'
 import {
   WEEK_THRESHOLD, WEEK_VERY_ACTIVE_THRESHOLD, ALL_BADGES,
@@ -170,7 +171,7 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
           </div>
           {unclaimedDays.length > 0 ? (
             <button onClick={claimAllDays} style={claimButtonStyle}>
-              Récupérer tout — +{unclaimedDays.length * DAY_REWARD} Δ
+              Récupérer tout — +{unclaimedDays.length * DAY_REWARD} <Delta size={16} />
             </button>
           ) : (
             <p style={{ color: '#aaa', fontSize: '0.85rem' }}>Tout est récupéré ✓</p>
@@ -185,7 +186,7 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
           </div>
           {unclaimedWeeks.length > 0 ? (
             <button onClick={claimAllWeeks} style={claimButtonStyle}>
-              Récupérer tout — +{unclaimedWeeks.length * WEEK_REWARD} Δ
+              Récupérer tout — +{unclaimedWeeks.length * WEEK_REWARD} <Delta size={16} />
             </button>
           ) : (
             <p style={{ color: '#aaa', fontSize: '0.85rem' }}>Tout est récupéré ✓</p>
@@ -200,7 +201,7 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
           </div>
           {unclaimedMonths.length > 0 ? (
             <button onClick={claimAllMonths} style={claimButtonStyle}>
-              Récupérer tout — +{unclaimedMonths.length * MONTH_REWARD} Δ
+              Récupérer tout — +{unclaimedMonths.length * MONTH_REWARD} <Delta size={16} />
             </button>
           ) : (
             <p style={{ color: '#aaa', fontSize: '0.85rem' }}>Tout est récupéré ✓</p>

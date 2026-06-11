@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { Delta } from '../components/Delta'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
@@ -400,7 +401,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2a9d8f' }}>{score} pts</div>
           <div style={{ color: '#888', fontSize: '0.9rem' }}>{correctCount}/{questions.length} correctes · {pct}%</div>
-          <div style={{ color: '#e9c46a', fontWeight: 'bold', marginTop: '0.25rem' }}>+{digoosEarned} Δ gagnés</div>
+          <div style={{ color: '#e9c46a', fontWeight: 'bold', marginTop: '0.25rem' }}>+{digoosEarned} <Delta size={20} /> gagnés</div>
         </div>
 
         <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1.5rem' }}>
@@ -438,7 +439,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           {streak >= 3 && <span style={{ color: '#e9c46a', marginLeft: '0.5rem' }}>🔥 {streak}</span>}
         </div>
         <div style={{ fontSize: '0.85rem', color: '#e9c46a', fontWeight: 'bold' }}>
-          {score} pts · +{digoosEarned} Δ
+          {score} pts · +{digoosEarned} <Delta size={20} />
         </div>
       </div>
 

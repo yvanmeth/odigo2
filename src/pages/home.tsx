@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Delta } from '../components/Delta'
 import { EmptyState } from '../components/EmptyState'
 import { supabase } from '../lib/supabase'
 import { generateGreeting } from '../lib/greeting'
@@ -368,7 +369,7 @@ export default function Home({ userId }: { userId?: string }) {
               padding: '0.2rem 0.65rem', borderRadius: '1rem',
               background: weekColor, color: 'white', fontSize: '0.78rem', fontWeight: 'bold',
             }}>
-              {digoosThisWeek} Δ
+              {digoosThisWeek} <Delta size={16} />
             </span>
           ) : undefined
         )}

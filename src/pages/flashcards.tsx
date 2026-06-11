@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { Delta } from '../components/Delta'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
@@ -345,7 +346,7 @@ export default function Flashcards() {
         <h2 style={{ color: '#2a9d8f', fontSize: '2rem', marginBottom: '0.5rem' }}>Toutes les cartes maîtrisées !</h2>
         <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2a9d8f', marginBottom: '0.25rem' }}>{knownCount} / {totalCards}</div>
         <div style={{ color: '#888', marginBottom: '0.5rem' }}>{passCount} passages au total</div>
-        <div style={{ color: '#e9c46a', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '2rem' }}>+{digoosEarned} Δ gagnés</div>
+        <div style={{ color: '#e9c46a', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '2rem' }}>+{digoosEarned} <Delta size={20} /> gagnés</div>
 
         {highScores.length > 0 && (
           <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', maxWidth: '300px', margin: '0 auto 1.5rem' }}>
@@ -400,7 +401,7 @@ export default function Flashcards() {
           {knownCount} sue{knownCount > 1 ? 's' : ''} · {remaining} restante{remaining > 1 ? 's' : ''}
         </div>
         <div style={{ fontSize: '0.85rem', color: '#e9c46a', fontWeight: 'bold' }}>
-          +{digoosEarned} Δ
+          +{digoosEarned} <Delta size={20} />
         </div>
       </div>
 

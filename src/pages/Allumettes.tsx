@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Delta } from '../components/Delta'
 import { supabase } from '../lib/supabase'
 import { deductDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
@@ -305,7 +306,7 @@ const Allumettes = () => {
           </div>
 
           <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
-            Coût : 1 Δ · Solde actuel : {digoos} Δ
+            Coût : 1 <Delta size={16} /> · Solde actuel : {digoos} <Delta size={16} />
           </p>
 
           <button

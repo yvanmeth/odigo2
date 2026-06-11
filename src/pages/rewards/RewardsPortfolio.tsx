@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Delta } from '../../components/Delta'
 import { EmptyState } from '../../components/EmptyState'
 import { formatDate } from './helpers'
 import type { IrlPurchase } from './types'
@@ -32,7 +33,7 @@ export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <div style={{ borderLeft: '1px dashed #ccc', alignSelf: 'stretch' }} />
         <span style={{ background: '#e9c46a', color: 'white', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-          {purchase.cost} Δ
+          {purchase.cost} <Delta size={16} />
         </span>
         <span style={{ background: '#f0faf8', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
           {used ? 'Utilisée' : '✓ Valable'}

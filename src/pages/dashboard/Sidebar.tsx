@@ -1,6 +1,7 @@
 import { Users, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import ChildSelector from './ChildSelector'
 import { navItems, type Child } from './types'
+import { Delta } from '../../components/Delta'
 
 const PRIMARY = 'var(--color-primary)'
 
@@ -92,7 +93,7 @@ export default function Sidebar({
             background: '#fff8e0', borderRadius: '1rem',
             fontSize: '0.85rem', color: '#b8860b', fontWeight: 'bold',
           }}>
-            💰 {digoos.toLocaleString('fr-CH')} Δ
+            💰 {digoos.toLocaleString('fr-CH')} <Delta size={16} />
           </div>
         </div>
       )}
