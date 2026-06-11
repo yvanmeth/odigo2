@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { OdigoAvatar } from './OdigoAvatar'
+import { findFAQ } from '../lib/faq'
+import { submitSuggestion } from '../services/suggestions'
 
 interface CompanionProps {
   userId: string
@@ -12,6 +14,7 @@ interface Profile {
   has_met_odigo: boolean
   last_seen_at?: string
   interests?: string[]
+  role?: string
 }
 
 interface Evaluation {
@@ -25,6 +28,24 @@ interface Progress {
   week_streak: number
 }
 
+const SUGGESTION_KEYWORDS = [
+  'idée', 'suggestion', 'amélioration', 'ajouter',
+  'pourrait', 'serait bien', 'j\'aimerais',
+  'fonctionnalité', 'souhaite', 'propose'
+]
+
+const isSuggestion = (msg: string): boolean => {
+  const q = msg.toLowerCase()
+  return SUGGESTION_KEYWORDS.some(k => q.includes(k))
+}
+
+const CONFIRMATION_WORDS = ['oui', 'ouais', 'yes', 'ok', "d'accord", 'daccord', 'vas-y', 'carrement', 'carrément']
+
+const isConfirmation = (msg: string): boolean => {
+  const q = msg.toLowerCase().trim()
+  return CONFIRMATION_WORDS.some(w => q === w || q.startsWith(w + ' ') || q.startsWith(w + ','))
+}
+
 export default function Companion({ userId }: CompanionProps) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<{ role: 'odigo' | 'user'; text: string }[]>([])
@@ -33,6 +54,8 @@ export default function Companion({ userId }: CompanionProps) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [upcomingEvals, setUpcomingEvals] = useState<Evaluation[]>([])
   const [progress, setProgress] = useState<Progress | null>(null)
+  const [role, setRole] = useState<'child' | 'parent'>('child')
+  const [pendingSuggestion, setPendingSuggestion] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -47,7 +70,7 @@ export default function Companion({ userId }: CompanionProps) {
 
   const fetchContext = async () => {
     const [profileRes, evalsRes, progressRes] = await Promise.all([
-      supabase.from('profiles').select('first_name, birth_date, has_met_odigo, last_seen_at, interests').eq('id', userId).single(),
+      supabase.from('profiles').select('first_name, birth_date, has_met_odigo, last_seen_at, interests, role').eq('id', userId).single(),
       supabase.from('evaluations').select('evaluation_date, topic, subject_id').eq('user_id', userId).gte('evaluation_date', new Date().toISOString().split('T')[0]).order('evaluation_date').limit(3),
       supabase.from('progress').select('digoos_this_week, week_streak').eq('user_id', userId).single(),
     ])
@@ -55,6 +78,7 @@ export default function Companion({ userId }: CompanionProps) {
     if (profileRes.data) setProfile(profileRes.data)
     if (evalsRes.data) setUpcomingEvals(evalsRes.data)
     if (progressRes.data) setProgress(progressRes.data)
+    setRole(profileRes.data?.role === 'parent' ? 'parent' : 'child')
 
     // Mettre à jour last_seen_at
     await supabase.from('profiles').update({ last_seen_at: new Date().toISOString() }).eq('id', userId)
@@ -149,6 +173,29 @@ Règles importantes :
     setMessages(prev => [...prev, { role: 'user', text: userMsg }])
     setLoading(true)
 
+    // Confirmation d'une suggestion en attente de transmission
+    if (pendingSuggestion && isConfirmation(userMsg)) {
+      const ok = await submitSuggestion(pendingSuggestion)
+      setMessages(prev => [...prev, {
+        role: 'odigo',
+        text: ok
+          ? "C'est noté ! Ton idée a été transmise. Merci de contribuer à améliorer ODIGO 🙏"
+          : "Oups, je n'ai pas réussi à transmettre ton idée. Réessaie plus tard."
+      }])
+      setPendingSuggestion(null)
+      setLoading(false)
+      return
+    }
+    setPendingSuggestion(null)
+
+    // Réponse directe via la FAQ si la question correspond
+    const faqResult = findFAQ(userMsg, role)
+    if (faqResult) {
+      setMessages(prev => [...prev, { role: 'odigo', text: faqResult.answer }])
+      setLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -172,6 +219,11 @@ Règles importantes :
       const data = await response.json()
       const reply = data.content?.[0]?.text || 'Je suis là ! 😊'
       setMessages(prev => [...prev, { role: 'odigo', text: reply }])
+
+      if (isSuggestion(userMsg)) {
+        setMessages(prev => [...prev, { role: 'odigo', text: "Tu sembles avoir une idée d'amélioration pour ODIGO ! Tu veux que je la transmette à l'équipe ?" }])
+        setPendingSuggestion(userMsg)
+      }
     } catch {
       setMessages(prev => [...prev, { role: 'odigo', text: 'Oups, je n\'arrive pas à répondre là. Réessaie dans un moment ! 😊' }])
     }
