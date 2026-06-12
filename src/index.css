@@ -204,6 +204,12 @@ button:disabled {
   transform: rotateY(180deg);
 }
 
+.card-image {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 input[type="text"],
 input[type="email"],
 input[type="password"],

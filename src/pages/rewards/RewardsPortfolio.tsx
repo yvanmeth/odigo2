@@ -1,15 +1,105 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../../lib/supabase'
 import { Delta } from '../../components/Delta'
 import { EmptyState } from '../../components/EmptyState'
+import { formatDateDMY } from '../../lib/dates'
 import { formatDate } from './helpers'
 import type { IrlPurchase } from './types'
 
-interface RewardsPortfolioProps {
-  irlPurchases: IrlPurchase[]
+type PortfolioTab = 'irl' | 'cartes'
+
+interface CardValue {
+  value: {
+    id: string
+    name: string
+    category: { name: string; color: string }
+  }
 }
 
-export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps) {
+interface CardInfo {
+  id: string
+  number: number
+  name: string
+  image_url: string
+  price?: number
+  super_pouvoir?: string | null
+  quote?: string | null
+  card_values?: CardValue[]
+  species?: { name: string } | null
+}
+
+interface UserCardData {
+  id: string
+  purchased_at: string
+  purchased_price?: number
+  card: CardInfo
+}
+
+interface RewardsPortfolioProps {
+  irlPurchases: IrlPurchase[]
+  userId?: string
+}
+
+const renderValuePills = (cardValues?: CardValue[]) => (
+  cardValues && cardValues.length > 0 && (
+    <div style={{
+      display: 'flex', gap: '0.3rem',
+      flexWrap: 'wrap',
+      marginTop: '0.4rem'
+    }}>
+      {cardValues.map(cv => (
+        <span key={cv.value.id} style={{
+          background: cv.value.category.color,
+          color: cv.value.category.color === '#e9c46a'
+            ? '#333' : 'white',
+          fontSize: '0.7rem',
+          padding: '0.15rem 0.5rem',
+          borderRadius: '1rem',
+          fontWeight: 'bold',
+        }}>
+          {cv.value.name}
+        </span>
+      ))}
+    </div>
+  )
+)
+
+export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfolioProps) {
+  const [activeTab, setActiveTab] = useState<PortfolioTab>('irl')
   const [showHistory, setShowHistory] = useState(false)
+  const [userCards, setUserCards] = useState<UserCardData[]>([])
+  const [loadingCards, setLoadingCards] = useState(true)
+
+  const fetchUserCards = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const targetId = userId || user.id
+
+    const { data } = await supabase
+      .from('user_cards')
+      .select(`
+        *,
+        card:cards (
+          *,
+          card_values (
+            value:values (
+              id, name,
+              category:value_categories (name, color)
+            )
+          ),
+          species:species (name)
+        )
+      `)
+      .eq('user_id', targetId)
+      .order('purchased_at', { ascending: false })
+
+    if (data) setUserCards(data)
+    setLoadingCards(false)
+  }
+
+  useEffect(() => {
+    fetchUserCards()
+  }, [userId])
 
   const validPurchases = irlPurchases.filter(p => p.status === 'valid')
   const usedPurchases = irlPurchases.filter(p => p.status === 'used')
@@ -42,32 +132,117 @@ export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps
     </div>
   )
 
+  const tabStyle = (tab: PortfolioTab): React.CSSProperties => ({
+    padding: '0.6rem 1.2rem',
+    border: 'none',
+    borderRadius: '0.5rem',
+    cursor: 'pointer',
+    background: activeTab === tab ? '#2a9d8f' : '#e0f0ee',
+    color: activeTab === tab ? 'white' : '#2a9d8f',
+    fontWeight: activeTab === tab ? 'bold' : 'normal',
+    fontSize: '0.9rem',
+  })
+
   return (
     <div>
       <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1.1rem' }}>👛 Portefeuille</h3>
 
-      {validPurchases.length === 0 ? (
-        <EmptyState emoji="👛" title="Ton portefeuille est vide" subtitle="Achète des récompenses dans l'onglet Récompenses !" />
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {validPurchases.map(p => renderCoupon(p))}
-        </div>
-      )}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <button style={tabStyle('irl')} onClick={() => setActiveTab('irl')}>🎁 Récompenses IRL</button>
+        <button style={tabStyle('cartes')} onClick={() => setActiveTab('cartes')}>🎴 Mes cartes</button>
+      </div>
 
-      {usedPurchases.length > 0 && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            style={{ padding: '0.5rem 1rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
-          >
-            {showHistory ? '▲' : '▼'} Voir l'historique ({usedPurchases.length})
-          </button>
-          {showHistory && (
-            <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {usedPurchases.map(p => renderCoupon(p, true))}
+      {activeTab === 'irl' && (
+        <>
+          {validPurchases.length === 0 ? (
+            <EmptyState emoji="👛" title="Ton portefeuille est vide" subtitle="Achète des récompenses dans l'onglet Récompenses !" />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {validPurchases.map(p => renderCoupon(p))}
             </div>
           )}
-        </div>
+
+          {usedPurchases.length > 0 && (
+            <div style={{ marginTop: '1.5rem' }}>
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                style={{ padding: '0.5rem 1rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+              >
+                {showHistory ? '▲' : '▼'} Voir l'historique ({usedPurchases.length})
+              </button>
+              {showHistory && (
+                <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {usedPurchases.map(p => renderCoupon(p, true))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'cartes' && (
+        <>
+          {loadingCards ? (
+            <p style={{ color: '#888' }}>Chargement...</p>
+          ) : userCards.length === 0 ? (
+            <EmptyState
+              emoji="🎴"
+              title="Aucune carte dans ta collection"
+              subtitle="Rends-toi dans Digooland pour découvrir les cartes disponibles !"
+            />
+          ) : (
+            <div>
+              {userCards.map(uc => (
+                <div key={uc.id} style={{ display: 'flex', gap: '1.5rem', borderBottom: '1px solid #f5f5f5', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
+                  <div style={{ width: '40%', position: 'relative' }}>
+                    <img
+                      src={`/cards/${uc.card.image_url}`}
+                      alt={uc.card.name}
+                      draggable={false}
+                      onContextMenu={e => e.preventDefault()}
+                      className="card-image"
+                      style={{ width: '100%', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}
+                    />
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 1 }} onContextMenu={e => e.preventDefault()} />
+                  </div>
+                  <div style={{ width: '60%' }}>
+                    <div style={{ fontWeight: 'bold', color: '#2a9d8f', fontSize: '1.1rem' }}>{uc.card.name}</div>
+                    {uc.card.species?.name && (
+                      <span style={{ display: 'inline-block', background: '#f0faf8', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '0.4rem' }}>
+                        {uc.card.species.name}
+                      </span>
+                    )}
+                    <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.4rem' }}>
+                      Obtenue le {formatDateDMY(uc.purchased_at.slice(0, 10))}
+                    </div>
+                    {renderValuePills(uc.card.card_values)}
+                    {uc.card.super_pouvoir && (
+                      <div style={{ color: '#5c6bc0', fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                        ⚡ {uc.card.super_pouvoir}
+                      </div>
+                    )}
+                    {uc.card.quote && (
+                      <div style={{ fontStyle: 'italic', color: '#888', fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                        "{uc.card.quote}"
+                      </div>
+                    )}
+                    <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1.25rem', flexWrap: 'wrap', fontSize: '0.85rem', color: '#555' }}>
+                      {uc.purchased_price != null && (
+                        <span>Prix d'achat : {uc.purchased_price} <Delta size={14} /></span>
+                      )}
+                      {uc.card.price != null && (
+                        <span>Valeur actuelle : {uc.card.price} <Delta size={14} /></span>
+                      )}
+                    </div>
+                    <div style={{ color: '#ccc', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '0.5rem' }}>
+                      La revente sera disponible prochainement
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )

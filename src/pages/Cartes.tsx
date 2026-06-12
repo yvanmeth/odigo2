@@ -7,18 +7,53 @@ import { useToast } from '../components/Toast'
 const PRIMARY = '#2a9d8f'
 const CARD_PRICE = 1000
 
+interface CardValue {
+  value: {
+    id: string
+    name: string
+    category: { name: string; color: string }
+  }
+}
+
 interface CardData {
   id: string
   number: number
   name: string
   image_url: string
-  user_cards?: { id: string }[]
+  stock_remaining: number
+  stock_total: number
+  card_values?: CardValue[]
+  species?: { name: string } | null
 }
 
 type DisplayCard = CardData | { id: string; mystery: true }
 
 const isMysteryCard = (card: DisplayCard): card is { id: string; mystery: true } =>
   'mystery' in card && card.mystery === true
+
+const renderValuePills = (cardValues?: CardValue[]) => (
+  cardValues && cardValues.length > 0 && (
+    <div style={{
+      display: 'flex', gap: '0.3rem',
+      flexWrap: 'wrap', justifyContent: 'center',
+      marginTop: '0.4rem'
+    }}>
+      {cardValues.map(cv => (
+        <span key={cv.value.id} style={{
+          background: cv.value.category.color,
+          color: cv.value.category.color === '#e9c46a'
+            ? '#333' : 'white',
+          fontSize: '0.7rem',
+          padding: '0.15rem 0.5rem',
+          borderRadius: '1rem',
+          fontWeight: 'bold',
+        }}>
+          {cv.value.name}
+        </span>
+      ))}
+    </div>
+  )
+)
 
 export default function Cartes() {
   const { showToast } = useToast()
@@ -34,7 +69,16 @@ export default function Cartes() {
     if (!user) return
 
     const [{ data: cardsData }, { data: userCardsData }, { data: progressData }] = await Promise.all([
-      supabase.from('cards').select('*, user_cards(id)').order('number'),
+      supabase.from('cards').select(`
+        *,
+        card_values (
+          value:values (
+            id, name,
+            category:value_categories (name, color)
+          )
+        ),
+        species:species (name)
+      `).order('number'),
       supabase.from('user_cards').select('card_id').eq('user_id', user.id),
       supabase.from('progress').select('digoos').eq('user_id', user.id).single(),
     ])
@@ -72,6 +116,11 @@ export default function Cartes() {
 
     await deductDigoos(CARD_PRICE)
     await supabase.from('user_cards').insert({ user_id: user.id, card_id: card.id })
+
+    await supabase
+      .from('cards')
+      .update({ stock_remaining: card.stock_remaining - 1 })
+      .eq('id', card.id)
 
     setTimeout(() => {
       setFlipped(prev => ({ ...prev, [card.id]: true }))
@@ -112,7 +161,7 @@ export default function Cartes() {
       </div>
 
       <p style={{ fontSize: '0.82rem', color: '#aaa', textAlign: 'center', marginBottom: '1.5rem' }}>
-        Une nouvelle carte apparaît chaque mois. Sois là pour ne pas la manquer !
+        D'autres cartes OΔIGO arriveront bientôt ⏳
       </p>
 
       <div className="cartes-grid">
@@ -134,18 +183,49 @@ export default function Cartes() {
                 }}
               >
                 <div className="card-front">
-                  <img src="/cards/card-back.png" alt="Carte mystère" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                    <img
+                      src="/cards/card-back.png"
+                      alt="Carte mystère"
+                      draggable={false}
+                      onContextMenu={e => e.preventDefault()}
+                      className="card-image"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 1, userSelect: 'none' }} onContextMenu={e => e.preventDefault()} />
+                  </div>
                 </div>
                 {!mystery && (
                   <div className="card-back">
-                    <img src={`/cards/${card.image_url}`} alt={card.name || 'Carte'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <img
+                        src={`/cards/${card.image_url}`}
+                        alt={card.name || 'Carte'}
+                        draggable={false}
+                        onContextMenu={e => e.preventDefault()}
+                        className="card-image"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <div style={{ position: 'absolute', inset: 0, zIndex: 1, userSelect: 'none' }} onContextMenu={e => e.preventDefault()} />
+                    </div>
                   </div>
                 )}
               </div>
 
+              {!mystery && owned && (
+                <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}>{card.name}</div>
+              )}
+
+              {!mystery && !owned && renderValuePills(card.card_values)}
+
               {purchasable && (
                 <>
-                  {card.name && <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}>{card.name}</div>}
+                  <div style={{
+                    fontSize: '0.8rem', color: '#888',
+                    textAlign: 'center', marginBottom: '0.4rem'
+                  }}>
+                    {card.stock_remaining}/{card.stock_total} disponibles
+                  </div>
                   <button
                     onClick={() => handleObtenir(card)}
                     disabled={digoos < CARD_PRICE || purchasing}

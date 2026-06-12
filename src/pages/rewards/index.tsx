@@ -205,7 +205,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
       )}
 
       {activeTab === 'wallet' && (
-        <RewardsPortfolio irlPurchases={irlPurchases} />
+        <RewardsPortfolio irlPurchases={irlPurchases} userId={userId} />
       )}
 
       {activeTab === 'progression' && (
