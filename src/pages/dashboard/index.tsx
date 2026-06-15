@@ -16,6 +16,7 @@ import { DigoosAnimation } from '../../components/DigoosAnimation'
 import Flashcards from '../flashcards'
 import Conjugaison from '../conjugaison'
 import Vocabulaire from '../vocabulaire'
+import PuzzlePhrases from '../PuzzlePhrases'
 import Allumettes from '../Allumettes'
 import Histoire from '../Histoire'
 import Cartes from '../Cartes'
@@ -289,6 +290,18 @@ export default function Dashboard({ session }: Props) {
                 ← Retour aux exercices
               </button>
               <Vocabulaire />
+            </div>
+          )}
+
+          {activePage === 'exercises' && activeExercise === 'puzzlephrases' && (
+            <div>
+              <button
+                onClick={() => setActiveExercise(null)}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                ← Retour aux exercices
+              </button>
+              <PuzzlePhrases />
             </div>
           )}
 

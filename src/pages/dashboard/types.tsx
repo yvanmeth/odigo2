@@ -63,4 +63,11 @@ export const exerciseCards = [
     description: 'Complète les phrases à trou avec le bon mot.',
     color: '#4CAF50',
   },
+  {
+    id: 'puzzlephrases',
+    label: 'Puzzle de phrases',
+    icon: '🧩',
+    description: 'Reconstruis la traduction dans le bon ordre !',
+    color: '#5c6bc0',
+  },
 ]

@@ -5,7 +5,8 @@ import { deductDigoos } from '../services/digoos'
 import { useToast } from '../components/Toast'
 
 const PRIMARY = '#2a9d8f'
-const CARD_PRICE = 1000
+const DRAW_PRICE = 1000
+const DRAW_STEPS = 25
 
 interface CardValue {
   value: {
@@ -22,8 +23,15 @@ interface CardData {
   image_url: string
   stock_remaining: number
   stock_total: number
+  available_from: string
   card_values?: CardValue[]
   species?: { name: string } | null
+}
+
+interface UserCardRow {
+  id: string
+  card_id: string
+  quantity: number
 }
 
 type DisplayCard = CardData | { id: string; mystery: true }
@@ -58,11 +66,16 @@ const renderValuePills = (cardValues?: CardValue[]) => (
 export default function Cartes() {
   const { showToast } = useToast()
   const [cards, setCards] = useState<CardData[]>([])
-  const [ownedCardIds, setOwnedCardIds] = useState<Set<string>>(new Set())
+  const [userCards, setUserCards] = useState<UserCardRow[]>([])
   const [digoos, setDigoos] = useState(0)
   const [flipped, setFlipped] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
-  const [purchasing, setPurchasing] = useState(false)
+  const [drawingState, setDrawingState] = useState<'idle' | 'drawing' | 'revealed'>('idle')
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const [drawnCard, setDrawnCard] = useState<CardData | null>(null)
+  const [modalFlipped, setModalFlipped] = useState(false)
+  const [isNewCard, setIsNewCard] = useState(false)
+  const [drawnQuantity, setDrawnQuantity] = useState(1)
 
   const fetchData = async (initial = false) => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -79,18 +92,17 @@ export default function Cartes() {
         ),
         species:species (name)
       `).order('number'),
-      supabase.from('user_cards').select('card_id').eq('user_id', user.id),
+      supabase.from('user_cards').select('id, card_id, quantity').eq('user_id', user.id),
       supabase.from('progress').select('digoos').eq('user_id', user.id).single(),
     ])
 
-    const ownedSet = new Set((userCardsData || []).map(uc => uc.card_id))
-
     setCards(cardsData || [])
-    setOwnedCardIds(ownedSet)
+    setUserCards(userCardsData || [])
     setDigoos(progressData?.digoos || 0)
 
     if (initial) {
       const initialFlipped: Record<string, boolean> = {}
+      const ownedSet = new Set((userCardsData || []).map(uc => uc.card_id))
       ;(cardsData || []).forEach((c: CardData) => {
         if (ownedSet.has(c.id)) initialFlipped[c.id] = true
       })
@@ -104,31 +116,90 @@ export default function Cartes() {
     fetchData(true)
   }, [])
 
-  const handleObtenir = async (card: CardData) => {
-    if (digoos < CARD_PRICE || purchasing) return
-    setPurchasing(true)
+  useEffect(() => {
+    if (drawingState !== 'revealed') return
+    const t = setTimeout(() => setModalFlipped(true), 150)
+    return () => clearTimeout(t)
+  }, [drawingState])
 
+  const revealCard = async (card: CardData) => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setPurchasing(false)
+    if (!user) return
+
+    const existing = userCards.find(uc => uc.card_id === card.id)
+    if (existing) {
+      await supabase.from('user_cards')
+        .update({ quantity: existing.quantity + 1 })
+        .eq('id', existing.id)
+      setIsNewCard(false)
+      setDrawnQuantity(existing.quantity + 1)
+    } else {
+      await supabase.from('user_cards').insert({
+        user_id: user.id,
+        card_id: card.id,
+        purchased_price: DRAW_PRICE,
+        quantity: 1,
+      })
+      await supabase.from('cards')
+        .update({ stock_remaining: card.stock_remaining - 1 })
+        .eq('id', card.id)
+      setIsNewCard(true)
+      setDrawnQuantity(1)
+    }
+
+    setFlipped(prev => ({ ...prev, [card.id]: true }))
+    setDrawnCard(card)
+    setDrawingState('revealed')
+    await fetchData()
+  }
+
+  const animateDraw = (availableCards: CardData[], targetCard: CardData) => {
+    const targetIndex = availableCards.findIndex(c => c.id === targetCard.id)
+    let step = 0
+
+    const tick = () => {
+      setHighlightedIndex(step % availableCards.length)
+      step++
+
+      if (step < DRAW_STEPS) {
+        const progress = step / DRAW_STEPS
+        const delay = 80 + progress * progress * 400
+
+        if (step === DRAW_STEPS - 1) {
+          setTimeout(() => {
+            setHighlightedIndex(targetIndex)
+            setTimeout(() => revealCard(targetCard), 600)
+          }, delay)
+        } else {
+          setTimeout(tick, delay)
+        }
+      }
+    }
+    tick()
+  }
+
+  const handleDraw = async () => {
+    if (digoos < DRAW_PRICE || drawingState !== 'idle') return
+
+    const today = new Date().toISOString().slice(0, 10)
+    const available = cards.filter(c => c.available_from <= today && c.stock_remaining > 0)
+    if (available.length === 0) {
+      showToast('Aucune carte disponible pour le tirage.', 'error')
       return
     }
 
-    await deductDigoos(CARD_PRICE)
-    await supabase.from('user_cards').insert({ user_id: user.id, card_id: card.id })
+    const drawn = available[Math.floor(Math.random() * available.length)]
 
-    await supabase
-      .from('cards')
-      .update({ stock_remaining: card.stock_remaining - 1 })
-      .eq('id', card.id)
+    await deductDigoos(DRAW_PRICE)
+    setDrawingState('drawing')
+    animateDraw(available, drawn)
+  }
 
-    setTimeout(() => {
-      setFlipped(prev => ({ ...prev, [card.id]: true }))
-    }, 100)
-
-    showToast('🎴 Carte obtenue !')
-    await fetchData()
-    setPurchasing(false)
+  const handleContinue = () => {
+    setDrawingState('idle')
+    setDrawnCard(null)
+    setHighlightedIndex(-1)
+    setModalFlipped(false)
   }
 
   if (loading) {
@@ -139,7 +210,14 @@ export default function Cartes() {
     )
   }
 
+  const ownedCardIds = new Set(userCards.map(uc => uc.card_id))
   const ownedCount = cards.filter(c => ownedCardIds.has(c.id)).length
+
+  const today = new Date().toISOString().slice(0, 10)
+  const availableForDraw = cards.filter(c => c.available_from <= today && c.stock_remaining > 0)
+  const highlightedCardId = drawingState === 'drawing' && highlightedIndex >= 0
+    ? availableForDraw[highlightedIndex]?.id
+    : null
 
   const displayCards: DisplayCard[] = [
     ...cards,
@@ -165,22 +243,25 @@ export default function Cartes() {
       </p>
 
       <div className="cartes-grid">
-        {displayCards.map((card, i) => {
+        {displayCards.map(card => {
           const mystery = isMysteryCard(card)
           const owned = !mystery && ownedCardIds.has(card.id)
-          const purchasable = !mystery && i === 0 && !owned
           const isFlipped = !!flipped[card.id]
+          const isHighlighted = !mystery && card.id === highlightedCardId
+          const quantity = !mystery ? (userCards.find(uc => uc.card_id === card.id)?.quantity || 1) : 1
 
           return (
-            <div key={card.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+            <div key={card.id} style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
+              position: 'relative', padding: '0.4rem', borderRadius: '12px', boxSizing: 'border-box',
+              border: isHighlighted ? '3px solid #e9c46a' : '3px solid transparent',
+              transform: isHighlighted ? 'scale(1.05)' : 'scale(1)',
+              boxShadow: isHighlighted ? '0 0 20px rgba(233,196,106,0.6)' : 'none',
+              transition: 'all 0.1s ease',
+            }}>
               <div
                 className={`card-flip${isFlipped ? ' flipped' : ''}`}
-                style={{
-                  width: '160px',
-                  height: '224px',
-                  position: 'relative',
-                  cursor: purchasable ? 'pointer' : 'default',
-                }}
+                style={{ width: '160px', height: '224px', position: 'relative' }}
               >
                 <div className="card-front">
                   <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -212,44 +293,99 @@ export default function Cartes() {
                 )}
               </div>
 
+              {!mystery && owned && quantity > 1 && (
+                <div style={{
+                  position: 'absolute', top: '-8px', right: '-8px',
+                  width: '24px', height: '24px', borderRadius: '50%',
+                  background: PRIMARY, color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.75rem', fontWeight: 'bold',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                }}>
+                  x{quantity}
+                </div>
+              )}
+
               {!mystery && owned && (
                 <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}>{card.name}</div>
               )}
 
               {!mystery && !owned && renderValuePills(card.card_values)}
 
-              {purchasable && (
-                <>
-                  <div style={{
-                    fontSize: '0.8rem', color: '#888',
-                    textAlign: 'center', marginBottom: '0.4rem'
-                  }}>
-                    {card.stock_remaining}/{card.stock_total} disponibles
-                  </div>
-                  <button
-                    onClick={() => handleObtenir(card)}
-                    disabled={digoos < CARD_PRICE || purchasing}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      background: digoos >= CARD_PRICE ? PRIMARY : '#ccc',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '0.5rem',
-                      cursor: digoos >= CARD_PRICE && !purchasing ? 'pointer' : 'default',
-                      fontSize: '0.85rem',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    {digoos >= CARD_PRICE
-                      ? <span>Obtenir — {CARD_PRICE} <Delta size={14} /></span>
-                      : <span><Delta size={14} /> insuffisants</span>}
-                  </button>
-                </>
+              {!mystery && !owned && (
+                <div style={{ fontSize: '0.8rem', color: '#888', textAlign: 'center' }}>
+                  {card.stock_remaining === 0 ? 'Épuisé' : `${card.stock_remaining}/${card.stock_total} disponibles`}
+                </div>
               )}
             </div>
           )
         })}
       </div>
+
+      <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+        <button
+          onClick={handleDraw}
+          disabled={digoos < DRAW_PRICE || drawingState !== 'idle'}
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: digoos >= DRAW_PRICE && drawingState === 'idle' ? PRIMARY : '#ccc',
+            color: 'white',
+            border: 'none',
+            borderRadius: '0.5rem',
+            cursor: digoos >= DRAW_PRICE && drawingState === 'idle' ? 'pointer' : 'default',
+            fontSize: '1rem',
+            fontWeight: 'bold',
+          }}
+        >
+          {drawingState === 'drawing'
+            ? '🎲 Tirage en cours...'
+            : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>🎲 Tirage au sort — {DRAW_PRICE} <Delta size={16} /></span>}
+        </button>
+        <p style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '0.5rem' }}>
+          Une carte au hasard parmi toutes celles disponibles. Les doublons sont possibles !
+        </p>
+      </div>
+
+      {drawingState === 'revealed' && drawnCard && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem',
+        }}>
+          <div
+            className={`card-flip${modalFlipped ? ' flipped' : ''}`}
+            style={{ width: '220px', height: '308px', position: 'relative' }}
+          >
+            <div className="card-front">
+              <img
+                src="/cards/card-back.png"
+                alt="Carte mystère"
+                className="card-image"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </div>
+            <div className="card-back">
+              <img
+                src={`/cards/${drawnCard.image_url}`}
+                alt={drawnCard.name}
+                className="card-image"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </div>
+          </div>
+
+          <p style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center', margin: 0 }}>
+            {isNewCard ? '🎉 Nouvelle carte !' : `✨ Tu as déjà cette carte ! (x${drawnQuantity})`}
+          </p>
+          <p style={{ color: 'white', fontSize: '1rem', margin: 0 }}>{drawnCard.name}</p>
+
+          <button
+            onClick={handleContinue}
+            style={{ padding: '0.6rem 1.5rem', background: PRIMARY, color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold' }}
+          >
+            Continuer
+          </button>
+        </div>
+      )}
     </div>
   )
 }
