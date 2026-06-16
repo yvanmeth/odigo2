@@ -32,6 +32,7 @@ interface UserCardData {
   id: string
   purchased_at: string
   purchased_price?: number
+  quantity: number
   card: CardInfo
 }
 
@@ -44,7 +45,7 @@ const renderValuePills = (cardValues?: CardValue[]) => (
   cardValues && cardValues.length > 0 && (
     <div style={{
       display: 'flex', gap: '0.3rem',
-      flexWrap: 'wrap',
+      flexWrap: 'wrap', justifyContent: 'center',
       marginTop: '0.4rem'
     }}>
       {cardValues.map(cv => (
@@ -195,15 +196,47 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
               {userCards.map(uc => (
                 <div key={uc.id} style={{ display: 'flex', gap: '1.5rem', borderBottom: '1px solid #f5f5f5', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
                   <div style={{ width: '40%', position: 'relative' }}>
-                    <img
-                      src={`/cards/${uc.card.image_url}`}
-                      alt={uc.card.name}
-                      draggable={false}
-                      onContextMenu={e => e.preventDefault()}
-                      className="card-image"
-                      style={{ width: '100%', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}
-                    />
-                    <div style={{ position: 'absolute', inset: 0, zIndex: 1 }} onContextMenu={e => e.preventDefault()} />
+                    <div style={{ position: 'relative', width: '100%' }}>
+                      {uc.quantity > 1 && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '8px', left: '8px',
+                          width: '100%', height: '100%',
+                          borderRadius: 12,
+                          background: '#e0f0ee',
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                          zIndex: 0,
+                        }} />
+                      )}
+                      <img
+                        src={`/cards/${uc.card.image_url}`}
+                        alt={uc.card.name}
+                        draggable={false}
+                        onContextMenu={e => e.preventDefault()}
+                        className="card-image"
+                        style={{
+                          width: '100%', borderRadius: 12,
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                          position: 'relative', zIndex: 1,
+                        }}
+                      />
+                      {uc.quantity > 1 && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '-8px', right: '-8px',
+                          background: '#2a9d8f', color: 'white',
+                          borderRadius: '50%',
+                          width: '32px', height: '32px',
+                          display: 'flex', alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.9rem', fontWeight: 'bold',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                          zIndex: 2,
+                        }}>
+                          x{uc.quantity}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div style={{ width: '60%' }}>
                     <div style={{ fontWeight: 'bold', color: '#2a9d8f', fontSize: '1.1rem' }}>{uc.card.name}</div>
@@ -221,11 +254,6 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                         ⚡ {uc.card.super_pouvoir}
                       </div>
                     )}
-                    {uc.card.quote && (
-                      <div style={{ fontStyle: 'italic', color: '#888', fontSize: '0.85rem', marginTop: '0.5rem' }}>
-                        "{uc.card.quote}"
-                      </div>
-                    )}
                     <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1.25rem', flexWrap: 'wrap', fontSize: '0.85rem', color: '#555' }}>
                       {uc.purchased_price != null && (
                         <span>Prix d'achat : {uc.purchased_price} <Delta size={14} /></span>
@@ -233,9 +261,6 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                       {uc.card.price != null && (
                         <span>Valeur actuelle : {uc.card.price} <Delta size={14} /></span>
                       )}
-                    </div>
-                    <div style={{ color: '#ccc', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '0.5rem' }}>
-                      La revente sera disponible prochainement
                     </div>
                   </div>
                 </div>

@@ -3,6 +3,7 @@ import { Delta } from '../components/Delta'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
+import { EmptyState } from '../components/EmptyState'
 
 interface WordList {
   id: string
@@ -115,6 +116,7 @@ const buildReponsesAffichage = (reponses: string[], personne: string): string =>
 export default function Conjugaison() {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
+  const [loadingLists, setLoadingLists] = useState(true)
   const [selectedList, setSelectedList] = useState('')
   const [nbQ, setNbQ] = useState(8)
   const [tempsChoisis, setTempsChoisis] = useState<string[]>(TEMPS.map(t => t.id)) // tous par défaut
@@ -140,8 +142,11 @@ export default function Conjugaison() {
   useEffect(() => { fetchLists() }, [])
 
   const fetchLists = async () => {
-    const { data } = await supabase.from('word_lists').select('id, name').order('name')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).eq('list_type', 'conjugaison').order('name')
     if (data) setLists(data)
+    setLoadingLists(false)
   }
 
   const loadHighScores = (listId: string) => {
@@ -320,6 +325,19 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
   // ---- ÉCRAN SÉLECTION ----
   if (gameState === 'select' || gameState === 'loading') {
+    if (!loadingLists && lists.length === 0) {
+      return (
+        <div>
+          <h2 style={{ color: '#2a9d8f', marginBottom: '1.5rem' }}>✍️ Conjugaison</h2>
+          <EmptyState
+            emoji="📝"
+            title="Aucune liste de conjugaison"
+            subtitle="Crée une liste de type Conjugaison dans la page Listes de mots pour jouer à cet exercice."
+          />
+        </div>
+      )
+    }
+
     return (
       <div>
         <h2 style={{ color: '#2a9d8f', marginBottom: '1.5rem' }}>✍️ Conjugaison</h2>

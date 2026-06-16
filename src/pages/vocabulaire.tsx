@@ -61,7 +61,9 @@ export default function Vocabulaire() {
   useEffect(() => { fetchLists() }, [])
 
   const fetchLists = async () => {
-    const { data } = await supabase.from('word_lists').select('id, name').order('name')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).order('name')
     if (data) setLists(data)
   }
 

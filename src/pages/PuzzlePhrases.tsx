@@ -87,7 +87,19 @@ Pour chaque mot fourni (paire source_word=${language}/target_word=français), g�
 2. La traduction complète en ${language}, découpée mot par mot dans l'ordre correct.
 
 ${mode === 'moyen'
-    ? `Pour CHAQUE phrase, choisis 2 à 4 mots de la traduction (verbes, articles, prépositions, pronoms, adjectifs — PAS le mot-cible lui-même) et marque-les type "category" avec un champ "category" (ex: "verbe", "article") et un tableau "options" de 3 choix au total (1 correct + 2 distracteurs plausibles de la même catégorie grammaticale, adaptés au contexte). Les autres mots sont type "fixed".`
+    ? `Pour CHAQUE phrase, choisis 2 à 4 mots de la traduction (PAS le mot-cible lui-même) et marque-les type "category" avec un champ "category" et un tableau "options" de 3 choix au total (1 correct + 2 distracteurs plausibles de la même catégorie grammaticale, adaptés au contexte). Les autres mots sont type "fixed".
+
+Utilise UNIQUEMENT ces catégories grammaticales :
+- article (a, an, the, this, that, these, those...)
+- déterminant possessif (my, your, his, her, our, their...)
+- préposition (in, on, at, behind, under...)
+- verbe
+- pronom
+- adjectif (qualificatif uniquement : big, small, happy...)
+- nom
+- adverbe
+
+Ne jamais utiliser "adjectif" pour les articles, démonstratifs ou déterminants possessifs.`
     : `Tous les mots sont type "fixed" (pas de "options" ni "category").`
   }
 
