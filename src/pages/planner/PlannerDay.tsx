@@ -6,7 +6,7 @@ import CalendarItemChip from './CalendarItem'
 interface Props {
   calDate: Date
   items: CalendarItem[]
-  onItemClick: (item: CalendarItem, pos: { x: number; y: number }) => void
+  onItemClick: (e: React.MouseEvent, item: CalendarItem) => void
 }
 
 const S = 6, E = 22, PPH = 60
@@ -71,15 +71,7 @@ export default function PlannerDay({ calDate, items, onItemClick }: Props) {
                 ht = Math.max(30, end.h * 60 + end.m - h * 60 - m)
               }
               return (
-                <div key={item.id} onClick={e => {
-                  e.stopPropagation()
-                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                  const popoverWidth = 200, popoverHeight = 100
-                  const spaceRight = window.innerWidth - rect.right
-                  const x = spaceRight >= popoverWidth ? rect.right + 8 : rect.left - popoverWidth - 8
-                  const y = Math.min(rect.top, window.innerHeight - popoverHeight - 8)
-                  onItemClick(item, { x, y })
-                }} style={{
+                <div key={item.id} onClick={e => { e.stopPropagation(); onItemClick(e, item) }} style={{
                   position: 'absolute', top: `${top}px`, left: '2px', right: '4px', height: `${ht}px`,
                   background: item.color, borderRadius: '0.4rem', padding: '0.2rem 0.5rem',
                   cursor: 'pointer', overflow: 'hidden', color: 'white', fontSize: '0.78rem', zIndex: 5,

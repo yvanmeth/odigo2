@@ -5,7 +5,7 @@ import { toDateStr, getWeekDays, parseTime } from './helpers'
 interface Props {
   calDate: Date
   items: CalendarItem[]
-  onItemClick: (item: CalendarItem, pos: { x: number; y: number }) => void
+  onItemClick: (e: React.MouseEvent, item: CalendarItem) => void
 }
 
 const S = 7, E = 21, PPH = 40
@@ -26,12 +26,7 @@ export default function PlannerWeek({ calDate, items, onItemClick }: Props) {
 
   const chipClick = (item: CalendarItem, e: React.MouseEvent) => {
     e.stopPropagation()
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const popoverWidth = 200, popoverHeight = 100
-    const spaceRight = window.innerWidth - rect.right
-    const x = spaceRight >= popoverWidth ? rect.right + 8 : rect.left - popoverWidth - 8
-    const y = Math.min(rect.top, window.innerHeight - popoverHeight - 8)
-    onItemClick(item, { x, y })
+    onItemClick(e, item)
   }
 
   return (
@@ -111,10 +106,11 @@ export default function PlannerWeek({ calDate, items, onItemClick }: Props) {
                     ht = Math.max(20, Math.floor((end.h * 60 + end.m - h * 60 - m) * PPH / 60))
                   }
                   return (
-                    <div key={item.id} onClick={e => chipClick(item, e)} style={{
+                    <div key={item.id} title={item.title} onClick={e => chipClick(item, e)} style={{
                       position: 'absolute', top: `${top}px`, left: '1px', right: '1px', height: `${ht}px`,
                       background: item.color, borderRadius: '0.25rem', padding: '0.1rem 0.3rem',
                       cursor: 'pointer', overflow: 'hidden', color: 'white', fontSize: '0.65rem', zIndex: 5,
+                      maxWidth: '100%', boxSizing: 'border-box',
                     }}>
                       <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
                     </div>

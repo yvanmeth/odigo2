@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Delta } from '../../components/Delta'
 import { EmptyState } from '../../components/EmptyState'
+import { useToast } from '../../components/Toast'
 import { formatDateDMY } from '../../lib/dates'
 import { formatDate } from './helpers'
 import type { IrlPurchase } from './types'
@@ -66,10 +67,12 @@ const renderValuePills = (cardValues?: CardValue[]) => (
 )
 
 export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfolioProps) {
+  const { showToast } = useToast()
   const [activeTab, setActiveTab] = useState<PortfolioTab>('irl')
   const [showHistory, setShowHistory] = useState(false)
   const [userCards, setUserCards] = useState<UserCardData[]>([])
   const [loadingCards, setLoadingCards] = useState(true)
+  const [currentAvatarCardId, setCurrentAvatarCardId] = useState<string | null>(null)
 
   const fetchUserCards = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -95,7 +98,23 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
       .order('purchased_at', { ascending: false })
 
     if (data) setUserCards(data)
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('avatar_card_id')
+      .eq('id', user.id)
+      .single()
+    if (profile) setCurrentAvatarCardId(profile.avatar_card_id)
+
     setLoadingCards(false)
+  }
+
+  const setAsAvatar = async (cardId: string) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('profiles').update({ avatar_card_id: cardId }).eq('id', user.id)
+    setCurrentAvatarCardId(cardId)
+    showToast('Avatar mis à jour !')
   }
 
   useEffect(() => {
@@ -200,36 +219,44 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                       {uc.quantity > 1 && (
                         <div style={{
                           position: 'absolute',
-                          top: '8px', left: '8px',
-                          width: '100%', height: '100%',
+                          top: '8px',
+                          left: '8px',
+                          width: '100%',
+                          height: '100%',
                           borderRadius: 12,
                           background: '#e0f0ee',
-                          boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                          border: '1px solid #2a9d8f',
                           zIndex: 0,
                         }} />
                       )}
                       <img
                         src={`/cards/${uc.card.image_url}`}
-                        alt={uc.card.name}
                         draggable={false}
                         onContextMenu={e => e.preventDefault()}
                         className="card-image"
                         style={{
-                          width: '100%', borderRadius: 12,
+                          width: '100%',
+                          borderRadius: 12,
                           boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                          position: 'relative', zIndex: 1,
+                          position: 'relative',
+                          zIndex: 1,
                         }}
                       />
                       {uc.quantity > 1 && (
                         <div style={{
                           position: 'absolute',
-                          top: '-8px', right: '-8px',
-                          background: '#2a9d8f', color: 'white',
+                          top: '-8px',
+                          right: '-8px',
+                          background: '#2a9d8f',
+                          color: 'white',
                           borderRadius: '50%',
-                          width: '32px', height: '32px',
-                          display: 'flex', alignItems: 'center',
+                          width: '28px',
+                          height: '28px',
+                          display: 'flex',
+                          alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: '0.9rem', fontWeight: 'bold',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
                           boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                           zIndex: 2,
                         }}>
@@ -254,6 +281,28 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                         ⚡ {uc.card.super_pouvoir}
                       </div>
                     )}
+                    {(() => {
+                      const isCurrentAvatar = currentAvatarCardId === uc.card.id
+                      return (
+                        <button
+                          onClick={() => setAsAvatar(uc.card.id)}
+                          style={{
+                            marginTop: '0.5rem',
+                            padding: '0.3rem 0.75rem',
+                            background: isCurrentAvatar ? '#f0faf8' : '#2a9d8f',
+                            color: isCurrentAvatar ? '#2a9d8f' : 'white',
+                            border: isCurrentAvatar ? '1px solid #2a9d8f' : 'none',
+                            borderRadius: '0.5rem',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            width: '100%',
+                          }}
+                        >
+                          {isCurrentAvatar ? '✓ Avatar actuel' : '🖼️ Utiliser comme avatar'}
+                        </button>
+                      )
+                    })()}
                     <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1.25rem', flexWrap: 'wrap', fontSize: '0.85rem', color: '#555' }}>
                       {uc.purchased_price != null && (
                         <span>Prix d'achat : {uc.purchased_price} <Delta size={14} /></span>

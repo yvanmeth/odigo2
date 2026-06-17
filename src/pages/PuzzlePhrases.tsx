@@ -173,7 +173,7 @@ export default function PuzzlePhrases() {
       .from('word_lists')
       .select('id, name')
       .eq('user_id', user.id)
-      .eq('list_type', 'vocabulary')
+      .eq('list_type', 'vocabulaire')
     if (data) {
       setLists(data)
       if (data.length === 1) setSelectedListId(data[0].id)

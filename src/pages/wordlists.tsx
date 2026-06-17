@@ -28,15 +28,15 @@ interface WordItem {
 const LANGUAGES = ['Anglais', 'Allemand', 'Grec', 'Espagnol', 'Arabe', 'Italien', 'Français']
 
 const LIST_TYPE_LABELS: Record<string, string> = {
-  vocabulary: 'Vocabulaire',
-  conjugation: 'Conjugaison',
-  dictation: 'Dictée',
+  vocabulaire: 'Vocabulaire',
+  conjugaison: 'Conjugaison',
+  dictée: 'Dictée',
 }
 
 const LIST_TYPE_COLORS: Record<string, string> = {
-  vocabulary: '#2a9d8f',
-  conjugation: '#e76f51',
-  dictation: '#e9c46a',
+  vocabulaire: '#2a9d8f',
+  conjugaison: '#e76f51',
+  dictée: '#e9c46a',
 }
 
 const SUBJECT_COLOR_MAP: Record<string, string> = {
@@ -51,7 +51,7 @@ function fmtDate(iso: string): string {
 }
 
 function isSingleColumn(list: WordList): boolean {
-  return list.list_type === 'conjugation' || list.language === 'Français'
+  return list.list_type === 'conjugaison' || list.language === 'Français'
 }
 
 export default function WordLists({ userId }: { userId?: string }) {
@@ -68,13 +68,13 @@ export default function WordLists({ userId }: { userId?: string }) {
   // New list form
   const [newListName, setNewListName] = useState('')
   const [newListSubjectId, setNewListSubjectId] = useState('')
-  const [newListType, setNewListType] = useState('vocabulary')
+  const [newListType, setNewListType] = useState('vocabulaire')
   const [newListLang, setNewListLang] = useState('Anglais')
 
   // Edit list form
   const [editName, setEditName] = useState('')
   const [editSubjectId, setEditSubjectId] = useState('')
-  const [editType, setEditType] = useState('vocabulary')
+  const [editType, setEditType] = useState('vocabulaire')
   const [editLang, setEditLang] = useState('Anglais')
 
   // New word form
@@ -153,7 +153,7 @@ export default function WordLists({ userId }: { userId?: string }) {
       list_type: newListType,
       language: newListLang,
     })
-    setNewListName(''); setNewListSubjectId(''); setNewListType('vocabulary'); setNewListLang('Anglais')
+    setNewListName(''); setNewListSubjectId(''); setNewListType('vocabulaire'); setNewListLang('Anglais')
     setShowNewList(false)
     showToast('Liste créée')
     fetchLists()
@@ -291,7 +291,7 @@ export default function WordLists({ userId }: { userId?: string }) {
       reader.onerror = rej
       reader.readAsDataURL(file)
     })
-    const isVocab = selectedList.list_type === 'vocabulary'
+    const isVocab = selectedList.list_type === 'vocabulaire'
     const prompt = isVocab
       ? `Tu vois une liste de vocabulaire. Extrais tous les mots. Pour chaque mot, fournis sa traduction en français, peu importe la langue source ou si une traduction dans une autre langue est déjà visible dans l'image. Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, sous cette forme exacte: [{"source":"mot en langue étrangère","target":"traduction en français"}].`
       : `Tu vois une liste de mots. Extrais tous les mots. Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, sous cette forme exacte: [{"source":"mot","target":""}].`
@@ -595,9 +595,9 @@ export default function WordLists({ userId }: { userId?: string }) {
           </select>
           <label style={labelStyle}>Type</label>
           <select value={editType} onChange={e => setEditType(e.target.value)} style={inputStyle}>
-            <option value="vocabulary">Vocabulaire</option>
-            <option value="conjugation">Conjugaison</option>
-            <option value="dictation">Dictée</option>
+            <option value="vocabulaire">Vocabulaire</option>
+            <option value="conjugaison">Conjugaison</option>
+            <option value="dictée">Dictée</option>
           </select>
           <label style={labelStyle}>Langue de la liste</label>
           <select value={editLang} onChange={e => setEditLang(e.target.value)} style={inputStyle}>
@@ -637,9 +637,9 @@ export default function WordLists({ userId }: { userId?: string }) {
           </select>
           <label style={labelStyle}>Type</label>
           <select value={newListType} onChange={e => setNewListType(e.target.value)} style={inputStyle}>
-            <option value="vocabulary">Vocabulaire</option>
-            <option value="conjugation">Conjugaison</option>
-            <option value="dictation">Dictée</option>
+            <option value="vocabulaire">Vocabulaire</option>
+            <option value="conjugaison">Conjugaison</option>
+            <option value="dictée">Dictée</option>
           </select>
           <label style={labelStyle}>Langue de la liste</label>
           <select value={newListLang} onChange={e => setNewListLang(e.target.value)} style={inputStyle}>

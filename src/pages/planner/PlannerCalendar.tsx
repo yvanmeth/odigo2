@@ -34,9 +34,19 @@ export default function PlannerCalendar({ items, onEdit, onDelete }: Props) {
     })
   }
 
-  const handleItemClick = (item: CalendarItem, pos: { x: number; y: number }) => {
+  const handleItemClick = (e: React.MouseEvent, item: CalendarItem) => {
+    e.stopPropagation()
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const popoverWidth = 220
+    const popoverHeight = 130
+    const spaceRight = window.innerWidth - rect.right
+    const spaceBottom = window.innerHeight - rect.bottom
+    const x = spaceRight >= popoverWidth ? rect.right + 8 : rect.left - popoverWidth - 8
+    const y = spaceBottom >= popoverHeight ? rect.top : rect.top - popoverHeight
+    const clampedX = Math.max(8, Math.min(x, window.innerWidth - popoverWidth - 8))
+    const clampedY = Math.max(8, Math.min(y, window.innerHeight - popoverHeight - 8))
+    setEditPopoverPos({ x: clampedX, y: clampedY })
     setEditingItem(item)
-    setEditPopoverPos(pos)
   }
 
   const calViewToggle = (v: CalendarView) => ({

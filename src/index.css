@@ -228,3 +228,9 @@ textarea:focus {
   border-color: #2a9d8f !important;
   box-shadow: 0 0 0 3px rgba(42, 157, 143, 0.12);
 }
+
+@media (max-width: 767px) {
+  .cartes-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}

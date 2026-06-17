@@ -38,6 +38,12 @@ export default function LoginPage() {
   const handleCreateAccount = async () => {
     setLoading(true)
     setError('')
+    localStorage.setItem('odigo_pending_profile', JSON.stringify({
+      first_name: firstName,
+      birth_date: birthDate,
+      gender: gender,
+      role: selectedRole,
+    }))
     const { data, error: err } = await supabase.auth.signUp({ email, password })
     if (err) { setError(err.message); setLoading(false); return }
     if (data.user) {

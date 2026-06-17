@@ -230,7 +230,9 @@ export default function RewardsBoutique({
                         )}
                       </>
                     )}
-                    {r.stock > 1 && <div style={{ fontSize: '0.8rem', color: '#888' }}>{r.stock} disponible(s)</div>}
+                    {r.stock > 1 && <span style={{ fontSize: '0.78rem', color: '#888', marginTop: '0.25rem', display: 'block' }}>{r.stock} disponibles</span>}
+                    {r.stock === 1 && <span style={{ fontSize: '0.78rem', color: '#888', marginTop: '0.25rem', display: 'block' }}>1 disponible</span>}
+                    {r.stock === 0 && <span style={{ fontSize: '0.78rem', color: '#e63946', marginTop: '0.25rem', display: 'block' }}>Plus de stock</span>}
                     {r.valid_until && <div style={{ fontSize: '0.8rem', color: '#888' }}>Valable jusqu'au {formatDateDMY(r.valid_until)}</div>}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.5rem' }}>
                       <div style={{ display: 'inline-block', background: '#e9c46a', color: 'white', fontWeight: 'bold', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem' }}>

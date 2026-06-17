@@ -6,7 +6,7 @@ import CalendarItemChip from './CalendarItem'
 interface Props {
   calDate: Date
   items: CalendarItem[]
-  onItemClick: (item: CalendarItem, pos: { x: number; y: number }) => void
+  onItemClick: (e: React.MouseEvent, item: CalendarItem) => void
 }
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']

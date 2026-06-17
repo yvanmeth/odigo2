@@ -26,6 +26,9 @@ interface ProgressData {
   week_streak: number
   digoos_this_week: number
   digoos?: number
+  record_days?: number
+  record_weeks?: number
+  record_months?: number
 }
 
 interface DailyActivity {
@@ -132,7 +135,7 @@ export default function Home({ userId }: { userId?: string }) {
 
     const [progressRes, evalsRes, revisionsRes, eventsRes, remindersRes, activityRes, fixedRes, prefsRes, profileRes] =
       await Promise.all([
-        supabase.from('progress').select('week_streak, digoos_this_week, digoos').eq('user_id', targetId).single(),
+        supabase.from('progress').select('week_streak, digoos_this_week, digoos, record_days, record_weeks, record_months').eq('user_id', targetId).single(),
         supabase.from('evaluations').select('*').eq('user_id', targetId).order('evaluation_date'),
         supabase.from('revisions').select('*').eq('user_id', targetId).order('revision_date'),
         supabase.from('events').select('*').eq('user_id', targetId).order('event_date'),
@@ -196,6 +199,43 @@ export default function Home({ userId }: { userId?: string }) {
       hasBirthday,
     })
     setGreeting(greetingText)
+
+    // Mise à jour des records de séries
+    const actData = (activityRes.data as DailyActivity[] | null) || []
+    const localDateCounts: Record<string, number> = {}
+    actData.forEach(a => {
+      const d = a.date.split('T')[0]
+      localDateCounts[d] = (localDateCounts[d] || 0) + 1
+    })
+    let localDayStreak = 0
+    for (let i = 0; i < 366; i++) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const ds = d.toISOString().split('T')[0]
+      const count = localDateCounts[ds] || 0
+      if (i === 0 && count > 0) localDayStreak++
+      else if (i > 0 && count >= 3) localDayStreak++
+      else if (i > 0) break
+    }
+    let localMonthStreak = 0
+    for (let i = 0; i < 24; i++) {
+      const d = new Date()
+      d.setMonth(d.getMonth() - i, 1)
+      const prefix = d.toISOString().substring(0, 7)
+      if (actData.some(a => a.date.startsWith(prefix))) localMonthStreak++
+      else break
+    }
+    const localWeekStreak = (progressRes.data as ProgressData | null)?.week_streak || 0
+    const updateRecords = async (dayS: number, weekS: number, monthS: number) => {
+      const updates: Record<string, number> = {}
+      if (dayS > (progressData?.record_days || 0)) updates.record_days = dayS
+      if (weekS > (progressData?.record_weeks || 0)) updates.record_weeks = weekS
+      if (monthS > (progressData?.record_months || 0)) updates.record_months = monthS
+      if (Object.keys(updates).length > 0 && targetId) {
+        await supabase.from('progress').update(updates).eq('user_id', targetId)
+      }
+    }
+    await updateRecords(localDayStreak, localWeekStreak, localMonthStreak)
 
     setLoading(false)
   }
@@ -573,18 +613,33 @@ export default function Home({ userId }: { userId?: string }) {
       <div style={cardStyle}>
         {sectionHeader('🔥 Séries en cours')}
         <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'space-around' }}>
-          <ProgressCircle
-            value={todayCount} max={3} streak={dayStreak}
-            label="Jours" color="#2a9d8f"
-          />
-          <ProgressCircle
-            value={digoosThisWeek} max={1000} streak={weekStreak}
-            label="Semaines" color={weekColor}
-          />
-          <ProgressCircle
-            value={monthSteps} max={32} streak={monthStreak}
-            label="Mois" color="#e9c46a"
-          />
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <ProgressCircle
+              value={todayCount} max={3} streak={dayStreak}
+              label="Jours" color="#2a9d8f"
+            />
+            <div style={{ fontSize: '0.7rem', color: '#bbb', marginTop: '0.1rem' }}>
+              Ton record : {Math.max(dayStreak, progressData?.record_days || 0)} jour{Math.max(dayStreak, progressData?.record_days || 0) !== 1 ? 's' : ''}
+            </div>
+          </div>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <ProgressCircle
+              value={digoosThisWeek} max={1000} streak={weekStreak}
+              label="Semaines" color={weekColor}
+            />
+            <div style={{ fontSize: '0.7rem', color: '#bbb', marginTop: '0.1rem' }}>
+              Ton record : {Math.max(weekStreak, progressData?.record_weeks || 0)} semaine{Math.max(weekStreak, progressData?.record_weeks || 0) !== 1 ? 's' : ''}
+            </div>
+          </div>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <ProgressCircle
+              value={monthSteps} max={32} streak={monthStreak}
+              label="Mois" color="#e9c46a"
+            />
+            <div style={{ fontSize: '0.7rem', color: '#bbb', marginTop: '0.1rem' }}>
+              Ton record : {Math.max(monthStreak, progressData?.record_months || 0)} mois
+            </div>
+          </div>
         </div>
       </div>
 

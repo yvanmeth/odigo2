@@ -1,5 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { useState, useEffect, useRef } from 'react'
+import { Menu, Home as HomeIcon, Calendar, Target, Trophy, Settings as SettingsIcon } from 'lucide-react'
+import { Delta } from '../../components/Delta'
 import { supabase } from '../../lib/supabase'
 import Subjects from '../subjects/index'
 import Planner from '../planner'
@@ -51,7 +53,15 @@ export default function Dashboard({ session }: Props) {
   const [activeTitle, setActiveTitle] = useState<string | null>(null)
   const [digoos, setDigoos] = useState<number>(0)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const digoosAnimRef = useRef<((amount: number) => void) | null>(null)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
     const saved = localStorage.getItem('odigo_theme_color')
@@ -64,7 +74,34 @@ export default function Dashboard({ session }: Props) {
       (amount: number) => digoosAnimRef.current?.(amount)
   }, [])
 
+  const applyPendingProfile = async (userId: string) => {
+    const pending = localStorage.getItem('odigo_pending_profile')
+    if (!pending) return
+    try {
+      const data = JSON.parse(pending)
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('first_name, role')
+        .eq('id', userId)
+        .single()
+      if (!existing?.first_name) {
+        await supabase.from('profiles').upsert({
+          id: userId,
+          first_name: data.first_name,
+          birth_date: data.birth_date,
+          gender: data.gender,
+          role: data.role,
+          has_met_odigo: false,
+        })
+      }
+      localStorage.removeItem('odigo_pending_profile')
+    } catch {
+      localStorage.removeItem('odigo_pending_profile')
+    }
+  }
+
   const fetchProfile = async () => {
+    await applyPendingProfile(session.user.id)
     const { data } = await supabase
       .from('profiles')
       .select('role, first_name, gender, has_met_odigo')
@@ -155,8 +192,44 @@ export default function Dashboard({ session }: Props) {
     setActiveExercise(exercise ?? null)
   }
 
+  const backButton = (
+    <button
+      onClick={() => setActiveExercise(null)}
+      style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+    >
+      ← Retour aux exercices
+    </button>
+  )
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif', background: '#f0faf8' }}>
+
+      {/* Barre supérieure mobile */}
+      {isMobile && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0,
+          height: '56px',
+          background: 'white',
+          borderBottom: '1px solid #e0f0ee',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 1rem',
+          zIndex: 400,
+          gap: '1rem',
+        }}>
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: '#2a9d8f' }}
+          >
+            <Menu size={24} />
+          </button>
+          <img src="/logo-full.svg" style={{ height: '28px' }} alt="ODIGO" />
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#b8860b', fontWeight: 'bold', fontSize: '0.9rem' }}>
+            {digoos} <Delta size={16} />
+          </div>
+        </div>
+      )}
 
       <Sidebar
         collapsed={collapsed}
@@ -174,10 +247,20 @@ export default function Dashboard({ session }: Props) {
         digoos={digoos}
         userId={effectiveUserId}
         onSignOut={() => supabase.auth.signOut()}
+        isMobile={isMobile}
+        mobileMenuOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
       />
 
       {/* Zone de contenu */}
-      <div key={activePage + (activeExercise || '')} className="page-enter" style={{ flex: 1, padding: '2rem' }}>
+      <div
+        key={activePage + (activeExercise || '')}
+        className="page-enter"
+        style={isMobile
+          ? { flex: 1, padding: '56px 1rem 60px', width: '100%' }
+          : { flex: 1, padding: '2rem' }
+        }
+      >
 
         {/* Bandeau vue enfant */}
         {isViewingChild && (
@@ -205,7 +288,7 @@ export default function Dashboard({ session }: Props) {
         <div style={{
           background: 'white',
           borderRadius: '1rem',
-          padding: '2rem',
+          padding: isMobile ? '1rem' : '2rem',
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         }}>
           {activePage === 'parent' && isParent && (
@@ -222,113 +305,32 @@ export default function Dashboard({ session }: Props) {
           )}
 
           {activePage === 'exercises' && activeExercise === 'worddrop' && (
-            <div>
-              <button
-                onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                ← Retour aux exercices
-              </button>
-              <WordDrop />
-            </div>
+            <div>{backButton}<WordDrop /></div>
           )}
-
           {activePage === 'exercises' && activeExercise === 'qcm' && (
-            <div>
-              <button
-                onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                ← Retour aux exercices
-              </button>
-              <QCM />
-            </div>
+            <div>{backButton}<QCM /></div>
           )}
-
           {activePage === 'exercises' && activeExercise === 'spelling' && (
-            <div>
-              <button
-                onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                ← Retour aux exercices
-              </button>
-              <Spelling />
-            </div>
+            <div>{backButton}<Spelling /></div>
           )}
-
           {activePage === 'exercises' && activeExercise === 'flashcards' && (
-            <div>
-              <button
-                onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                ← Retour aux exercices
-              </button>
-              <Flashcards />
-            </div>
+            <div>{backButton}<Flashcards /></div>
           )}
-
           {activePage === 'exercises' && activeExercise === 'conjugaison' && (
-            <div>
-              <button
-                onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                ← Retour aux exercices
-              </button>
-              <Conjugaison />
-            </div>
+            <div>{backButton}<Conjugaison /></div>
           )}
-
           {activePage === 'exercises' && activeExercise === 'vocabulaire' && (
-            <div>
-              <button
-                onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                ← Retour aux exercices
-              </button>
-              <Vocabulaire />
-            </div>
+            <div>{backButton}<Vocabulaire /></div>
           )}
-
           {activePage === 'exercises' && activeExercise === 'puzzlephrases' && (
-            <div>
-              <button
-                onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                ← Retour aux exercices
-              </button>
-              <PuzzlePhrases />
-            </div>
+            <div>{backButton}<PuzzlePhrases /></div>
           )}
-
           {activePage === 'exercises' && activeExercise === 'allumettes' && (
-            <div>
-              <button
-                onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                ← Retour aux exercices
-              </button>
-              <Allumettes />
-            </div>
+            <div>{backButton}<Allumettes /></div>
           )}
-
           {activePage === 'exercises' && activeExercise === 'histoire' && (
-            <div>
-              <button
-                onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                ← Retour aux exercices
-              </button>
-              <Histoire />
-            </div>
+            <div>{backButton}<Histoire /></div>
           )}
-
           {activePage === 'exercises' && activeExercise === 'cartes' && (
             <div>
               <button
@@ -356,11 +358,54 @@ export default function Dashboard({ session }: Props) {
           )}
         </div>
       </div>
+
       {!isViewingChild && <Companion userId={session.user.id} />}
-
       {showOnboarding && <OnboardingModal onComplete={handleFinishOnboarding} />}
-
       <DigoosAnimation onRef={trigger => { digoosAnimRef.current = trigger }} />
+
+      {/* Barre de navigation mobile en bas */}
+      {isMobile && (
+        <div style={{
+          position: 'fixed',
+          bottom: 0, left: 0, right: 0,
+          height: '60px',
+          background: 'white',
+          borderTop: '1px solid #e0f0ee',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-around',
+          zIndex: 400,
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}>
+          {[
+            { id: 'dashboard', icon: <HomeIcon size={22} />, label: 'Accueil' },
+            { id: 'planner', icon: <Calendar size={22} />, label: 'Agenda' },
+            { id: 'exercises', icon: <Target size={22} />, label: 'Exercices' },
+            { id: 'rewards', icon: <Trophy size={22} />, label: 'Récompenses' },
+            { id: 'settings', icon: <SettingsIcon size={22} />, label: 'Paramètres' },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActivePage(item.id)
+                setActiveExercise(null)
+              }}
+              style={{
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', gap: '2px',
+                background: 'none', border: 'none',
+                cursor: 'pointer', padding: '0.5rem',
+                color: activePage === item.id ? '#2a9d8f' : '#aaa',
+                fontSize: '0.65rem', fontWeight: 'bold',
+                minWidth: '56px',
+              }}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

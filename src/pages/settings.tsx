@@ -25,16 +25,20 @@ export default function Settings() {
   const [loading, setLoading] = useState(true)
   const { showToast } = useToast()
   const [saving, setSaving] = useState(false)
+  const [avatarCardId, setAvatarCardId] = useState<string | null>(null)
   const [newInterest, setNewInterest] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [dangerPassword, setDangerPassword] = useState('')
   const [passwordMsg, setPasswordMsg] = useState('')
   const [showReset, setShowReset] = useState(false)
-  const [showDelete, setShowDelete] = useState(false)
   const [parentCode, setParentCode] = useState('')
   const [role, setRole] = useState<'student' | 'parent'>('student')
   const [savingRole, setSavingRole] = useState(false)
+  const [feedbackType, setFeedbackType] = useState<'bug' | 'idee' | 'autre'>('idee')
+  const [feedbackText, setFeedbackText] = useState('')
+  const [feedbackSent, setFeedbackSent] = useState(false)
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
 
   useEffect(() => {
     fetchProfile()
@@ -72,6 +76,7 @@ export default function Settings() {
         gender: data.gender || 'X',
         dark_mode: data.dark_mode || false,
       })
+      setAvatarCardId(data.avatar_card_id || null)
     } else {
       setProfile({
         id: user.id,
@@ -148,9 +153,73 @@ export default function Settings() {
     alert('Compte remis à zéro.')
   }
 
-  const handleDelete = async () => {
-    await handleReset()
-    await supabase.auth.signOut()
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      'Es-tu sûr·e de vouloir supprimer ton compte ? ' +
+      'Cette action est définitive et irréversible. ' +
+      'Toutes tes données seront effacées.'
+    )
+    if (!confirmed) return
+
+    const secondConfirm = window.confirm(
+      'Dernière confirmation : supprimer définitivement ' +
+      'ton compte ODIGO ?'
+    )
+    if (!secondConfirm) return
+
+    try {
+      setLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      )
+
+      const result = await response.json()
+
+      if (result.success) {
+        await supabase.auth.signOut()
+        window.location.href = '/'
+      } else {
+        showToast('Erreur lors de la suppression', 'error')
+      }
+    } catch {
+      showToast('Erreur lors de la suppression', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleFeedback = async () => {
+    if (!feedbackText.trim()) return
+    setFeedbackLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { showToast('Non connecté', 'error'); return }
+      const { error } = await supabase.from('suggestions').insert({
+        user_id: user.id,
+        text: `[${feedbackType.toUpperCase()}] ${feedbackText.trim()}`,
+        created_at: new Date().toISOString(),
+      })
+      if (!error) {
+        setFeedbackSent(true)
+        setFeedbackText('')
+        setTimeout(() => setFeedbackSent(false), 4000)
+      } else {
+        showToast('Erreur lors de l\'envoi', 'error')
+      }
+    } catch {
+      showToast('Erreur lors de l\'envoi', 'error')
+    } finally {
+      setFeedbackLoading(false)
+    }
   }
 
   const handleSaveRole = async () => {
@@ -370,6 +439,23 @@ export default function Settings() {
         <p style={{ color: '#aaa', fontSize: '0.8rem', marginTop: '0.5rem' }}>
           Le mode nuit sera disponible prochainement.
         </p>
+        {avatarCardId && (
+          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f0f0f0' }}>
+            <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.5rem' }}>Avatar carte actif</div>
+            <button
+              onClick={async () => {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) return
+                await supabase.from('profiles').update({ avatar_card_id: null }).eq('id', user.id)
+                setAvatarCardId(null)
+                showToast('Avatar retiré')
+              }}
+              style={{ padding: '0.4rem 1rem', background: 'white', color: '#888', border: '1px solid #ddd', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+            >
+              Retirer l'avatar carte
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Bouton sauvegarder */}
@@ -496,7 +582,7 @@ export default function Settings() {
           Ces actions sont irréversibles. Ton mot de passe sera demandé pour confirmer.
         </p>
 
-        {!showReset && !showDelete && (
+        {!showReset && (
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button
               onClick={() => setShowReset(true)}
@@ -505,7 +591,7 @@ export default function Settings() {
               Repartir de zéro
             </button>
             <button
-              onClick={() => setShowDelete(true)}
+              onClick={handleDeleteAccount}
               style={{ padding: '0.6rem 1.2rem', background: 'white', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
             >
               Supprimer le compte
@@ -555,48 +641,84 @@ export default function Settings() {
           </div>
         )}
 
-        {showDelete && (
-          <div style={{ background: '#fff5f5', borderRadius: '0.5rem', padding: '1rem' }}>
-            <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
-              <strong>Supprimer le compte</strong> efface définitivement ton compte et toutes les données associées. Cette action est irréversible et ne peut pas être annulée.
-            </p>
-            <input
-              type="password"
-              value={dangerPassword}
-              onChange={e => setDangerPassword(e.target.value)}
-              placeholder="Confirme avec ton mot de passe"
-              autoComplete="off"
-              style={inputStyle}
-            />
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                onClick={async () => {
-                  const { data: { user } } = await supabase.auth.getUser()
-                  const { error } = await supabase.auth.signInWithPassword({
-                    email: user?.email || '',
-                    password: dangerPassword,
-                  })
-                  if (error) {
-                    alert('Mot de passe incorrect.')
-                    return
-                  }
-                  await handleDelete()
-                  setDangerPassword('')
-                }}
-                style={{ padding: '0.5rem 1rem', background: '#e63946', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                Supprimer définitivement
-              </button>
-              <button
-                onClick={() => { setShowDelete(false); setDangerPassword('') }}
-                style={{ padding: '0.5rem 1rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                Annuler
-              </button>
-            </div>
+      </div>
+
+      {/* Feedback */}
+      <div style={sectionStyle}>
+        <h3 style={{ color: '#2a9d8f', marginBottom: '0.25rem' }}>💬 Signaler ou suggérer</h3>
+        <p style={{ color: '#aaa', fontSize: '0.82rem', marginBottom: '1rem' }}>
+          Tu as trouvé un bug ou tu as une idée pour améliorer ODIGO ? Dis-le nous !
+        </p>
+
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0' }}>
+          {([
+            { value: 'bug', label: '🐛 Bug' },
+            { value: 'idee', label: '💡 Idée' },
+            { value: 'autre', label: '💬 Autre' },
+          ] as const).map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setFeedbackType(value)}
+              style={{
+                flex: 1, padding: '0.6rem',
+                background: feedbackType === value ? '#2a9d8f' : '#e0f0ee',
+                color: feedbackType === value ? 'white' : '#2a9d8f',
+                border: 'none', borderRadius: '0.5rem',
+                cursor: 'pointer', fontSize: '0.82rem',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          value={feedbackText}
+          onChange={e => setFeedbackText(e.target.value)}
+          placeholder={
+            feedbackType === 'bug'
+              ? "Décris le problème : que s'est-il passé ?"
+              : feedbackType === 'idee'
+              ? "Décris ton idée d'amélioration..."
+              : "Ton message..."
+          }
+          style={{
+            width: '100%',
+            minHeight: '100px',
+            padding: '0.75rem',
+            borderRadius: '0.5rem',
+            border: '1px solid #e0f0ee',
+            fontSize: '0.9rem',
+            fontFamily: 'Nunito, sans-serif',
+            resize: 'vertical',
+            marginTop: '0.75rem',
+            boxSizing: 'border-box',
+          }}
+        />
+
+        {feedbackSent ? (
+          <div style={{ color: '#2a9d8f', fontWeight: 'bold', textAlign: 'center', padding: '0.5rem' }}>
+            ✓ Message envoyé, merci !
           </div>
+        ) : (
+          <button
+            onClick={handleFeedback}
+            disabled={!feedbackText.trim() || feedbackLoading}
+            style={{
+              background: feedbackText.trim() ? '#2a9d8f' : '#e0f0ee',
+              color: feedbackText.trim() ? 'white' : '#aaa',
+              border: 'none', borderRadius: '0.5rem',
+              padding: '0.6rem 1.5rem', cursor: feedbackText.trim() ? 'pointer' : 'default',
+              fontWeight: 'bold', marginTop: '0.75rem',
+              width: '100%', fontSize: '0.9rem',
+            }}
+          >
+            {feedbackLoading ? 'Envoi...' : 'Envoyer'}
+          </button>
         )}
       </div>
+
     </div>
   )
 }
