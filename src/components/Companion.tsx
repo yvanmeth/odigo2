@@ -3,9 +3,17 @@ import { supabase } from '../lib/supabase'
 import { OdigoAvatar } from './OdigoAvatar'
 import { findFAQ } from '../lib/faq'
 import { submitSuggestion } from '../services/suggestions'
+import { formatDateDMY } from '../lib/dates'
 
 interface CompanionProps {
   userId: string
+  currentPage?: string
+}
+
+interface Message {
+  role: 'odi' | 'user'
+  text: string
+  isCommand?: boolean
 }
 
 interface Profile {
@@ -59,9 +67,32 @@ const isSafetyAlert = (msg: string): boolean => {
   return SAFETY_PATTERNS.some(p => lower.includes(p))
 }
 
-export default function Companion({ userId }: CompanionProps) {
+const SLASH_COMMANDS = [
+  { cmd: '/liste', desc: 'Affiche toutes les commandes disponibles' },
+  { cmd: '/aide', desc: 'Explique la page actuelle' },
+  { cmd: '/rappels', desc: 'Tes rappels et évaluations à venir' },
+  { cmd: '/digoos', desc: 'Ton solde et comment en gagner' },
+  { cmd: '/semaine', desc: 'Résumé de ta semaine' },
+  { cmd: '/cartes', desc: 'Ta collection de cartes' },
+  { cmd: '/missions', desc: 'Tes missions en cours' },
+]
+
+const getPageHelp = (page: string): string => {
+  const helps: Record<string, string> = {
+    dashboard: '⚡ Le Tableau de bord résume ta semaine : évaluations à venir, révisions, événements, rappels, et tes séries de jours/semaines/mois actifs.',
+    planner: '⚡ Le Planificateur te permet d\'ajouter tes évaluations, révisions, événements et rappels. Tu peux basculer entre vue Liste et vue Calendrier.',
+    subjects: '⚡ Dans Matières, tu retrouves tes notes de cours, post-its, listes de mots et évaluations par matière.',
+    wordlists: '⚡ Crée et gère tes listes de vocabulaire, conjugaison ou dictée. Elles servent dans les exercices.',
+    exercises: '⚡ Choisis un exercice pour t\'entraîner et gagner des Δ : QCM, épellation, flashcards, conjugaison, puzzle de phrases, maths...',
+    rewards: '⚡ Dépense tes Δ dans la Boutique, consulte ton Portefeuille, réclame tes récompenses de régularité dans Progrès et récompenses.',
+    settings: '⚡ Gère ton profil, ton rôle et tes préférences ici.',
+  }
+  return helps[page] || '⚡ Utilise /liste pour voir toutes les commandes disponibles.'
+}
+
+export default function Companion({ userId, currentPage }: CompanionProps) {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<{ role: 'odi' | 'user'; text: string }[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -183,6 +214,113 @@ ${progressInfo ? `- Progression : ${progressInfo}` : ''}
 Contexte scolaire : ${evalInfo}`
   }
 
+  const handleSlashCommand = async (raw: string) => {
+    const [cmd] = raw.split(' ')
+    let response = ''
+
+    switch (cmd) {
+      case '/liste':
+        response = '⚡ Commandes disponibles :\n\n' +
+          SLASH_COMMANDS.map(c => `${c.cmd} — ${c.desc}`).join('\n')
+        break
+
+      case '/aide':
+        response = getPageHelp(currentPage || 'dashboard')
+        break
+
+      case '/rappels': {
+        const today = new Date().toISOString().split('T')[0]
+        const [remRes, evalRes] = await Promise.all([
+          supabase.from('reminders').select('title, deadline_date')
+            .eq('user_id', userId).eq('completed', false).order('deadline_date'),
+          supabase.from('evaluations').select('topic, evaluation_date')
+            .eq('user_id', userId).gte('evaluation_date', today)
+            .order('evaluation_date').limit(3),
+        ])
+        response = '⚡ Tes rappels et évaluations :\n\n'
+        if (remRes.data && remRes.data.length > 0) {
+          response += '🔔 Rappels :\n' +
+            remRes.data.map(r => `• ${r.title} (${formatDateDMY(r.deadline_date)})`).join('\n')
+        } else {
+          response += '🔔 Aucun rappel en cours.'
+        }
+        response += '\n\n📅 Prochaines évaluations :\n'
+        if (evalRes.data && evalRes.data.length > 0) {
+          response += evalRes.data.map(e => `• ${e.topic} (${formatDateDMY(e.evaluation_date)})`).join('\n')
+        } else {
+          response += 'Aucune évaluation planifiée.'
+        }
+        break
+      }
+
+      case '/digoos': {
+        const { data: prog } = await supabase
+          .from('progress').select('digoos, digoos_this_week')
+          .eq('user_id', userId).single()
+        response = `⚡ Ton solde : ${prog?.digoos || 0} Δ\n` +
+          `Cette semaine : ${prog?.digoos_this_week || 0} Δ\n\n` +
+          `Pour en gagner plus : fais des exercices, utilise le planificateur, ou réclame tes récompenses de jours/semaines/mois actifs dans Progrès et récompenses !`
+        break
+      }
+
+      case '/semaine': {
+        const today = new Date()
+        const monday = new Date(today)
+        monday.setDate(today.getDate() - ((today.getDay() + 6) % 7))
+        const sunday = new Date(monday)
+        sunday.setDate(monday.getDate() + 6)
+        const mondayStr = monday.toISOString().split('T')[0]
+        const sundayStr = sunday.toISOString().split('T')[0]
+        const [actRes, progRes] = await Promise.all([
+          supabase.from('daily_activity').select('*', { count: 'exact', head: true })
+            .eq('user_id', userId).eq('action_type', 'exercise_completed')
+            .gte('date', mondayStr).lte('date', sundayStr),
+          supabase.from('progress').select('digoos_this_week').eq('user_id', userId).single(),
+        ])
+        response = `⚡ Ta semaine :\n\n` +
+          `🎯 ${actRes.count || 0} exercice(s) complété(s)\n` +
+          `💰 ${progRes.data?.digoos_this_week || 0} Δ gagnés\n\n` +
+          `Continue comme ça !`
+        break
+      }
+
+      case '/cartes': {
+        const [cardsRes, totalRes] = await Promise.all([
+          supabase.from('user_cards').select('quantity').eq('user_id', userId),
+          supabase.from('cards').select('*', { count: 'exact', head: true }),
+        ])
+        const owned = cardsRes.data?.length || 0
+        response = `⚡ Ta collection :\n\n` +
+          `🎴 ${owned} / ${totalRes.count || 0} cartes différentes\n\n` +
+          `Rends-toi dans Digooland pour tenter ta chance au tirage au sort !`
+        break
+      }
+
+      case '/missions': {
+        const { data: missions } = await supabase
+          .from('missions').select('name, deadline')
+          .eq('child_id', userId).eq('status', 'pending').order('deadline')
+        response = '⚡ Tes missions en cours :\n\n'
+        if (missions && missions.length > 0) {
+          response += missions.map((m: { name: string; deadline: string }) => {
+            const d = new Date(m.deadline)
+            const dateStr = d.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long' })
+            const timeStr = d.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })
+            return `• ${m.name} — jusqu'au ${dateStr} à ${timeStr}`
+          }).join('\n')
+        } else {
+          response += 'Aucune mission en cours pour le moment.'
+        }
+        break
+      }
+
+      default:
+        response = `Commande inconnue "${cmd}". Tape /liste pour voir toutes les commandes disponibles.`
+    }
+
+    setMessages(prev => [...prev, { role: 'odi', text: response, isCommand: true }])
+  }
+
   const sendMessage = async () => {
     if (!input.trim() || loading) return
     const userMsg = input.trim()
@@ -204,6 +342,13 @@ Contexte scolaire : ${evalInfo}`
       return
     }
     setPendingSuggestion(null)
+
+    // Commandes slash — avant le pré-filtre de sécurité et l'API
+    if (userMsg.startsWith('/')) {
+      await handleSlashCommand(userMsg)
+      setLoading(false)
+      return
+    }
 
     // Pré-filtre de sécurité — court-circuite l'appel API
     if (isSafetyAlert(userMsg)) {
@@ -353,10 +498,11 @@ Contexte scolaire : ${evalInfo}`
                     maxWidth: '85%',
                     padding: '0.6rem 0.9rem',
                     borderRadius: msg.role === 'user' ? '1rem 1rem 0.25rem 1rem' : '1rem 1rem 1rem 0.25rem',
-                    background: msg.role === 'user' ? '#2a9d8f' : '#f0faf8',
+                    background: msg.role === 'user' ? '#2a9d8f' : msg.isCommand ? '#f0faf8' : '#f0faf8',
                     color: msg.role === 'user' ? 'white' : '#333',
                     fontSize: '0.9rem',
                     lineHeight: '1.4',
+                    ...(msg.isCommand ? { borderLeft: '3px solid #2a9d8f', whiteSpace: 'pre-line' as const } : {}),
                   }}>
                     {cleanText}
                   </div>
@@ -386,13 +532,50 @@ Contexte scolaire : ${evalInfo}`
           </div>
 
           {/* Input */}
-          <div style={{ padding: '0.75rem', borderTop: '1px solid #e0f0ee', display: 'flex', gap: '0.5rem' }}>
+          <div style={{ padding: '0.75rem', borderTop: '1px solid #e0f0ee', display: 'flex', gap: '0.5rem', position: 'relative' }}>
+            {input.startsWith('/') && input.length > 0 && (() => {
+              const matches = SLASH_COMMANDS.filter(c => c.cmd.startsWith(input.split(' ')[0]))
+              return matches.length > 0 ? (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '100%',
+                  left: '0.75rem',
+                  right: '0.75rem',
+                  background: 'white',
+                  border: '1px solid #e0f0ee',
+                  borderRadius: '0.5rem',
+                  marginBottom: '0.25rem',
+                  maxHeight: '160px',
+                  overflowY: 'auto',
+                  boxShadow: '0 -2px 8px rgba(0,0,0,0.08)',
+                  zIndex: 10,
+                }}>
+                  {matches.map(c => (
+                    <div
+                      key={c.cmd}
+                      onClick={() => setInput(c.cmd + ' ')}
+                      style={{
+                        padding: '0.5rem 0.75rem',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        borderBottom: '1px solid #f5f5f5',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#f0faf8')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <strong style={{ color: '#2a9d8f' }}>{c.cmd}</strong>
+                      <span style={{ color: '#888' }}> — {c.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null
+            })()}
             <input
               type="text"
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && sendMessage()}
-              placeholder="Poser une question..."
+              placeholder="Poser une question ou /liste..."
               style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: '2rem', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none' }}
             />
             <button

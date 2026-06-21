@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { Evaluation, Revision, AppEvent, Reminder, SubjectOption, PlannerView, CalendarItem } from './types'
-import { buildCalendarItems } from './helpers'
+import { buildCalendarItems, type PlannerMission } from './helpers'
 import { useToast } from '../../components/Toast'
 import PlannerList from './PlannerList'
 import PlannerCalendar from './PlannerCalendar'
@@ -14,6 +14,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
   const [events, setEvents] = useState<AppEvent[]>([])
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
+  const [missions, setMissions] = useState<PlannerMission[]>([])
   const [loading, setLoading] = useState(true)
   const [pendingEditItem, setPendingEditItem] = useState<CalendarItem | null>(null)
 
@@ -23,18 +24,20 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     const targetId = userId || user?.id
-    const [evalsRes, revsRes, eventsRes, fixedRes, remindersRes, prefsRes] = await Promise.all([
+    const [evalsRes, revsRes, eventsRes, fixedRes, remindersRes, prefsRes, missionsRes] = await Promise.all([
       supabase.from('evaluations').select('*').eq('user_id', targetId).order('evaluation_date'),
       supabase.from('revisions').select('*').eq('user_id', targetId).order('revision_date'),
       supabase.from('events').select('*').eq('user_id', targetId).order('event_date'),
       supabase.from('subjects').select('*').order('name'),
       supabase.from('reminders').select('*').eq('user_id', targetId).order('deadline_date'),
       supabase.from('user_subjects').select('*').eq('user_id', targetId),
+      supabase.from('missions').select('id, name, description, deadline, reward_type, reward_amount').eq('child_id', targetId).eq('status', 'pending').order('deadline'),
     ])
     if (evalsRes.data) setEvaluations(evalsRes.data)
     if (revsRes.data) setRevisions(revsRes.data)
     if (eventsRes.data) setEvents(eventsRes.data)
     if (remindersRes.data) setReminders(remindersRes.data)
+    if (missionsRes.data) setMissions(missionsRes.data as PlannerMission[])
 
     const userPrefs = prefsRes.data || []
     const hiddenFixedIds = userPrefs.filter(p => p.subject_id && p.hidden).map(p => p.subject_id)
@@ -59,7 +62,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     setPlannerView('list')
   }
 
-  const calendarItems = buildCalendarItems(evaluations, revisions, events, reminders, subjects)
+  const calendarItems = buildCalendarItems(evaluations, revisions, events, reminders, subjects, missions)
 
   const viewToggle = (v: PlannerView) => ({
     padding: '0.45rem 0.85rem', border: 'none', borderRadius: '0.4rem', cursor: 'pointer' as const,
@@ -95,6 +98,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
           events={events}
           reminders={reminders}
           subjects={subjects}
+          missions={missions}
           onRefresh={fetchAll}
           onDelete={handleDelete}
           pendingEditItem={pendingEditItem}

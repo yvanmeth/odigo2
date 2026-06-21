@@ -10,7 +10,7 @@ export interface SubjectOption {
   isCustom: boolean
 }
 
-export type Tab = 'evaluations' | 'revisions' | 'events' | 'reminders'
+export type Tab = 'evaluations' | 'revisions' | 'events' | 'reminders' | 'missions'
 export type PlannerView = 'list' | 'calendar'
 export type CalendarView = 'day' | 'week' | 'month'
 
@@ -28,7 +28,7 @@ export interface Reminder {
 
 export interface CalendarItem {
   id: string
-  type: 'evaluation' | 'revision' | 'event' | 'reminder'
+  type: 'evaluation' | 'revision' | 'event' | 'reminder' | 'mission'
   title: string
   date: string
   startTime?: string

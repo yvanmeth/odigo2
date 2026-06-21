@@ -70,4 +70,11 @@ export const exerciseCards = [
     description: 'Reconstruis la traduction dans le bon ordre !',
     color: '#5c6bc0',
   },
+  {
+    id: 'maths',
+    label: 'Maths',
+    icon: '🔢',
+    description: 'Calcul mental, multiplications, divisions, équations',
+    color: '#2a9d8f',
+  },
 ]

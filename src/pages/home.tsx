@@ -12,6 +12,15 @@ import ProgressCircle from './rewards/ProgressCircle'
 
 // ==================== INTERFACES ====================
 
+interface Mission {
+  id: string
+  name: string
+  description: string
+  deadline: string
+  reward_type: 'digoos' | 'irl_reward'
+  reward_amount: number | null
+}
+
 interface Reminder {
   id: string
   user_id: string
@@ -50,6 +59,15 @@ type FilterKey = 'evaluations' | 'revisions' | 'events' | 'reminders'
 type TypeFilters = Record<FilterKey, boolean>
 
 // ==================== HELPERS ====================
+
+function formatMissionDeadline(deadline: string): string {
+  const d = new Date(deadline)
+  const datePart = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const h = d.getHours(), m = d.getMinutes()
+  if (h === 0 && m === 0) return datePart.charAt(0).toUpperCase() + datePart.slice(1)
+  const timePart = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return `${datePart.charAt(0).toUpperCase() + datePart.slice(1)} à ${timePart}`
+}
 
 function toDateStr(d: Date): string {
   const year = d.getFullYear()
@@ -116,6 +134,7 @@ export default function Home({ userId }: { userId?: string }) {
   const [revisions, setRevisions] = useState<Revision[]>([])
   const [events, setEvents] = useState<AppEvent[]>([])
   const [reminders, setReminders] = useState<Reminder[]>([])
+  const [missions, setMissions] = useState<Mission[]>([])
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([])
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
   const [typeFilters, setTypeFilters] = useState<TypeFilters>({
@@ -133,7 +152,7 @@ export default function Home({ userId }: { userId?: string }) {
     const today = now.toISOString().split('T')[0]
     const twoYearsAgo = `${now.getFullYear() - 2}-01-01`
 
-    const [progressRes, evalsRes, revisionsRes, eventsRes, remindersRes, activityRes, fixedRes, prefsRes, profileRes] =
+    const [progressRes, evalsRes, revisionsRes, eventsRes, remindersRes, activityRes, fixedRes, prefsRes, profileRes, missionsRes] =
       await Promise.all([
         supabase.from('progress').select('week_streak, digoos_this_week, digoos, record_days, record_weeks, record_months').eq('user_id', targetId).single(),
         supabase.from('evaluations').select('*').eq('user_id', targetId).order('evaluation_date'),
@@ -144,6 +163,7 @@ export default function Home({ userId }: { userId?: string }) {
         supabase.from('subjects').select('id, name').order('name'),
         supabase.from('user_subjects').select('id, subject_id, custom_name, custom_emoji, hidden').eq('user_id', targetId),
         supabase.from('profiles').select('first_name, birth_date, last_seen_at').eq('id', targetId).single(),
+        supabase.from('missions').select('id, name, description, deadline, reward_type, reward_amount').eq('child_id', targetId).eq('status', 'pending').order('deadline'),
       ])
 
     if (progressRes.data) setProgressData(progressRes.data as ProgressData)
@@ -151,6 +171,7 @@ export default function Home({ userId }: { userId?: string }) {
     if (revisionsRes.data) setRevisions(revisionsRes.data)
     if (eventsRes.data) setEvents(eventsRes.data)
     if (remindersRes.data) setReminders(remindersRes.data as Reminder[])
+    if (missionsRes.data) setMissions(missionsRes.data as Mission[])
     if (activityRes.data) setDailyActivity(activityRes.data as DailyActivity[])
 
     const fixedSubjects: SubjectRow[] = (fixedRes.data as SubjectRow[] | null) || []
@@ -650,7 +671,41 @@ export default function Home({ userId }: { userId?: string }) {
       {renderWeekSection(w1Start, w1End, getISOWeekNumber(parseLocalDate(w1Start)), false, 1)}
       {renderWeekSection(w2Start, w2End, getISOWeekNumber(parseLocalDate(w2Start)), false, 2)}
 
-      {/* ==================== 4. ÉVÉNEMENTS PASSÉS ==================== */}
+      {/* ==================== 4. MISSIONS ==================== */}
+      {missions.length > 0 && (
+        <div style={cardStyle}>
+          {sectionHeader('🎯 Missions')}
+          {missions.map(m => (
+            <div key={m.id} style={{
+              borderLeft: '4px solid #e76f51',
+              background: '#fff8f5',
+              borderRadius: '0.75rem',
+              padding: '0.85rem 1rem',
+              marginBottom: '0.75rem',
+            }}>
+              <div style={{ fontWeight: 'bold', color: '#e76f51', fontSize: '0.95rem' }}>{m.name}</div>
+              {m.description && (
+                <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.2rem' }}>{m.description}</div>
+              )}
+              <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '0.3rem' }}>
+                Deadline : {formatMissionDeadline(m.deadline)}
+              </div>
+              {m.reward_type === 'digoos' && m.reward_amount !== null && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: '#fff8e0', color: '#b8860b', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
+                  Récompense : {m.reward_amount} <Delta size={14} />
+                </div>
+              )}
+              {m.reward_type === 'irl_reward' && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: '#f0faf8', color: '#2a9d8f', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
+                  🎁 Récompense IRL
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ==================== 5. ÉVÉNEMENTS PASSÉS ==================== */}
       <div style={cardStyle}>
         {sectionHeader('📋 Historique')}
         {pastDurationBtns}

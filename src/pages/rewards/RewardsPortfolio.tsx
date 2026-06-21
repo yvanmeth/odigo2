@@ -217,17 +217,23 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                   <div style={{ width: '40%', position: 'relative' }}>
                     <div style={{ position: 'relative', width: '100%' }}>
                       {uc.quantity > 1 && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '8px',
-                          left: '8px',
-                          width: '100%',
-                          height: '100%',
-                          borderRadius: 12,
-                          background: '#e0f0ee',
-                          border: '1px solid #2a9d8f',
-                          zIndex: 0,
-                        }} />
+                        <img
+                          src={`/cards/${uc.card.image_url}`}
+                          draggable={false}
+                          onContextMenu={e => e.preventDefault()}
+                          style={{
+                            position: 'absolute',
+                            top: '8px',
+                            left: '8px',
+                            width: '100%',
+                            height: '100%',
+                            borderRadius: 12,
+                            objectFit: 'cover',
+                            objectPosition: 'top',
+                            zIndex: 0,
+                            filter: 'brightness(0.85)',
+                          }}
+                        />
                       )}
                       <img
                         src={`/cards/${uc.card.image_url}`}

@@ -58,9 +58,9 @@ export default function PlannerWeek({ calDate, items, onItemClick }: Props) {
           const ds = toDateStr(day)
           const dayAllDay = items.filter(it => it.date === ds && !it.startTime)
           return (
-            <div key={i} style={{ borderLeft: '1px solid #f0f0f0', background: i >= 5 ? '#fafafa' : 'white', padding: '2px' }}>
+            <div key={i} style={{ borderLeft: '1px solid #f0f0f0', background: i >= 5 ? '#fafafa' : 'white', padding: '2px', minWidth: 0, overflow: 'hidden' }}>
               {dayAllDay.slice(0, 3).map(item => (
-                <div key={item.id} onClick={e => chipClick(item, e)} style={{ background: item.color, color: 'white', borderRadius: '0.2rem', padding: '0.1rem 0.3rem', fontSize: '0.65rem', marginBottom: '1px', cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                <div key={item.id} onClick={e => chipClick(item, e)} title={item.title} style={{ background: item.color, color: 'white', borderRadius: '0.2rem', padding: '0.1rem 0.3rem', fontSize: '0.65rem', marginBottom: '1px', cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: '100%', boxSizing: 'border-box' }}>
                   {item.title}
                 </div>
               ))}

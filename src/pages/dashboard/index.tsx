@@ -19,6 +19,7 @@ import Flashcards from '../flashcards'
 import Conjugaison from '../conjugaison'
 import Vocabulaire from '../vocabulaire'
 import PuzzlePhrases from '../PuzzlePhrases'
+import Maths from '../Maths'
 import Allumettes from '../Allumettes'
 import Histoire from '../Histoire'
 import Cartes from '../Cartes'
@@ -325,6 +326,9 @@ export default function Dashboard({ session }: Props) {
           {activePage === 'exercises' && activeExercise === 'puzzlephrases' && (
             <div>{backButton}<PuzzlePhrases /></div>
           )}
+          {activePage === 'exercises' && activeExercise === 'maths' && (
+            <div>{backButton}<Maths /></div>
+          )}
           {activePage === 'exercises' && activeExercise === 'allumettes' && (
             <div>{backButton}<Allumettes /></div>
           )}
@@ -359,7 +363,7 @@ export default function Dashboard({ session }: Props) {
         </div>
       </div>
 
-      {!isViewingChild && <Companion userId={session.user.id} />}
+      {!isViewingChild && <Companion userId={session.user.id} currentPage={activePage} />}
       {showOnboarding && <OnboardingModal onComplete={handleFinishOnboarding} />}
       <DigoosAnimation onRef={trigger => { digoosAnimRef.current = trigger }} />
 

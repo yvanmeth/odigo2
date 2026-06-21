@@ -1,5 +1,14 @@
 import type { Evaluation, Revision, AppEvent, Reminder, SubjectOption, CalendarItem, CalendarView } from './types'
 
+export interface PlannerMission {
+  id: string
+  name: string
+  description: string
+  deadline: string
+  reward_type: 'digoos' | 'irl_reward'
+  reward_amount: number | null
+}
+
 export const formatDate = (d: string): string => {
   if (!d) return ''
   const [y, m, day] = d.split('-')
@@ -88,7 +97,8 @@ export const buildCalendarItems = (
   revs: Revision[],
   evts: AppEvent[],
   rems: Reminder[],
-  subs: SubjectOption[]
+  subs: SubjectOption[],
+  missions: PlannerMission[] = []
 ): CalendarItem[] => {
   const getName = (id: unknown) => subs.find(s => String(s.id) === String(id))?.name || '?'
   const items: CalendarItem[] = []
@@ -116,5 +126,15 @@ export const buildCalendarItems = (
     date: r.deadline_date, startTime: r.deadline_time || undefined,
     color: '#e9c46a', raw: r,
   }))
+  missions.forEach(m => {
+    const dateStr = m.deadline.split('T')[0]
+    const timePart = m.deadline.includes('T') ? m.deadline.split('T')[1]?.slice(0, 5) : undefined
+    items.push({
+      id: m.id, type: 'mission',
+      title: `🎯 ${m.name}`,
+      date: dateStr, startTime: timePart || undefined,
+      color: '#e76f51', raw: m,
+    })
+  })
   return items
 }

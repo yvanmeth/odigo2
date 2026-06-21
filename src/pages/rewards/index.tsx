@@ -71,12 +71,19 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
     const today = new Date().toISOString().slice(0, 10)
     const { data } = await supabase
       .from('irl_rewards')
-      .select('*')
+      .select('*, irl_reward_children(child_id)')
       .in('parent_id', pIds)
       .gt('stock', 0)
       .or(`valid_until.is.null,valid_until.gte.${today}`)
       .order('name')
-    if (data) setIrlRewards(data)
+    if (data) {
+      const visible = (data as any[]).filter(r =>
+        !r.irl_reward_children ||
+        r.irl_reward_children.length === 0 ||
+        r.irl_reward_children.some((t: any) => t.child_id === targetId)
+      ) as IrlReward[]
+      setIrlRewards(visible)
+    }
   }
 
   const fetchIrlPurchases = async () => {

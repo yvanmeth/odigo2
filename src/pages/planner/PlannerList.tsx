@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { parseLocalDate } from '../../lib/dates'
 import type { Evaluation, Revision, AppEvent, Reminder, SubjectOption, Tab, CalendarItem } from './types'
 import { ODIGO_REMIND_LABELS, formatDate } from './types'
 import { logActivity } from '../../services/activity'
@@ -7,6 +8,31 @@ import { addPlannerDigoos } from '../../services/digoos'
 import { Pencil, Trash2, Plus } from 'lucide-react'
 import { useToast } from '../../components/Toast'
 import { EmptyState } from '../../components/EmptyState'
+import { Delta } from '../../components/Delta'
+import type { PlannerMission } from './helpers'
+
+const formatMissionDeadline = (deadline: string): string => {
+  const d = new Date(deadline)
+  const datePart = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const h = d.getHours(), m = d.getMinutes()
+  if (h === 0 && m === 0) return datePart.charAt(0).toUpperCase() + datePart.slice(1)
+  const timePart = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return `${datePart.charAt(0).toUpperCase() + datePart.slice(1)} à ${timePart}`
+}
+
+const getDefaultEndOfSchoolYear = (fromDate: Date): string => {
+  const month = fromDate.getMonth()
+  const year = fromDate.getFullYear()
+  const targetYear = month >= 4 ? year + 1 : year
+  return `${targetYear}-06-27`
+}
+
+const getDefaultYearlyEnd = (fromDate: Date): string => {
+  const year = fromDate.getFullYear() + 10
+  const month = String(fromDate.getMonth() + 1).padStart(2, '0')
+  const day = String(fromDate.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 interface Props {
   evaluations: Evaluation[]
@@ -14,13 +40,14 @@ interface Props {
   events: AppEvent[]
   reminders: Reminder[]
   subjects: SubjectOption[]
+  missions: PlannerMission[]
   onRefresh: () => void
   onDelete: (table: string, id: string) => void
   pendingEditItem: CalendarItem | null
   onPendingEditConsumed: () => void
 }
 
-export default function PlannerList({ evaluations, revisions, events, reminders, subjects, onRefresh, onDelete, pendingEditItem, onPendingEditConsumed }: Props) {
+export default function PlannerList({ evaluations, revisions, events, reminders, subjects, missions, onRefresh, onDelete, pendingEditItem, onPendingEditConsumed }: Props) {
   const { showToast } = useToast()
   const [activeTab, setActiveTab] = useState<Tab>('evaluations')
   const [showForm, setShowForm] = useState(false)
@@ -49,6 +76,9 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
   const [evtEndTime, setEvtEndTime] = useState('')
   const [evtDetails, setEvtDetails] = useState('')
   const [evtRepeat, setEvtRepeat] = useState(false)
+  const [evtRepeatUntil, setEvtRepeatUntil] = useState('')
+  const [evtRepeatYearly, setEvtRepeatYearly] = useState(false)
+  const [evtRepeatYearlyUntil, setEvtRepeatYearlyUntil] = useState('')
 
   // Form — rappels
   const [remTitle, setRemTitle] = useState('')
@@ -75,16 +105,33 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
     } else if (pendingEditItem.type === 'event') {
       const ev = pendingEditItem.raw as AppEvent
       setEvtTitle(ev.title); setEvtDate(ev.event_date); setEvtStartTime(ev.start_time || '')
-      setEvtEndTime(ev.end_time || ''); setEvtDetails(ev.details || ''); setEvtRepeat(false)
+      setEvtEndTime(ev.end_time || ''); setEvtDetails(ev.details || '')
+      setEvtRepeat(false); setEvtRepeatUntil(''); setEvtRepeatYearly(false); setEvtRepeatYearlyUntil('')
       setActiveTab('events'); setEditingId(ev.id); setShowForm(true)
     } else if (pendingEditItem.type === 'reminder') {
       const r = pendingEditItem.raw as Reminder
       setRemTitle(r.title); setRemDescription(r.description || ''); setRemDeadlineDate(r.deadline_date)
       setRemDeadlineTime(r.deadline_time || ''); setRemOdigoRemind(r.odigo_remind)
       setActiveTab('reminders'); setEditingId(r.id); setShowForm(true)
+    } else if (pendingEditItem.type === 'mission') {
+      setActiveTab('missions')
     }
     onPendingEditConsumed()
   }, [pendingEditItem])
+
+  useEffect(() => {
+    if (evtRepeat && !evtRepeatUntil) {
+      const base = evtDate ? parseLocalDate(evtDate) : new Date()
+      setEvtRepeatUntil(getDefaultEndOfSchoolYear(base))
+    }
+  }, [evtRepeat])
+
+  useEffect(() => {
+    if (evtRepeatYearly && !evtRepeatYearlyUntil) {
+      const base = evtDate ? parseLocalDate(evtDate) : new Date()
+      setEvtRepeatYearlyUntil(getDefaultYearlyEnd(base))
+    }
+  }, [evtRepeatYearly])
 
   const closeForm = () => { setShowForm(false); setEditingId(null) }
   const getSubjectName = (id: unknown) => subjects.find(s => String(s.id) === String(id))?.name || '?'
@@ -138,35 +185,43 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
   // ---- Événements ----
   const handleSaveEvt = async () => {
     if (!evtTitle || !evtDate) return
-    if (!editingId && evtRepeat) {
+    const payload = {
+      title: evtTitle, event_date: evtDate,
+      start_time: evtStartTime || null, end_time: evtEndTime || null, details: evtDetails || null,
+    }
+    const toDateStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+    if (!editingId && evtRepeat && evtRepeatUntil) {
       const { data: { user } } = await supabase.auth.getUser()
       const dates: string[] = []
-      const cur = new Date(evtDate)
-      const end = new Date('2028-12-31')
-      while (cur <= end) { dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate() + 7) }
-      await supabase.from('events').insert(dates.map(d => ({
-        user_id: user?.id, title: evtTitle, event_date: d,
-        start_time: evtStartTime || null, end_time: evtEndTime || null, details: evtDetails || null,
-      })))
+      const cur = parseLocalDate(evtDate)
+      const end = parseLocalDate(evtRepeatUntil)
+      while (cur <= end) { dates.push(toDateStr(cur)); cur.setDate(cur.getDate() + 7) }
+      await supabase.from('events').insert(dates.map(d => ({ ...payload, user_id: user?.id, event_date: d })))
       await logActivity({ action_type: 'planner_entry', metadata: { type: 'event_repeat' } })
       await addPlannerDigoos('event_added')
       showToast(`${dates.length} événements récurrents ajoutés`)
+    } else if (!editingId && evtRepeatYearly && evtRepeatYearlyUntil) {
+      const { data: { user } } = await supabase.auth.getUser()
+      const dates: string[] = []
+      const cur = parseLocalDate(evtDate)
+      const end = parseLocalDate(evtRepeatYearlyUntil)
+      while (cur <= end) { dates.push(toDateStr(cur)); cur.setFullYear(cur.getFullYear() + 1) }
+      await supabase.from('events').insert(dates.map(d => ({ ...payload, user_id: user?.id, event_date: d })))
+      await logActivity({ action_type: 'planner_entry', metadata: { type: 'event_repeat_yearly' } })
+      await addPlannerDigoos('event_added')
+      showToast(`${dates.length} événements annuels ajoutés`)
+    } else if (editingId) {
+      await supabase.from('events').update(payload).eq('id', editingId)
     } else {
-      const payload = {
-        title: evtTitle, event_date: evtDate,
-        start_time: evtStartTime || null, end_time: evtEndTime || null, details: evtDetails || null,
-      }
-      if (editingId) {
-        await supabase.from('events').update(payload).eq('id', editingId)
-      } else {
-        const { data: { user } } = await supabase.auth.getUser()
-        await supabase.from('events').insert({ ...payload, user_id: user?.id })
-        await logActivity({ action_type: 'planner_entry', metadata: { type: 'event' } })
-        await addPlannerDigoos('event_added')
-        showToast('Événement ajouté')
-      }
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('events').insert({ ...payload, user_id: user?.id })
+      await logActivity({ action_type: 'planner_entry', metadata: { type: 'event' } })
+      await addPlannerDigoos('event_added')
+      showToast('Événement ajouté')
     }
-    setEvtTitle(''); setEvtDate(''); setEvtStartTime(''); setEvtEndTime(''); setEvtDetails(''); setEvtRepeat(false)
+    setEvtTitle(''); setEvtDate(''); setEvtStartTime(''); setEvtEndTime(''); setEvtDetails('')
+    setEvtRepeat(false); setEvtRepeatUntil(''); setEvtRepeatYearly(false); setEvtRepeatYearlyUntil('')
     closeForm(); onRefresh()
   }
 
@@ -222,17 +277,22 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
         <button style={tabStyle('revisions')} onClick={() => { setActiveTab('revisions'); closeForm() }}>📖 Révisions</button>
         <button style={tabStyle('events')} onClick={() => { setActiveTab('events'); closeForm() }}>📅 Événements</button>
         <button style={tabStyle('reminders')} onClick={() => { setActiveTab('reminders'); closeForm() }}>✅ Rappels</button>
+        {missions.length > 0 && (
+          <button style={tabStyle('missions')} onClick={() => { setActiveTab('missions'); closeForm() }}>🎯 Missions</button>
+        )}
       </div>
 
-      {/* Bouton ajouter */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-        <button
-          onClick={() => { if (showForm) { closeForm() } else { setShowForm(true) } }}
-          style={{ padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-        >
-          {showForm ? '✕ Annuler' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Plus size={16} />Ajouter</span>}
-        </button>
-      </div>
+      {/* Bouton ajouter — masqué pour l'onglet Missions (lecture seule) */}
+      {activeTab !== 'missions' && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+          <button
+            onClick={() => { if (showForm) { closeForm() } else { setShowForm(true) } }}
+            style={{ padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+          >
+            {showForm ? '✕ Annuler' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Plus size={16} />Ajouter</span>}
+          </button>
+        </div>
+      )}
 
       {/* Formulaire évaluations */}
       {showForm && activeTab === 'evaluations' && (
@@ -287,10 +347,48 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
             <input type="time" value={evtEndTime} onChange={e => setEvtEndTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
           </div>
           <textarea placeholder="Détails (optionnel)" value={evtDetails} onChange={e => setEvtDetails(e.target.value)} style={{ ...inputStyle, height: '80px', resize: 'vertical' }} />
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', cursor: editingId ? 'default' : 'pointer' }}>
-            <input type="checkbox" checked={evtRepeat} onChange={e => setEvtRepeat(e.target.checked)} disabled={!!editingId} />
-            <span style={{ color: editingId ? '#ccc' : '#555', fontSize: '0.9rem' }}>🔁 Répéter chaque semaine (jusqu'au 31/12/2028)</span>
-          </label>
+          {!editingId && (
+            <div style={{ marginBottom: '0.75rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: '0.25rem' }}>
+                <input
+                  type="checkbox"
+                  checked={evtRepeat}
+                  onChange={e => { setEvtRepeat(e.target.checked); if (e.target.checked) setEvtRepeatYearly(false) }}
+                />
+                <span style={{ color: '#555', fontSize: '0.9rem' }}>🔁 Répéter chaque semaine</span>
+              </label>
+              {evtRepeat && (
+                <div style={{ marginTop: '0.25rem', paddingLeft: '1.5rem' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>Répéter jusqu'au</label>
+                  <input
+                    type="date"
+                    value={evtRepeatUntil}
+                    onChange={e => setEvtRepeatUntil(e.target.value)}
+                    style={{ ...inputStyle, marginBottom: 0 }}
+                  />
+                </div>
+              )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '0.5rem', marginBottom: '0.25rem' }}>
+                <input
+                  type="checkbox"
+                  checked={evtRepeatYearly}
+                  onChange={e => { setEvtRepeatYearly(e.target.checked); if (e.target.checked) setEvtRepeat(false) }}
+                />
+                <span style={{ color: '#555', fontSize: '0.9rem' }}>📅 Répéter chaque année (anniversaire, événement annuel)</span>
+              </label>
+              {evtRepeatYearly && (
+                <div style={{ marginTop: '0.25rem', paddingLeft: '1.5rem' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>Répéter jusqu'en</label>
+                  <input
+                    type="date"
+                    value={evtRepeatYearlyUntil}
+                    onChange={e => setEvtRepeatYearlyUntil(e.target.value)}
+                    style={{ ...inputStyle, marginBottom: 0 }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <button onClick={handleSaveEvt} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
             {editingId ? 'Mettre à jour' : 'Enregistrer'}
           </button>
@@ -396,11 +494,38 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <button onClick={() => {
                   setEvtTitle(ev.title); setEvtDate(ev.event_date); setEvtStartTime(ev.start_time || '')
-                  setEvtEndTime(ev.end_time || ''); setEvtDetails(ev.details || ''); setEvtRepeat(false)
+                  setEvtEndTime(ev.end_time || ''); setEvtDetails(ev.details || '')
+                  setEvtRepeat(false); setEvtRepeatUntil(''); setEvtRepeatYearly(false); setEvtRepeatYearlyUntil('')
                   setEditingId(ev.id); setShowForm(true)
                 }} style={actionBtnStyle}><Pencil size={14} /></button>
                 <button onClick={() => onDelete('events', ev.id)} style={actionBtnStyle}><Trash2 size={14} /></button>
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Liste missions — lecture seule */}
+      {activeTab === 'missions' && (
+        <div>
+          {missions.length === 0 && <EmptyState emoji="🎯" title="Aucune mission" subtitle="Le parent n'a pas encore créé de missions pour toi." />}
+          {missions.map(m => (
+            <div key={m.id} style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem 1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '0.75rem', borderLeft: '4px solid #e76f51' }}>
+              <div style={{ fontWeight: 'bold', color: '#e76f51', fontSize: '0.95rem' }}>{m.name}</div>
+              {m.description && <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>{m.description}</div>}
+              <div style={{ fontSize: '0.82rem', color: '#aaa', marginTop: '0.35rem' }}>
+                Deadline : {formatMissionDeadline(m.deadline)}
+              </div>
+              {m.reward_type === 'digoos' && m.reward_amount !== null && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: '#fff8e0', color: '#b8860b', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
+                  Récompense : {m.reward_amount} <Delta size={14} />
+                </div>
+              )}
+              {m.reward_type === 'irl_reward' && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: '#f0faf8', color: '#2a9d8f', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
+                  🎁 Récompense IRL
+                </div>
+              )}
             </div>
           ))}
         </div>

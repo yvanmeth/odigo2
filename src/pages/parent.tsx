@@ -39,6 +39,27 @@ interface InviteCode {
   used: boolean
 }
 
+interface IrlRewardSimple {
+  id: string
+  name: string
+  cost: number
+}
+
+interface Mission {
+  id: string
+  parent_id: string
+  child_id: string
+  name: string
+  description: string
+  deadline: string
+  reward_type: 'digoos' | 'irl_reward'
+  reward_amount: number | null
+  reward_irl_id: string | null
+  status: 'pending' | 'completed'
+  completed_at: string | null
+  profiles?: { first_name: string | null } | null
+}
+
 const REACTIONS = ['👍', '❤️', '👏', '🔥', '💯', '😎', '🤩', '⭐', '🙌', '🫶']
 
 export default function ParentDashboard({ onSelectChild }: { onSelectChild: (childId: string | null) => void }) {
@@ -59,6 +80,22 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
   const [irlDescription, setIrlDescription] = useState('')
   const [irlStock, setIrlStock] = useState('1')
   const [irlValidUntil, setIrlValidUntil] = useState('')
+  const [targetMode, setTargetMode] = useState<'all' | 'specific'>('all')
+  const [targetChildren, setTargetChildren] = useState<string[]>([])
+
+  // Missions states
+  const [missions, setMissions] = useState<Mission[]>([])
+  const [irlRewardsList, setIrlRewardsList] = useState<IrlRewardSimple[]>([])
+  const [showMissionForm, setShowMissionForm] = useState(false)
+  const [missionName, setMissionName] = useState('')
+  const [missionDesc, setMissionDesc] = useState('')
+  const [missionDeadlineDate, setMissionDeadlineDate] = useState('')
+  const [missionDeadlineTime, setMissionDeadlineTime] = useState('18:00')
+  const [rewardType, setRewardType] = useState<'digoos' | 'irl_reward'>('digoos')
+  const [rewardAmount, setRewardAmount] = useState(10)
+  const [rewardIrlId, setRewardIrlId] = useState('')
+  const [missionTargetMode, setMissionTargetMode] = useState<'all' | 'specific'>('all')
+  const [missionTargetChildren, setMissionTargetChildren] = useState<string[]>([])
 
   // Récompenses en attente (coupons des enfants)
   const [pendingPurchases, setPendingPurchases] = useState<PendingPurchase[]>([])
@@ -69,6 +106,8 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     fetchInviteCode()
     fetchIrlRewards()
     fetchPendingPurchases()
+    fetchMissions()
+    fetchIrlRewardsList()
   }, [])
 
   const fetchChildren = async () => {
@@ -154,13 +193,27 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     if (data) setIrlRewards(data)
   }
 
-  const handleEditIrlReward = (r: IrlReward) => {
+  const handleEditIrlReward = async (r: IrlReward) => {
     setIrlName(r.name)
     setIrlCost(String(r.cost))
     setIrlDescription(r.description || '')
     setIrlStock(String(r.stock ?? 1))
     setIrlValidUntil(r.valid_until || '')
     setIrlEditingId(r.id)
+
+    const { data: existingTargets } = await supabase
+      .from('irl_reward_children')
+      .select('child_id')
+      .eq('reward_id', r.id)
+
+    if (existingTargets && existingTargets.length > 0) {
+      setTargetMode('specific')
+      setTargetChildren(existingTargets.map((t: { child_id: string }) => t.child_id))
+    } else {
+      setTargetMode('all')
+      setTargetChildren([])
+    }
+
     setShowIrlForm(true)
   }
 
@@ -175,14 +228,30 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
       stock: parseInt(irlStock) || 1,
       valid_until: irlValidUntil || null,
     }
+
+    let rewardId: string
     if (irlEditingId) {
       await supabase.from('irl_rewards').update(payload).eq('id', irlEditingId)
+      rewardId = irlEditingId
       showToast('Récompense mise à jour')
     } else {
-      await supabase.from('irl_rewards').insert({ ...payload, parent_id: user.id })
+      const { data } = await supabase.from('irl_rewards').insert({ ...payload, parent_id: user.id }).select().single()
+      rewardId = data?.id
       showToast('Récompense créée')
     }
-    setIrlName(''); setIrlCost(''); setIrlDescription(''); setIrlStock('1'); setIrlValidUntil(''); setIrlEditingId(null); setShowIrlForm(false)
+
+    if (rewardId) {
+      await supabase.from('irl_reward_children').delete().eq('reward_id', rewardId)
+      if (targetMode === 'specific' && targetChildren.length > 0) {
+        await supabase.from('irl_reward_children').insert(
+          targetChildren.map(childId => ({ reward_id: rewardId, child_id: childId }))
+        )
+      }
+    }
+
+    setIrlName(''); setIrlCost(''); setIrlDescription(''); setIrlStock('1'); setIrlValidUntil('')
+    setIrlEditingId(null); setShowIrlForm(false)
+    setTargetMode('all'); setTargetChildren([])
     fetchIrlRewards()
   }
 
@@ -190,6 +259,119 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     await supabase.from('irl_rewards').delete().eq('id', id)
     showToast('Supprimé', 'info')
     fetchIrlRewards()
+  }
+
+  const fetchMissions = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase
+      .from('missions')
+      .select('*, profiles!child_id(first_name)')
+      .eq('parent_id', user.id)
+      .order('deadline', { ascending: true })
+    setMissions((data as Mission[]) || [])
+  }
+
+  const fetchIrlRewardsList = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase
+      .from('irl_rewards')
+      .select('id, name, cost')
+      .eq('parent_id', user.id)
+    if (data) setIrlRewardsList(data)
+  }
+
+  const resetMissionForm = () => {
+    setMissionName(''); setMissionDesc(''); setMissionDeadlineDate('')
+    setMissionDeadlineTime('18:00'); setRewardType('digoos'); setRewardAmount(10)
+    setRewardIrlId(''); setMissionTargetMode('all'); setMissionTargetChildren([])
+    setShowMissionForm(false)
+  }
+
+  const handleSaveMission = async () => {
+    if (!missionName || !missionDesc || !missionDeadlineDate) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const deadline = `${missionDeadlineDate}T${missionDeadlineTime}:00`
+    const targetIds = missionTargetMode === 'all'
+      ? children.map(c => c.id)
+      : missionTargetChildren
+
+    if (targetIds.length === 0) {
+      showToast('Sélectionne au moins un enfant', 'error')
+      return
+    }
+
+    const missionsToInsert = targetIds.map(childId => ({
+      parent_id: user.id,
+      child_id: childId,
+      name: missionName,
+      description: missionDesc,
+      deadline: new Date(deadline).toISOString(),
+      reward_type: rewardType,
+      reward_amount: rewardType === 'digoos' ? rewardAmount : null,
+      reward_irl_id: rewardType === 'irl_reward' ? rewardIrlId : null,
+      status: 'pending',
+    }))
+
+    await supabase.from('missions').insert(missionsToInsert)
+    showToast('Mission(s) créée(s)')
+    resetMissionForm()
+    fetchMissions()
+  }
+
+  const handleCompleteMission = async (mission: Mission) => {
+    await supabase.from('missions')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('id', mission.id)
+
+    if (mission.reward_type === 'digoos' && mission.reward_amount) {
+      const { data: childProgress } = await supabase
+        .from('progress')
+        .select('digoos, digoos_this_week')
+        .eq('user_id', mission.child_id)
+        .single()
+
+      if (childProgress) {
+        await supabase.from('progress').update({
+          digoos: (childProgress.digoos || 0) + mission.reward_amount,
+          digoos_this_week: (childProgress.digoos_this_week || 0) + mission.reward_amount,
+        }).eq('user_id', mission.child_id)
+      } else {
+        await supabase.from('progress').insert({
+          user_id: mission.child_id,
+          digoos: mission.reward_amount,
+          digoos_this_week: mission.reward_amount,
+        })
+      }
+    } else if (mission.reward_type === 'irl_reward' && mission.reward_irl_id) {
+      const { data: reward } = await supabase
+        .from('irl_rewards')
+        .select('name, cost')
+        .eq('id', mission.reward_irl_id)
+        .single()
+
+      if (reward) {
+        await supabase.from('irl_purchases').insert({
+          child_id: mission.child_id,
+          reward_id: mission.reward_irl_id,
+          reward_name: reward.name,
+          cost: 0,
+          status: 'valid',
+        })
+      }
+    }
+
+    showToast('Mission validée et récompense distribuée !')
+    fetchMissions()
+  }
+
+  const handleDeleteMission = async (id: string) => {
+    await supabase.from('missions').delete().eq('id', id)
+    showToast('Mission supprimée', 'info')
+    fetchMissions()
   }
 
   const fetchPendingPurchases = async () => {
@@ -222,6 +404,11 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
   const formatDate = (iso: string) => {
     const d = new Date(iso)
     return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
+  }
+
+  const formatDateTime = (iso: string) => {
+    const d = new Date(iso)
+    return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()} à ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   }
 
   const removeChild = async (childId: string) => {
@@ -354,6 +541,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
               if (showIrlForm) {
                 setShowIrlForm(false); setIrlEditingId(null)
                 setIrlName(''); setIrlCost(''); setIrlDescription(''); setIrlStock('1'); setIrlValidUntil('')
+                setTargetMode('all'); setTargetChildren([])
               } else {
                 setShowIrlForm(true)
               }
@@ -397,6 +585,55 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                 style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
               />
             </div>
+            {children.length > 0 && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.4rem' }}>Disponible pour</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => setTargetMode('all')}
+                    style={{
+                      padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem',
+                      cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold',
+                      background: targetMode === 'all' ? '#2a9d8f' : '#e0f0ee',
+                      color: targetMode === 'all' ? 'white' : '#2a9d8f',
+                    }}
+                  >
+                    Tous mes enfants
+                  </button>
+                  <button
+                    onClick={() => setTargetMode('specific')}
+                    style={{
+                      padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem',
+                      cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold',
+                      background: targetMode === 'specific' ? '#2a9d8f' : '#e0f0ee',
+                      color: targetMode === 'specific' ? 'white' : '#2a9d8f',
+                    }}
+                  >
+                    Choisir
+                  </button>
+                </div>
+                {targetMode === 'specific' && (
+                  <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    {children.map(child => (
+                      <label key={child.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                        <input
+                          type="checkbox"
+                          checked={targetChildren.includes(child.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setTargetChildren(prev => [...prev, child.id])
+                            } else {
+                              setTargetChildren(prev => prev.filter(id => id !== child.id))
+                            }
+                          }}
+                        />
+                        {child.first_name}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <button
               onClick={handleSaveIrlReward}
               style={{ padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
@@ -423,6 +660,203 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Missions */}
+      <div style={{ marginTop: '1.5rem', background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ color: '#2a9d8f', margin: 0 }}>🎯 Missions</h3>
+          <button
+            onClick={() => showMissionForm ? resetMissionForm() : setShowMissionForm(true)}
+            style={{ padding: '0.4rem 0.9rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+          >
+            {showMissionForm ? '✕ Annuler' : '+ Ajouter'}
+          </button>
+        </div>
+
+        {showMissionForm && (
+          <div style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f8fffe', borderRadius: '0.75rem', padding: '1rem' }}>
+            <input
+              type="text" placeholder="Nom de la mission *" value={missionName}
+              onChange={e => setMissionName(e.target.value)}
+              style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
+            />
+            <textarea
+              placeholder="Description de la mission *" value={missionDesc}
+              onChange={e => setMissionDesc(e.target.value)}
+              style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem', resize: 'vertical', height: '80px' }}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.25rem' }}>Date limite *</label>
+                <input
+                  type="date" value={missionDeadlineDate}
+                  onChange={e => setMissionDeadlineDate(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.25rem' }}>Heure limite</label>
+                <input
+                  type="time" value={missionDeadlineTime}
+                  onChange={e => setMissionDeadlineTime(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.4rem' }}>Récompense</label>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <button
+                  onClick={() => setRewardType('digoos')}
+                  style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: rewardType === 'digoos' ? '#2a9d8f' : '#e0f0ee', color: rewardType === 'digoos' ? 'white' : '#2a9d8f' }}
+                >
+                  💰 Digoos
+                </button>
+                <button
+                  onClick={() => setRewardType('irl_reward')}
+                  style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: rewardType === 'irl_reward' ? '#2a9d8f' : '#e0f0ee', color: rewardType === 'irl_reward' ? 'white' : '#2a9d8f' }}
+                >
+                  🎁 Récompense IRL
+                </button>
+              </div>
+              {rewardType === 'digoos' && (
+                <input
+                  type="number" min={1} value={rewardAmount}
+                  onChange={e => setRewardAmount(Number(e.target.value) || 10)}
+                  placeholder="Nombre de Digoos"
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem', boxSizing: 'border-box' }}
+                />
+              )}
+              {rewardType === 'irl_reward' && (
+                irlRewardsList.length === 0 ? (
+                  <p style={{ fontSize: '0.85rem', color: '#e63946' }}>Aucune récompense IRL définie. Crée-en une d'abord.</p>
+                ) : (
+                  <select
+                    value={rewardIrlId}
+                    onChange={e => setRewardIrlId(e.target.value)}
+                    style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
+                  >
+                    <option value="">Choisir une récompense IRL</option>
+                    {irlRewardsList.map(r => (
+                      <option key={r.id} value={r.id}>{r.name} ({r.cost} Δ)</option>
+                    ))}
+                  </select>
+                )
+              )}
+            </div>
+
+            {children.length > 0 && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.4rem' }}>Disponible pour</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => setMissionTargetMode('all')}
+                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: missionTargetMode === 'all' ? '#2a9d8f' : '#e0f0ee', color: missionTargetMode === 'all' ? 'white' : '#2a9d8f' }}
+                  >
+                    Tous mes enfants
+                  </button>
+                  <button
+                    onClick={() => setMissionTargetMode('specific')}
+                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: missionTargetMode === 'specific' ? '#2a9d8f' : '#e0f0ee', color: missionTargetMode === 'specific' ? 'white' : '#2a9d8f' }}
+                  >
+                    Choisir
+                  </button>
+                </div>
+                {missionTargetMode === 'specific' && (
+                  <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    {children.map(child => (
+                      <label key={child.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                        <input
+                          type="checkbox"
+                          checked={missionTargetChildren.includes(child.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setMissionTargetChildren(prev => [...prev, child.id])
+                            } else {
+                              setMissionTargetChildren(prev => prev.filter(id => id !== child.id))
+                            }
+                          }}
+                        />
+                        {child.first_name}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={handleSaveMission}
+              style={{ padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}
+            >
+              Créer la mission
+            </button>
+          </div>
+        )}
+
+        {missions.length === 0 ? (
+          <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucune mission créée.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {missions.map(m => {
+              const isExpired = m.status === 'pending' && new Date(m.deadline) < new Date()
+              const childName = m.profiles?.first_name || 'Enfant'
+              const irlName = irlRewardsList.find(r => r.id === m.reward_irl_id)?.name
+              return (
+                <div key={m.id} style={{ background: '#f8fffe', border: '1px solid #e0f0ee', borderRadius: '0.75rem', padding: '1rem 1.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '0.15rem' }}>
+                        {m.name} <span style={{ fontWeight: 'normal', color: '#888', fontSize: '0.85rem' }}>— {childName}</span>
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.4rem' }}>{m.description}</div>
+                      <div style={{ fontSize: '0.82rem', color: '#888' }}>⏱ Jusqu'au {formatDateTime(m.deadline)}</div>
+                      <div style={{ fontSize: '0.82rem', marginTop: '0.2rem' }}>
+                        {m.reward_type === 'digoos'
+                          ? <span style={{ color: '#b8860b', fontWeight: 'bold' }}>💰 {m.reward_amount} Δ</span>
+                          : <span style={{ color: '#2a9d8f', fontWeight: 'bold' }}>🎁 {irlName || 'Récompense IRL'}</span>
+                        }
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        {m.status === 'completed' ? (
+                          <span style={{ background: '#e0f0ee', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.78rem', fontWeight: 'bold' }}>✓ Accomplie</span>
+                        ) : (
+                          <span style={{ background: '#fff8e0', color: '#b8860b', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.78rem', fontWeight: 'bold' }}>En attente</span>
+                        )}
+                        {isExpired && (
+                          <span style={{ background: '#ffeaea', color: '#e63946', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.78rem', fontWeight: 'bold' }}>⏰ Expirée</span>
+                        )}
+                      </div>
+                      {m.status === 'completed' && m.completed_at && (
+                        <div style={{ fontSize: '0.78rem', color: '#888' }}>Accomplie le {formatDate(m.completed_at)}</div>
+                      )}
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        {m.status === 'pending' && (
+                          <button
+                            onClick={() => handleCompleteMission(m)}
+                            style={{ padding: '0.35rem 0.7rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                          >
+                            ✓ Mission accomplie
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteMission(m.id)}
+                          style={{ padding: '0.35rem 0.6rem', background: 'none', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center' }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

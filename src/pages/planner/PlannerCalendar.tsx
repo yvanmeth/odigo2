@@ -16,6 +16,7 @@ const TABLE_MAP: Record<CalendarItem['type'], string> = {
   revision: 'revisions',
   event: 'events',
   reminder: 'reminders',
+  mission: 'missions',
 }
 
 export default function PlannerCalendar({ items, onEdit, onDelete }: Props) {
@@ -97,12 +98,19 @@ export default function PlannerCalendar({ items, onEdit, onDelete }: Props) {
               {editingItem.title}
             </div>
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-              <button onClick={() => { onEdit(editingItem); setEditingItem(null) }} style={{ background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.7rem', cursor: 'pointer', fontSize: '0.82rem' }}>
-                ✏️ Modifier
-              </button>
-              <button onClick={() => { onDelete(TABLE_MAP[editingItem.type], editingItem.id); setEditingItem(null) }} style={{ background: '#fee', color: '#e63946', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.82rem' }}>
-                🗑️
-              </button>
+              {editingItem.type !== 'mission' && (
+                <>
+                  <button onClick={() => { onEdit(editingItem); setEditingItem(null) }} style={{ background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.7rem', cursor: 'pointer', fontSize: '0.82rem' }}>
+                    ✏️ Modifier
+                  </button>
+                  <button onClick={() => { onDelete(TABLE_MAP[editingItem.type], editingItem.id); setEditingItem(null) }} style={{ background: '#fee', color: '#e63946', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.82rem' }}>
+                    🗑️
+                  </button>
+                </>
+              )}
+              {editingItem.type === 'mission' && (
+                <span style={{ fontSize: '0.78rem', color: '#e76f51', fontStyle: 'italic' }}>Mission (lecture seule)</span>
+              )}
               <button onClick={() => setEditingItem(null)} style={{ background: 'none', color: '#aaa', border: 'none', cursor: 'pointer', fontSize: '1rem', marginLeft: 'auto' }}>
                 ✕
               </button>
