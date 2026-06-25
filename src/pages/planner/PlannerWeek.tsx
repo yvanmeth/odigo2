@@ -1,16 +1,17 @@
 import { useEffect, useRef } from 'react'
 import type { CalendarItem } from './types'
-import { toDateStr, getWeekDays, parseTime } from './helpers'
+import { toDateStr, getWeekDays, parseTime, isRecurringEvent } from './helpers'
 
 interface Props {
   calDate: Date
   items: CalendarItem[]
   onItemClick: (e: React.MouseEvent, item: CalendarItem) => void
+  onCellClick?: (date: string, time: string) => void
 }
 
 const S = 7, E = 21, PPH = 40
 
-export default function PlannerWeek({ calDate, items, onItemClick }: Props) {
+export default function PlannerWeek({ calDate, items, onItemClick, onCellClick }: Props) {
   const gridRef = useRef<HTMLDivElement>(null)
   const totalH = (E - S) * PPH
   const hours = Array.from({ length: E - S }, (_, i) => S + i)
@@ -27,6 +28,11 @@ export default function PlannerWeek({ calDate, items, onItemClick }: Props) {
   const chipClick = (item: CalendarItem, e: React.MouseEvent) => {
     e.stopPropagation()
     onItemClick(e, item)
+  }
+
+  const handleCellClick = (date: string, hour: number) => {
+    const time = `${String(hour).padStart(2, '0')}:00`
+    onCellClick?.(date, time)
   }
 
   return (
@@ -62,6 +68,7 @@ export default function PlannerWeek({ calDate, items, onItemClick }: Props) {
               {dayAllDay.slice(0, 3).map(item => (
                 <div key={item.id} onClick={e => chipClick(item, e)} title={item.title} style={{ background: item.color, color: 'white', borderRadius: '0.2rem', padding: '0.1rem 0.3rem', fontSize: '0.65rem', marginBottom: '1px', cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: '100%', boxSizing: 'border-box' }}>
                   {item.title}
+                  {isRecurringEvent(item) && <span style={{ fontSize: '0.65rem', marginLeft: '0.2rem' }}>🔁</span>}
                 </div>
               ))}
               {dayAllDay.length > 3 && <div style={{ fontSize: '0.6rem', color: '#888' }}>+{dayAllDay.length - 3}</div>}
@@ -89,6 +96,13 @@ export default function PlannerWeek({ calDate, items, onItemClick }: Props) {
             return (
               <div key={colIdx} style={{ position: 'relative', borderLeft: '1px solid #f0f0f0', background: isWE ? '#fafafa' : 'white' }}>
                 {hours.map(h => (
+                  <div
+                    key={`click${h}`}
+                    onClick={() => handleCellClick(ds, h)}
+                    style={{ position: 'absolute', top: `${(h - S) * PPH}px`, left: 0, right: 0, height: `${PPH}px`, cursor: 'pointer', zIndex: 1 }}
+                  />
+                ))}
+                {hours.map(h => (
                   <div key={`l${h}`} style={{ position: 'absolute', top: `${(h - S) * PPH}px`, left: 0, right: 0, borderTop: '1px solid #f0f0f0' }} />
                 ))}
                 {hours.map(h => (
@@ -112,7 +126,10 @@ export default function PlannerWeek({ calDate, items, onItemClick }: Props) {
                       cursor: 'pointer', overflow: 'hidden', color: 'white', fontSize: '0.65rem', zIndex: 5,
                       maxWidth: '100%', boxSizing: 'border-box',
                     }}>
-                      <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
+                      <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {item.title}
+                        {isRecurringEvent(item) && <span style={{ fontSize: '0.65rem', marginLeft: '0.2rem' }}>🔁</span>}
+                      </div>
                     </div>
                   )
                 })}

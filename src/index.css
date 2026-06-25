@@ -154,6 +154,15 @@ button:disabled {
   box-shadow: 0 8px 24px rgba(0,0,0,0.10);
 }
 
+.calendar-day-add {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.calendar-day-cell:hover .calendar-day-add {
+  opacity: 1;
+}
+
 .progress-bar {
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }

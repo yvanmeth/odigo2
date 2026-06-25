@@ -22,6 +22,23 @@ export const toDateStr = (d: Date): string => {
   return `${y}-${m}-${day}`
 }
 
+export const isRecurringEvent = (item: CalendarItem): boolean =>
+  item.type === 'event' && !!(item.raw as { recurrence_id?: string | null })?.recurrence_id
+
+export const getDefaultEndOfSchoolYear = (fromDate: Date): string => {
+  const month = fromDate.getMonth()
+  const year = fromDate.getFullYear()
+  const targetYear = month >= 4 ? year + 1 : year
+  return `${targetYear}-06-27`
+}
+
+export const getDefaultYearlyEnd = (fromDate: Date): string => {
+  const year = fromDate.getFullYear() + 10
+  const month = String(fromDate.getMonth() + 1).padStart(2, '0')
+  const day = String(fromDate.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export const isSameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&

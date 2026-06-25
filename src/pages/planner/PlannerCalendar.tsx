@@ -1,14 +1,25 @@
 import { useState } from 'react'
-import type { CalendarItem, CalendarView } from './types'
-import { formatDateHeader } from './helpers'
+import type { CalendarItem, CalendarView, AppEvent, SubjectOption, Evaluation } from './types'
+import { formatDateHeader, toDateStr } from './helpers'
 import PlannerDay from './PlannerDay'
 import PlannerWeek from './PlannerWeek'
 import PlannerMonth from './PlannerMonth'
+import CalendarCreateModal from './CalendarCreateModal'
 
 interface Props {
   items: CalendarItem[]
   onEdit: (item: CalendarItem) => void
   onDelete: (table: string, id: string) => void
+  onDeleteEvent: (event: AppEvent, mode: 'single' | 'following' | 'all') => void
+  userId: string
+  subjects: SubjectOption[]
+  evaluations: Evaluation[]
+  onRefresh?: () => void
+}
+
+const modalChoiceBtnStyle: React.CSSProperties = {
+  padding: '0.6rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
+  background: '#e0f0ee', color: '#2a9d8f', fontSize: '0.88rem', textAlign: 'left', fontWeight: 'bold',
 }
 
 const TABLE_MAP: Record<CalendarItem['type'], string> = {
@@ -19,11 +30,13 @@ const TABLE_MAP: Record<CalendarItem['type'], string> = {
   mission: 'missions',
 }
 
-export default function PlannerCalendar({ items, onEdit, onDelete }: Props) {
+export default function PlannerCalendar({ items, onEdit, onDelete, onDeleteEvent, userId, subjects, evaluations, onRefresh }: Props) {
   const [calView, setCalView] = useState<CalendarView>('week')
   const [calDate, setCalDate] = useState(new Date())
   const [editingItem, setEditingItem] = useState<CalendarItem | null>(null)
   const [editPopoverPos, setEditPopoverPos] = useState({ x: 0, y: 0 })
+  const [deleteSeriesItem, setDeleteSeriesItem] = useState<CalendarItem | null>(null)
+  const [createModal, setCreateModal] = useState<{ open: boolean; date: string; time?: string }>({ open: false, date: '' })
 
   const navigate = (dir: -1 | 1) => {
     setCalDate(prev => {
@@ -79,11 +92,18 @@ export default function PlannerCalendar({ items, onEdit, onDelete }: Props) {
           <button style={calViewToggle('week')} onClick={() => setCalView('week')}>Semaine</button>
           <button style={calViewToggle('month')} onClick={() => setCalView('month')}>Mois</button>
         </div>
+        <button onClick={() => setCreateModal({ open: true, date: toDateStr(calDate) })} style={{
+          background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem',
+          padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem',
+          display: 'flex', alignItems: 'center', gap: '0.4rem',
+        }}>
+          + Ajouter
+        </button>
       </div>
 
-      {calView === 'day' && <PlannerDay calDate={calDate} items={items} onItemClick={handleItemClick} />}
-      {calView === 'week' && <PlannerWeek calDate={calDate} items={items} onItemClick={handleItemClick} />}
-      {calView === 'month' && <PlannerMonth calDate={calDate} items={items} onItemClick={handleItemClick} />}
+      {calView === 'day' && <PlannerDay calDate={calDate} items={items} onItemClick={handleItemClick} onCellClick={(date, time) => setCreateModal({ open: true, date, time })} />}
+      {calView === 'week' && <PlannerWeek calDate={calDate} items={items} onItemClick={handleItemClick} onCellClick={(date, time) => setCreateModal({ open: true, date, time })} />}
+      {calView === 'month' && <PlannerMonth calDate={calDate} items={items} onItemClick={handleItemClick} onDayClick={date => setCreateModal({ open: true, date })} />}
 
       {/* Popover édition */}
       {editingItem && (
@@ -103,7 +123,15 @@ export default function PlannerCalendar({ items, onEdit, onDelete }: Props) {
                   <button onClick={() => { onEdit(editingItem); setEditingItem(null) }} style={{ background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.7rem', cursor: 'pointer', fontSize: '0.82rem' }}>
                     ✏️ Modifier
                   </button>
-                  <button onClick={() => { onDelete(TABLE_MAP[editingItem.type], editingItem.id); setEditingItem(null) }} style={{ background: '#fee', color: '#e63946', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.82rem' }}>
+                  <button onClick={() => {
+                    if (editingItem.type === 'event' && (editingItem.raw as AppEvent).recurrence_id) {
+                      setDeleteSeriesItem(editingItem)
+                      setEditingItem(null)
+                    } else {
+                      onDelete(TABLE_MAP[editingItem.type], editingItem.id)
+                      setEditingItem(null)
+                    }
+                  }} style={{ background: '#fee', color: '#e63946', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.82rem' }}>
                     🗑️
                   </button>
                 </>
@@ -117,6 +145,35 @@ export default function PlannerCalendar({ items, onEdit, onDelete }: Props) {
             </div>
           </div>
         </>
+      )}
+
+      {/* Modal choix suppression événement récurrent */}
+      {deleteSeriesItem && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', maxWidth: '340px', width: '90%', boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ color: '#333', marginBottom: '0.5rem', fontSize: '1.05rem' }}>Supprimer l'événement récurrent</h3>
+            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>Cet événement fait partie d'une série. Que souhaitez-vous supprimer ?</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <button onClick={() => { onDeleteEvent(deleteSeriesItem.raw as AppEvent, 'single'); setDeleteSeriesItem(null) }} style={modalChoiceBtnStyle}>Cet événement uniquement</button>
+              <button onClick={() => { onDeleteEvent(deleteSeriesItem.raw as AppEvent, 'following'); setDeleteSeriesItem(null) }} style={modalChoiceBtnStyle}>Cet événement et les suivants</button>
+              <button onClick={() => { onDeleteEvent(deleteSeriesItem.raw as AppEvent, 'all'); setDeleteSeriesItem(null) }} style={{ ...modalChoiceBtnStyle, background: '#fee', color: '#e63946' }}>Toute la série</button>
+              <button onClick={() => setDeleteSeriesItem(null)} style={{ ...modalChoiceBtnStyle, background: 'none', color: '#aaa' }}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal création d'item depuis le calendrier */}
+      {createModal.open && (
+        <CalendarCreateModal
+          initialDate={createModal.date}
+          initialTime={createModal.time}
+          userId={userId}
+          subjects={subjects}
+          evaluations={evaluations}
+          onClose={() => setCreateModal({ open: false, date: '' })}
+          onSaved={() => { onRefresh?.() }}
+        />
       )}
     </div>
   )

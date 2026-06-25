@@ -15,6 +15,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
   const [missions, setMissions] = useState<PlannerMission[]>([])
+  const [resolvedUserId, setResolvedUserId] = useState('')
   const [loading, setLoading] = useState(true)
   const [pendingEditItem, setPendingEditItem] = useState<CalendarItem | null>(null)
 
@@ -24,6 +25,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     const targetId = userId || user?.id
+    setResolvedUserId(targetId || '')
     const [evalsRes, revsRes, eventsRes, fixedRes, remindersRes, prefsRes, missionsRes] = await Promise.all([
       supabase.from('evaluations').select('*').eq('user_id', targetId).order('evaluation_date'),
       supabase.from('revisions').select('*').eq('user_id', targetId).order('revision_date'),
@@ -57,6 +59,21 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     fetchAll()
   }
 
+  const handleDeleteEvent = async (event: AppEvent, mode: 'single' | 'following' | 'all') => {
+    if (!event.recurrence_id || mode === 'single') {
+      await supabase.from('events').delete().eq('id', event.id)
+    } else if (mode === 'following') {
+      await supabase.from('events').delete()
+        .eq('recurrence_id', event.recurrence_id)
+        .gte('event_date', event.event_date)
+    } else if (mode === 'all') {
+      await supabase.from('events').delete()
+        .eq('recurrence_id', event.recurrence_id)
+    }
+    fetchAll()
+    showToast('Événement(s) supprimé(s)', 'info')
+  }
+
   const handleCalendarEdit = (item: CalendarItem) => {
     setPendingEditItem(item)
     setPlannerView('list')
@@ -88,6 +105,11 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
           items={calendarItems}
           onEdit={handleCalendarEdit}
           onDelete={handleDelete}
+          onDeleteEvent={handleDeleteEvent}
+          userId={resolvedUserId}
+          subjects={subjects}
+          evaluations={evaluations}
+          onRefresh={fetchAll}
         />
       )}
 
@@ -101,6 +123,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
           missions={missions}
           onRefresh={fetchAll}
           onDelete={handleDelete}
+          onDeleteEvent={handleDeleteEvent}
           pendingEditItem={pendingEditItem}
           onPendingEditConsumed={() => setPendingEditItem(null)}
         />

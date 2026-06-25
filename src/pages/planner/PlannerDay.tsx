@@ -1,17 +1,18 @@
 import { useEffect, useRef } from 'react'
 import type { CalendarItem } from './types'
-import { toDateStr, isSameDay, parseTime } from './helpers'
+import { toDateStr, isSameDay, parseTime, isRecurringEvent } from './helpers'
 import CalendarItemChip from './CalendarItem'
 
 interface Props {
   calDate: Date
   items: CalendarItem[]
   onItemClick: (e: React.MouseEvent, item: CalendarItem) => void
+  onCellClick?: (date: string, time: string) => void
 }
 
 const S = 6, E = 22, PPH = 60
 
-export default function PlannerDay({ calDate, items, onItemClick }: Props) {
+export default function PlannerDay({ calDate, items, onItemClick, onCellClick }: Props) {
   const gridRef = useRef<HTMLDivElement>(null)
   const totalH = (E - S) * PPH
   const hours = Array.from({ length: E - S + 1 }, (_, i) => S + i)
@@ -51,6 +52,13 @@ export default function PlannerDay({ calDate, items, onItemClick }: Props) {
             ))}
           </div>
           <div style={{ position: 'relative', borderLeft: '1px solid #f0f0f0' }}>
+            {hours.slice(0, hours.length - 1).map(h => (
+              <div
+                key={`click-${h}`}
+                onClick={() => onCellClick?.(dayStr, `${String(h).padStart(2, '0')}:00`)}
+                style={{ position: 'absolute', top: `${(h - S) * PPH}px`, left: 0, right: 0, height: `${PPH}px`, cursor: 'pointer', zIndex: 1 }}
+              />
+            ))}
             {hours.map(h => (
               <div key={`hl-${h}`} style={{ position: 'absolute', top: `${(h - S) * PPH}px`, left: 0, right: 0, borderTop: h > S ? '1px solid #f0f0f0' : 'none' }} />
             ))}
@@ -76,7 +84,10 @@ export default function PlannerDay({ calDate, items, onItemClick }: Props) {
                   background: item.color, borderRadius: '0.4rem', padding: '0.2rem 0.5rem',
                   cursor: 'pointer', overflow: 'hidden', color: 'white', fontSize: '0.78rem', zIndex: 5,
                 }}>
-                  <div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
+                  <div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {item.title}
+                    {isRecurringEvent(item) && <span style={{ fontSize: '0.65rem', marginLeft: '0.2rem' }}>🔁</span>}
+                  </div>
                   {ht >= 40 && <div style={{ opacity: 0.85, fontSize: '0.72rem' }}>{item.startTime}{item.endTime ? `–${item.endTime}` : ''}</div>}
                 </div>
               )

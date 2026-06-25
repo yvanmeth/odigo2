@@ -7,11 +7,12 @@ interface Props {
   calDate: Date
   items: CalendarItem[]
   onItemClick: (e: React.MouseEvent, item: CalendarItem) => void
+  onDayClick?: (date: string) => void
 }
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
-export default function PlannerMonth({ calDate, items, onItemClick }: Props) {
+export default function PlannerMonth({ calDate, items, onItemClick, onDayClick }: Props) {
   const [expandedDay, setExpandedDay] = useState<string | null>(null)
   const grid = getMonthGrid(calDate)
   const currentMonth = calDate.getMonth()
@@ -37,10 +38,19 @@ export default function PlannerMonth({ calDate, items, onItemClick }: Props) {
           const extra = dayItems.length - 3
 
           return (
-            <div key={idx} style={{
-              border: '1px solid #f0f0f0', minHeight: '90px', padding: '0.3rem',
-              background: isWE ? '#fafafa' : 'white', opacity: isCurrentMonth ? 1 : 0.4,
-            }}>
+            <div
+              key={idx}
+              className="calendar-day-cell"
+              onClick={e => {
+                if ((e.target as HTMLElement).closest('.calendar-item')) return
+                onDayClick?.(ds)
+              }}
+              style={{
+                border: '1px solid #f0f0f0', minHeight: '90px', padding: '0.3rem',
+                background: isWE ? '#fafafa' : 'white', opacity: isCurrentMonth ? 1 : 0.4,
+                position: 'relative', cursor: 'pointer',
+              }}
+            >
               <div style={{ marginBottom: '0.2rem' }}>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -65,6 +75,7 @@ export default function PlannerMonth({ calDate, items, onItemClick }: Props) {
                   Voir moins ▲
                 </div>
               )}
+              <span className="calendar-day-add" style={{ position: 'absolute', bottom: '4px', right: '4px', color: '#2a9d8f', fontSize: '1.2rem', pointerEvents: 'none', lineHeight: 1 }}>+</span>
             </div>
           )
         })}

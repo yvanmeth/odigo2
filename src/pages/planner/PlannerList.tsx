@@ -9,7 +9,7 @@ import { Pencil, Trash2, Plus } from 'lucide-react'
 import { useToast } from '../../components/Toast'
 import { EmptyState } from '../../components/EmptyState'
 import { Delta } from '../../components/Delta'
-import type { PlannerMission } from './helpers'
+import { type PlannerMission, getDefaultEndOfSchoolYear, getDefaultYearlyEnd } from './helpers'
 
 const formatMissionDeadline = (deadline: string): string => {
   const d = new Date(deadline)
@@ -18,20 +18,6 @@ const formatMissionDeadline = (deadline: string): string => {
   if (h === 0 && m === 0) return datePart.charAt(0).toUpperCase() + datePart.slice(1)
   const timePart = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   return `${datePart.charAt(0).toUpperCase() + datePart.slice(1)} à ${timePart}`
-}
-
-const getDefaultEndOfSchoolYear = (fromDate: Date): string => {
-  const month = fromDate.getMonth()
-  const year = fromDate.getFullYear()
-  const targetYear = month >= 4 ? year + 1 : year
-  return `${targetYear}-06-27`
-}
-
-const getDefaultYearlyEnd = (fromDate: Date): string => {
-  const year = fromDate.getFullYear() + 10
-  const month = String(fromDate.getMonth() + 1).padStart(2, '0')
-  const day = String(fromDate.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 interface Props {
@@ -43,11 +29,17 @@ interface Props {
   missions: PlannerMission[]
   onRefresh: () => void
   onDelete: (table: string, id: string) => void
+  onDeleteEvent: (event: AppEvent, mode: 'single' | 'following' | 'all') => void
   pendingEditItem: CalendarItem | null
   onPendingEditConsumed: () => void
 }
 
-export default function PlannerList({ evaluations, revisions, events, reminders, subjects, missions, onRefresh, onDelete, pendingEditItem, onPendingEditConsumed }: Props) {
+const modalChoiceBtnStyle: React.CSSProperties = {
+  padding: '0.6rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
+  background: '#e0f0ee', color: '#2a9d8f', fontSize: '0.88rem', textAlign: 'left', fontWeight: 'bold',
+}
+
+export default function PlannerList({ evaluations, revisions, events, reminders, subjects, missions, onRefresh, onDelete, onDeleteEvent, pendingEditItem, onPendingEditConsumed }: Props) {
   const { showToast } = useToast()
   const [activeTab, setActiveTab] = useState<Tab>('evaluations')
   const [showForm, setShowForm] = useState(false)
@@ -87,6 +79,40 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
   const [remDeadlineTime, setRemDeadlineTime] = useState('')
   const [remOdigoRemind, setRemOdigoRemind] = useState<Reminder['odigo_remind']>('never')
 
+  // Événements récurrents — modals de choix
+  const [deleteModal, setDeleteModal] = useState<{ event: AppEvent | null; mode: 'single' | 'following' | 'all' | null }>({ event: null, mode: null })
+  const [editSeriesModal, setEditSeriesModal] = useState<{ event: AppEvent | null; mode: 'single' | 'following' | 'all' | null }>({ event: null, mode: null })
+
+  const fillEventForm = (ev: AppEvent) => {
+    setEvtTitle(ev.title); setEvtDate(ev.event_date); setEvtStartTime(ev.start_time || '')
+    setEvtEndTime(ev.end_time || ''); setEvtDetails(ev.details || '')
+    setEvtRepeat(false); setEvtRepeatUntil(''); setEvtRepeatYearly(false); setEvtRepeatYearlyUntil('')
+    setEditingId(ev.id); setShowForm(true)
+  }
+
+  const openEventEdit = (ev: AppEvent) => {
+    if (ev.recurrence_id) {
+      setEditSeriesModal({ event: ev, mode: null })
+    } else {
+      fillEventForm(ev)
+    }
+  }
+
+  const chooseEditMode = (mode: 'single' | 'following' | 'all') => {
+    const ev = editSeriesModal.event
+    if (!ev) return
+    fillEventForm(ev)
+    setEditSeriesModal({ event: ev, mode })
+  }
+
+  const requestDeleteEvent = (ev: AppEvent) => {
+    if (ev.recurrence_id) {
+      setDeleteModal({ event: ev, mode: null })
+    } else {
+      onDelete('events', ev.id)
+    }
+  }
+
   // Traitement de la modification initiée depuis le calendrier
   useEffect(() => {
     if (!pendingEditItem) return
@@ -104,10 +130,8 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
       setActiveTab('revisions'); setEditingId(r.id); setShowForm(true)
     } else if (pendingEditItem.type === 'event') {
       const ev = pendingEditItem.raw as AppEvent
-      setEvtTitle(ev.title); setEvtDate(ev.event_date); setEvtStartTime(ev.start_time || '')
-      setEvtEndTime(ev.end_time || ''); setEvtDetails(ev.details || '')
-      setEvtRepeat(false); setEvtRepeatUntil(''); setEvtRepeatYearly(false); setEvtRepeatYearlyUntil('')
-      setActiveTab('events'); setEditingId(ev.id); setShowForm(true)
+      setActiveTab('events')
+      openEventEdit(ev)
     } else if (pendingEditItem.type === 'reminder') {
       const r = pendingEditItem.raw as Reminder
       setRemTitle(r.title); setRemDescription(r.description || ''); setRemDeadlineDate(r.deadline_date)
@@ -133,7 +157,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
     }
   }, [evtRepeatYearly])
 
-  const closeForm = () => { setShowForm(false); setEditingId(null) }
+  const closeForm = () => { setShowForm(false); setEditingId(null); setEditSeriesModal({ event: null, mode: null }) }
   const getSubjectName = (id: unknown) => subjects.find(s => String(s.id) === String(id))?.name || '?'
 
   // ---- Évaluations ----
@@ -185,6 +209,29 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
   // ---- Événements ----
   const handleSaveEvt = async () => {
     if (!evtTitle || !evtDate) return
+
+    // Modification d'une série récurrente (cet événement + suivants, ou toute la série)
+    if (editingId && editSeriesModal.event && editSeriesModal.mode && editSeriesModal.mode !== 'single') {
+      const ev = editSeriesModal.event
+      const seriesPayload = {
+        title: evtTitle, details: evtDetails || null,
+        start_time: evtStartTime || null, end_time: evtEndTime || null,
+      }
+      if (editSeriesModal.mode === 'following') {
+        await supabase.from('events').update(seriesPayload)
+          .eq('recurrence_id', ev.recurrence_id)
+          .gte('event_date', ev.event_date)
+      } else if (editSeriesModal.mode === 'all') {
+        await supabase.from('events').update(seriesPayload)
+          .eq('recurrence_id', ev.recurrence_id)
+      }
+      showToast('Événements mis à jour')
+      setEvtTitle(''); setEvtDate(''); setEvtStartTime(''); setEvtEndTime(''); setEvtDetails('')
+      setEvtRepeat(false); setEvtRepeatUntil(''); setEvtRepeatYearly(false); setEvtRepeatYearlyUntil('')
+      closeForm(); onRefresh()
+      return
+    }
+
     const payload = {
       title: evtTitle, event_date: evtDate,
       start_time: evtStartTime || null, end_time: evtEndTime || null, details: evtDetails || null,
@@ -193,21 +240,23 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
 
     if (!editingId && evtRepeat && evtRepeatUntil) {
       const { data: { user } } = await supabase.auth.getUser()
+      const recurrenceId = crypto.randomUUID()
       const dates: string[] = []
       const cur = parseLocalDate(evtDate)
       const end = parseLocalDate(evtRepeatUntil)
       while (cur <= end) { dates.push(toDateStr(cur)); cur.setDate(cur.getDate() + 7) }
-      await supabase.from('events').insert(dates.map(d => ({ ...payload, user_id: user?.id, event_date: d })))
+      await supabase.from('events').insert(dates.map(d => ({ ...payload, user_id: user?.id, event_date: d, recurrence_id: recurrenceId })))
       await logActivity({ action_type: 'planner_entry', metadata: { type: 'event_repeat' } })
       await addPlannerDigoos('event_added')
       showToast(`${dates.length} événements récurrents ajoutés`)
     } else if (!editingId && evtRepeatYearly && evtRepeatYearlyUntil) {
       const { data: { user } } = await supabase.auth.getUser()
+      const recurrenceId = crypto.randomUUID()
       const dates: string[] = []
       const cur = parseLocalDate(evtDate)
       const end = parseLocalDate(evtRepeatYearlyUntil)
       while (cur <= end) { dates.push(toDateStr(cur)); cur.setFullYear(cur.getFullYear() + 1) }
-      await supabase.from('events').insert(dates.map(d => ({ ...payload, user_id: user?.id, event_date: d })))
+      await supabase.from('events').insert(dates.map(d => ({ ...payload, user_id: user?.id, event_date: d, recurrence_id: recurrenceId })))
       await logActivity({ action_type: 'planner_entry', metadata: { type: 'event_repeat_yearly' } })
       await addPlannerDigoos('event_added')
       showToast(`${dates.length} événements annuels ajoutés`)
@@ -487,18 +536,16 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
           {events.map(ev => (
             <div key={ev.id} style={cardStyle}>
               <div>
-                <div style={{ fontWeight: 'bold', color: '#333' }}>{ev.title}</div>
+                <div style={{ fontWeight: 'bold', color: '#333' }}>
+                  {ev.title}
+                  {ev.recurrence_id && <span style={{ fontSize: '0.65rem', marginLeft: '0.3rem', opacity: 0.7 }}>🔁</span>}
+                </div>
                 <div style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(ev.event_date)}{ev.start_time ? ` · ${ev.start_time}` : ''}</div>
                 {ev.details && <div style={{ fontSize: '0.85rem', color: '#888' }}>{ev.details}</div>}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button onClick={() => {
-                  setEvtTitle(ev.title); setEvtDate(ev.event_date); setEvtStartTime(ev.start_time || '')
-                  setEvtEndTime(ev.end_time || ''); setEvtDetails(ev.details || '')
-                  setEvtRepeat(false); setEvtRepeatUntil(''); setEvtRepeatYearly(false); setEvtRepeatYearlyUntil('')
-                  setEditingId(ev.id); setShowForm(true)
-                }} style={actionBtnStyle}><Pencil size={14} /></button>
-                <button onClick={() => onDelete('events', ev.id)} style={actionBtnStyle}><Trash2 size={14} /></button>
+                <button onClick={() => openEventEdit(ev)} style={actionBtnStyle}><Pencil size={14} /></button>
+                <button onClick={() => requestDeleteEvent(ev)} style={actionBtnStyle}><Trash2 size={14} /></button>
               </div>
             </div>
           ))}
@@ -559,6 +606,38 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Modal choix modification événement récurrent */}
+      {editSeriesModal.event && editSeriesModal.mode === null && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', maxWidth: '340px', width: '90%', boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ color: '#333', marginBottom: '0.5rem', fontSize: '1.05rem' }}>Modifier l'événement récurrent</h3>
+            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>Cet événement fait partie d'une série.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <button onClick={() => chooseEditMode('single')} style={modalChoiceBtnStyle}>Cet événement uniquement</button>
+              <button onClick={() => chooseEditMode('following')} style={modalChoiceBtnStyle}>Cet événement et les suivants</button>
+              <button onClick={() => chooseEditMode('all')} style={modalChoiceBtnStyle}>Toute la série</button>
+              <button onClick={() => setEditSeriesModal({ event: null, mode: null })} style={{ ...modalChoiceBtnStyle, background: 'none', color: '#aaa' }}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal choix suppression événement récurrent */}
+      {deleteModal.event && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', maxWidth: '340px', width: '90%', boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ color: '#333', marginBottom: '0.5rem', fontSize: '1.05rem' }}>Supprimer l'événement récurrent</h3>
+            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>Cet événement fait partie d'une série. Que souhaitez-vous supprimer ?</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <button onClick={() => { onDeleteEvent(deleteModal.event!, 'single'); setDeleteModal({ event: null, mode: null }) }} style={modalChoiceBtnStyle}>Cet événement uniquement</button>
+              <button onClick={() => { onDeleteEvent(deleteModal.event!, 'following'); setDeleteModal({ event: null, mode: null }) }} style={modalChoiceBtnStyle}>Cet événement et les suivants</button>
+              <button onClick={() => { onDeleteEvent(deleteModal.event!, 'all'); setDeleteModal({ event: null, mode: null }) }} style={{ ...modalChoiceBtnStyle, background: '#fee', color: '#e63946' }}>Toute la série</button>
+              <button onClick={() => setDeleteModal({ event: null, mode: null })} style={{ ...modalChoiceBtnStyle, background: 'none', color: '#aaa' }}>Annuler</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

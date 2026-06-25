@@ -43,6 +43,7 @@ export interface Event {
   start_time?: string
   end_time?: string
   details?: string | null
+  recurrence_id?: string | null
   created_at: string
 }
 

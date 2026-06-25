@@ -1,4 +1,5 @@
 import type { CalendarItem as CalendarItemType } from './types'
+import { isRecurringEvent } from './helpers'
 
 interface Props {
   item: CalendarItemType
@@ -15,7 +16,7 @@ export default function CalendarItemChip({ item, onItemClick, compact, showTime,
   }
 
   return (
-    <div onClick={handleClick} style={{
+    <div onClick={handleClick} className="calendar-item" style={{
       background: item.color,
       color: 'white',
       borderRadius: compact ? '0.25rem' : '0.4rem',
@@ -31,6 +32,7 @@ export default function CalendarItemChip({ item, onItemClick, compact, showTime,
         <span style={{ opacity: 0.85, marginRight: '0.2rem' }}>{item.startTime.slice(0, 5)}</span>
       )}
       {item.title}
+      {isRecurringEvent(item) && <span style={{ fontSize: '0.65rem', marginLeft: '0.2rem', opacity: 0.85 }}>🔁</span>}
     </div>
   )
 }
