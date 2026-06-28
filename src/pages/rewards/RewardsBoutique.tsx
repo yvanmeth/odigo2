@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { deductDigoos } from '../../services/digoos'
 import { formatDateDMY } from '../../lib/dates'
 import { useToast } from '../../components/Toast'
-import type { IrlReward, Progress } from './types'
+import type { IrlReward, Progress, RewardTab } from './types'
 
 interface Theme {
   id: string
@@ -52,23 +52,30 @@ const THEMES: Theme[] = [
   },
 ]
 
+type BoutiqueView = 'menu' | 'irl' | 'cartes' | 'divertissement' | 'themes'
+
 interface RewardsBoutiqueProps {
   progress: Progress | null
   onDigoosUpdate: () => void
   irlRewards: IrlReward[]
-  parentIds: string[]
   onNavigate?: (page: string, exercise?: string) => void
+  activeTab: RewardTab
 }
 
 export default function RewardsBoutique({
-  progress, onDigoosUpdate, irlRewards, parentIds, onNavigate,
+  progress, onDigoosUpdate, irlRewards, onNavigate, activeTab,
 }: RewardsBoutiqueProps) {
   const { showToast } = useToast()
+  const [view, setView] = useState<BoutiqueView>('menu')
   const [loadingRewardId, setLoadingRewardId] = useState<string | null>(null)
   const [expandedReward, setExpandedReward] = useState<string | null>(null)
   const [activeThemeId, setActiveThemeId] = useState<string>(() => localStorage.getItem('odigo_theme') || 'classic')
   const [cardsOwned, setCardsOwned] = useState(0)
   const [cardsTotal, setCardsTotal] = useState(0)
+
+  useEffect(() => {
+    setView('menu')
+  }, [activeTab])
 
   useEffect(() => {
     fetchCardCounts()
@@ -118,105 +125,136 @@ export default function RewardsBoutique({
     setActiveThemeId(theme.id)
   }
 
-  return (
-    <div>
-      {/* A) Récompenses IRL */}
-      {parentIds.length > 0 && (
-        <div style={{ marginBottom: '2.5rem' }}>
-          <h3 style={{ color: 'var(--color-primary)', marginBottom: '0.25rem', fontSize: '1.1rem' }}>🎁 Récompenses IRL</h3>
-          <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>Voici les récompenses actuellement disponibles.</p>
+  const menuCardStyle = (color: string): React.CSSProperties => ({
+    background: 'white', borderRadius: '1rem',
+    padding: '1.5rem', textAlign: 'center',
+    border: `2px solid ${color}`,
+    cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    transition: 'transform 0.15s ease',
+  })
 
-          {irlRewards.length === 0 ? (
-            <EmptyState emoji="🎁" title="Aucune récompense disponible" subtitle="Demande à tes parents de créer des récompenses dans leur espace." />
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
-              {irlRewards.map(r => {
-                const canAfford = (progress?.digoos || 0) >= r.cost
-                const inStock = r.stock > 0
-                const canBuy = canAfford && inStock
-                const isLoading = loadingRewardId === r.id
-                return (
-                  <div key={r.id} style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div style={{ fontWeight: 'bold', color: '#333', fontSize: '1rem' }}>{r.name}</div>
-                    {r.description && (
-                      <>
-                        <div style={{
-                          overflow: 'hidden',
-                          display: '-webkit-box',
-                          WebkitLineClamp: expandedReward === r.id ? 'unset' : 2,
-                          WebkitBoxOrient: 'vertical',
-                          fontSize: '0.85rem',
-                          color: '#555',
-                        }}>
-                          {r.description}
-                        </div>
-                        {r.description.length > 80 && (
-                          <button onClick={() => setExpandedReward(
-                            expandedReward === r.id ? null : r.id
-                          )} style={{
-                            background: 'none', border: 'none', color: 'var(--color-primary)',
-                            cursor: 'pointer', fontSize: '0.8rem', padding: 0,
-                          }}>
-                            {expandedReward === r.id ? 'Voir moins ▲' : 'Voir plus ▼'}
-                          </button>
-                        )}
-                      </>
-                    )}
-                    {r.stock > 1 && <span style={{ fontSize: '0.78rem', color: '#888', marginTop: '0.25rem', display: 'block' }}>{r.stock} disponibles</span>}
-                    {r.stock === 1 && <span style={{ fontSize: '0.78rem', color: '#888', marginTop: '0.25rem', display: 'block' }}>1 disponible</span>}
-                    {r.stock === 0 && <span style={{ fontSize: '0.78rem', color: '#e63946', marginTop: '0.25rem', display: 'block' }}>Plus de stock</span>}
-                    {r.valid_until && <div style={{ fontSize: '0.8rem', color: '#888' }}>Valable jusqu'au {formatDateDMY(r.valid_until)}</div>}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.5rem' }}>
-                      <div style={{ display: 'inline-block', background: 'var(--color-accent)', color: 'white', fontWeight: 'bold', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem' }}>
-                        {r.cost} <Delta size={16} />
-                      </div>
-                      <button
-                        onClick={() => canBuy && !isLoading && handleObtenir(r)}
-                        disabled={!canBuy || isLoading}
-                        style={{
-                          width: '100%', marginTop: '0.25rem', padding: '0.6rem',
-                          background: canBuy ? 'var(--color-primary)' : '#ddd',
-                          color: canBuy ? 'white' : '#aaa',
-                          border: 'none', borderRadius: '0.5rem',
-                          cursor: canBuy && !isLoading ? 'pointer' : 'default',
-                          fontSize: '0.9rem', fontWeight: 'bold',
-                        }}
-                      >
-                        {isLoading ? '...' : canBuy ? <span>Obtenir — {r.cost} <Delta size={16} /></span> : 'Digoos insuffisants'}
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+  const menuHoverProps = {
+    onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = 'translateY(-2px)' },
+    onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = 'translateY(0)' },
+  }
+
+  const backButton = (
+    <button
+      onClick={() => setView('menu')}
+      style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: 'var(--color-primary)', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+    >
+      ← Retour
+    </button>
+  )
+
+  if (view === 'menu') {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+        {irlRewards.length > 0 && (
+          <div onClick={() => setView('irl')} style={menuCardStyle('#2a9d8f')} {...menuHoverProps}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎁</div>
+            <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#333' }}>Récompenses IRL</div>
+            <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.3rem' }}>Récompenses créées par tes parents</div>
+          </div>
+        )}
+        <div onClick={() => onNavigate?.('exercises', 'cartes')} style={menuCardStyle('#e76f51')} {...menuHoverProps}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎴</div>
+          <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#333' }}>Cartes OΔIGO</div>
+          <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.3rem' }}>{cardsOwned} / {cardsTotal} cartes dans ta collection</div>
         </div>
-      )}
-
-      {/* B) Cartes OΔIGO */}
-      <div style={{ marginBottom: '2.5rem' }}>
-        <h3 style={{ color: 'var(--color-primary)', marginBottom: '1rem', fontSize: '1.1rem' }}>🎴 Cartes OΔIGO</h3>
-        <button
-          onClick={() => onNavigate?.('exercises', 'cartes')}
-          style={{
-            width: '100%', padding: '1rem',
-            background: 'var(--color-primary)', color: 'white',
-            border: 'none', borderRadius: '0.75rem',
-            cursor: 'pointer', fontWeight: 'bold',
-            fontSize: '1rem', display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-            gap: '0.5rem',
-          }}
-        >
-          🎴 Voir la collection
-        </button>
-        <div style={{ textAlign: 'center', marginTop: '0.5rem', color: '#888', fontSize: '0.85rem' }}>
-          {cardsOwned} / {cardsTotal} cartes dans ta collection
+        <div onClick={() => setView('divertissement')} style={menuCardStyle('#5c6bc0')} {...menuHoverProps}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎮</div>
+          <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#333' }}>Divertissement</div>
+          <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.3rem' }}>Jeux et histoires interactives</div>
+        </div>
+        <div onClick={() => setView('themes')} style={menuCardStyle('#e9c46a')} {...menuHoverProps}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎨</div>
+          <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#333' }}>Thèmes</div>
+          <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.3rem' }}>Personnalise ton interface</div>
         </div>
       </div>
+    )
+  }
 
-      {/* C) Divertissement */}
-      <div style={{ marginBottom: '2.5rem' }}>
+  if (view === 'irl') {
+    return (
+      <div>
+        {backButton}
+        <h3 style={{ color: 'var(--color-primary)', marginBottom: '0.25rem', fontSize: '1.1rem' }}>🎁 Récompenses IRL</h3>
+        <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>Voici les récompenses actuellement disponibles.</p>
+
+        {irlRewards.length === 0 ? (
+          <EmptyState emoji="🎁" title="Aucune récompense disponible" subtitle="Demande à tes parents de créer des récompenses dans leur espace." />
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+            {irlRewards.map(r => {
+              const canAfford = (progress?.digoos || 0) >= r.cost
+              const inStock = r.stock > 0
+              const canBuy = canAfford && inStock
+              const isLoading = loadingRewardId === r.id
+              return (
+                <div key={r.id} style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ fontWeight: 'bold', color: '#333', fontSize: '1rem' }}>{r.name}</div>
+                  {r.description && (
+                    <>
+                      <div style={{
+                        overflow: 'hidden',
+                        display: '-webkit-box',
+                        WebkitLineClamp: expandedReward === r.id ? 'unset' : 2,
+                        WebkitBoxOrient: 'vertical',
+                        fontSize: '0.85rem',
+                        color: '#555',
+                      }}>
+                        {r.description}
+                      </div>
+                      {r.description.length > 80 && (
+                        <button onClick={() => setExpandedReward(
+                          expandedReward === r.id ? null : r.id
+                        )} style={{
+                          background: 'none', border: 'none', color: 'var(--color-primary)',
+                          cursor: 'pointer', fontSize: '0.8rem', padding: 0,
+                        }}>
+                          {expandedReward === r.id ? 'Voir moins ▲' : 'Voir plus ▼'}
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {r.stock > 1 && <span style={{ fontSize: '0.78rem', color: '#888', marginTop: '0.25rem', display: 'block' }}>{r.stock} disponibles</span>}
+                  {r.stock === 1 && <span style={{ fontSize: '0.78rem', color: '#888', marginTop: '0.25rem', display: 'block' }}>1 disponible</span>}
+                  {r.stock === 0 && <span style={{ fontSize: '0.78rem', color: '#e63946', marginTop: '0.25rem', display: 'block' }}>Plus de stock</span>}
+                  {r.valid_until && <div style={{ fontSize: '0.8rem', color: '#888' }}>Valable jusqu'au {formatDateDMY(r.valid_until)}</div>}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'inline-block', background: 'var(--color-accent)', color: 'white', fontWeight: 'bold', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem' }}>
+                      {r.cost} <Delta size={16} />
+                    </div>
+                    <button
+                      onClick={() => canBuy && !isLoading && handleObtenir(r)}
+                      disabled={!canBuy || isLoading}
+                      style={{
+                        width: '100%', marginTop: '0.25rem', padding: '0.6rem',
+                        background: canBuy ? 'var(--color-primary)' : '#ddd',
+                        color: canBuy ? 'white' : '#aaa',
+                        border: 'none', borderRadius: '0.5rem',
+                        cursor: canBuy && !isLoading ? 'pointer' : 'default',
+                        fontSize: '0.9rem', fontWeight: 'bold',
+                      }}
+                    >
+                      {isLoading ? '...' : canBuy ? <span>Obtenir — {r.cost} <Delta size={16} /></span> : 'Digoos insuffisants'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (view === 'divertissement') {
+    return (
+      <div>
+        {backButton}
         <h3 style={{ color: 'var(--color-primary)', marginBottom: '1rem', fontSize: '1.1rem' }}>🎮 Divertissement</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
           <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -243,55 +281,57 @@ export default function RewardsBoutique({
           </div>
         </div>
       </div>
+    )
+  }
 
-      {/* D) Thèmes */}
-      <div>
-        <h3 style={{ color: 'var(--color-primary)', marginBottom: '1rem', fontSize: '1.1rem' }}>🎨 Thèmes</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
-          {THEMES.map(theme => {
-            const isActive = activeThemeId === theme.id
-            return (
-              <div
-                key={theme.id}
-                onClick={() => applyTheme(theme)}
-                style={{
-                  borderRadius: '0.75rem',
-                  overflow: 'hidden',
-                  border: isActive ? '3px solid #2a9d8f' : '2px solid #e0e0e0',
-                  cursor: 'pointer',
-                }}
-              >
-                {/* Aperçu miniature du thème */}
+  return (
+    <div>
+      {backButton}
+      <h3 style={{ color: 'var(--color-primary)', marginBottom: '1rem', fontSize: '1.1rem' }}>🎨 Thèmes</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
+        {THEMES.map(theme => {
+          const isActive = activeThemeId === theme.id
+          return (
+            <div
+              key={theme.id}
+              onClick={() => applyTheme(theme)}
+              style={{
+                borderRadius: '0.75rem',
+                overflow: 'hidden',
+                border: isActive ? '3px solid #2a9d8f' : '2px solid #e0e0e0',
+                cursor: 'pointer',
+              }}
+            >
+              {/* Aperçu miniature du thème */}
+              <div style={{
+                background: theme.colors.background,
+                padding: '0.75rem',
+                height: '80px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.4rem',
+              }}>
+                <div style={{ background: theme.colors.primary, height: '12px', borderRadius: '4px', width: '30%' }} />
                 <div style={{
-                  background: theme.colors.background,
-                  padding: '0.75rem',
-                  height: '80px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.4rem',
-                }}>
-                  <div style={{ background: theme.colors.primary, height: '12px', borderRadius: '4px', width: '30%' }} />
-                  <div style={{
-                    background: '#fff',
-                    border: `1px solid ${theme.colors.border}`,
-                    height: '20px', borderRadius: '4px', flex: 1,
-                  }} />
-                  <div style={{ background: theme.colors.accent, height: '8px', borderRadius: '4px', width: '50%' }} />
-                </div>
-                <div style={{
-                  padding: '0.5rem 0.75rem',
-                  background: 'white',
-                  borderTop: `2px solid ${theme.colors.border}`,
-                }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{theme.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#888' }}>
-                    {theme.price === 0 ? 'Gratuit' : `${theme.price} Δ`}
-                  </div>
+                  background: '#fff',
+                  border: `1px solid ${theme.colors.border}`,
+                  height: '20px', borderRadius: '4px', flex: 1,
+                }} />
+                <div style={{ background: theme.colors.accent, height: '8px', borderRadius: '4px', width: '50%' }} />
+              </div>
+              <div style={{
+                padding: '0.5rem 0.75rem',
+                background: 'white',
+                borderTop: `2px solid ${theme.colors.border}`,
+              }}>
+                <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{theme.name}</div>
+                <div style={{ fontSize: '0.75rem', color: '#888' }}>
+                  {theme.price === 0 ? 'Gratuit' : `${theme.price} Δ`}
                 </div>
               </div>
-            )
-          })}
-        </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

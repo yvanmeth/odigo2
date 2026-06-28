@@ -13,7 +13,6 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
   const [loading, setLoading] = useState(true)
   const [weekSummaryVisible, setWeekSummaryVisible] = useState(false)
   const [irlRewards, setIrlRewards] = useState<IrlReward[]>([])
-  const [parentIds, setParentIds] = useState<string[]>([])
   const [irlPurchases, setIrlPurchases] = useState<IrlPurchase[]>([])
 
   useEffect(() => {
@@ -60,9 +59,8 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
     if (!user) return
     const targetId = userId || user.id
     const { data: links } = await supabase.from('parent_child').select('parent_id').eq('child_id', targetId)
-    if (!links || links.length === 0) { setParentIds([]); return }
+    if (!links || links.length === 0) { setIrlRewards([]); return }
     const pIds = links.map((l: any) => l.parent_id)
-    setParentIds(pIds)
     const today = new Date().toISOString().slice(0, 10)
     const { data } = await supabase
       .from('irl_rewards')
@@ -178,8 +176,8 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
           progress={progress}
           onDigoosUpdate={onDigoosUpdate}
           irlRewards={irlRewards}
-          parentIds={parentIds}
           onNavigate={onNavigate}
+          activeTab={activeTab}
         />
       )}
 
