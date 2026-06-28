@@ -45,12 +45,14 @@ export default function PlannerWeek({ calDate, items, onItemClick, onCellClick }
           const isToday = ds === todayStr
           const isWE = i >= 5
           return (
-            <div key={i} style={{ textAlign: 'center', padding: '0.4rem 0.2rem', background: isWE ? '#fafafa' : 'white', borderLeft: '1px solid #f0f0f0' }}>
+            <div key={i} style={{ textAlign: 'center', padding: '0.4rem 0.2rem', background: isWE ? '#fafafa' : 'white', borderLeft: '1px solid #f0f0f0', minWidth: 0 }}>
               <div style={{ fontSize: '0.68rem', color: isToday ? '#2a9d8f' : '#999', fontWeight: isToday ? 'bold' : 'normal', textTransform: 'uppercase' }}>
                 {day.toLocaleDateString('fr-CH', { weekday: 'short' })}
               </div>
-              <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: isToday ? '#2a9d8f' : 'transparent', color: isToday ? 'white' : '#333', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.88rem', fontWeight: 'bold' }}>
-                {day.getDate()}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minWidth: 0 }}>
+                <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: isToday ? '#2a9d8f' : 'transparent', color: isToday ? 'white' : '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.88rem', fontWeight: 'bold', flexShrink: 0 }}>
+                  {day.getDate()}
+                </div>
               </div>
             </div>
           )

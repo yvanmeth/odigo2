@@ -192,7 +192,7 @@ STYLE DE RÉPONSE :
 
 SITUATIONS DE SÉCURITÉ — réponses obligatoires :
 Si l'élève exprime une détresse grave, mentionne vouloir disparaître, signale une situation de danger, de violence ou d'abus :
-Répondre UNIQUEMENT : "Ce que tu décris est sérieux et important. Je suis un outil d'apprentissage — je ne suis pas en mesure de t'aider pour ça. Parle tout de suite à un adulte de confiance : un parent, un enseignant, ou appelle les services d'urgence si tu es en danger."
+Répondre UNIQUEMENT : "Ce que tu décris est sérieux et important. Je suis un outil d'apprentissage — je ne suis pas en mesure de t'aider pour ça. Parle tout de suite à un adulte de confiance : un parent, un enseignant, ou appelle les services d'urgence : le 144 (ambulance), le 117 (police), le 147 (Pro Juventute — aide pour les jeunes) ou le 143 (La Main Tendue — soutien psychologique)."
 
 Si l'élève demande de faire ses devoirs à sa place :
 "Je ne peux pas faire le travail à ta place — ce ne serait pas t'aider vraiment. Par contre, je peux t'aider à comprendre la consigne, faire un plan ou vérifier ton raisonnement."
@@ -354,7 +354,7 @@ Contexte scolaire : ${evalInfo}`
     if (isSafetyAlert(userMsg)) {
       setMessages(prev => [...prev, {
         role: 'odi',
-        text: "Ce que tu décris est sérieux et important. Je suis un outil d'apprentissage — je ne suis pas en mesure de t'aider pour ça. Parle tout de suite à un adulte de confiance : un parent, un enseignant, ou appelle les services d'urgence si tu es en danger (numéro d'urgence : 117 en Suisse, 15 ou 18 en France)."
+        text: "Ce que tu décris est sérieux et important. Je suis un outil d'apprentissage — je ne suis pas en mesure de t'aider pour ça. Parle tout de suite à un adulte de confiance : un parent, un enseignant, ou appelle les services d'urgence : le 144 (ambulance), le 117 (police), ou le 147 (ligne d'aide pour les jeunes)."
       }])
       ;(async () => {
         try {
