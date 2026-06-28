@@ -312,10 +312,10 @@ export default function Spelling() {
           <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Direction</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={() => setDirection('foreign')} style={{ flex: 1, padding: '0.6rem', background: direction === 'foreign' ? '#2a9d8f' : '#e0f0ee', color: direction === 'foreign' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button onClick={() => setDirection('foreign')} style={{ flex: 1, padding: '0.6rem', background: direction === 'foreign' ? '#2a9d8f' : 'var(--color-border)', color: direction === 'foreign' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                 Langue → Français
               </button>
-              <button onClick={() => setDirection('french')} style={{ flex: 1, padding: '0.6rem', background: direction === 'french' ? '#2a9d8f' : '#e0f0ee', color: direction === 'french' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button onClick={() => setDirection('french')} style={{ flex: 1, padding: '0.6rem', background: direction === 'french' ? '#2a9d8f' : 'var(--color-border)', color: direction === 'french' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                 Français → Langue
               </button>
             </div>
@@ -396,19 +396,19 @@ export default function Spelling() {
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', justifyContent: 'center' }}>
             <button
               onClick={() => speak(getTargetWord(currentWord))}
-              style={{ padding: '0.4rem 0.8rem', background: usedListen ? '#e0f0ee' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              style={{ padding: '0.4rem 0.8rem', background: usedListen ? 'var(--color-border)' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
             >
               🔊 Écouter {usedListen && '(-pts)'}
             </button>
             <button
               onClick={() => { setShowLetterCount(true); setUsedLetterCount(true) }}
-              style={{ padding: '0.4rem 0.8rem', background: usedLetterCount ? '#e0f0ee' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              style={{ padding: '0.4rem 0.8rem', background: usedLetterCount ? 'var(--color-border)' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
             >
               # Lettres {usedLetterCount && '(-pts)'}
             </button>
             <button
               onClick={() => { setShowFirstLetter(true); setUsedFirstLetter(true) }}
-              style={{ padding: '0.4rem 0.8rem', background: usedFirstLetter ? '#e0f0ee' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              style={{ padding: '0.4rem 0.8rem', background: usedFirstLetter ? 'var(--color-border)' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
             >
               A_ 1ère lettre {usedFirstLetter && '(-pts)'}
             </button>
@@ -442,7 +442,7 @@ export default function Spelling() {
           </button>
 
           {feedback && (
-            <div ref={feedbackRef} style={{ textAlign: 'center', marginTop: '1rem', padding: '1rem', borderRadius: '0.5rem', background: feedback.type === 'perfect' ? '#f0faf8' : feedback.type === 'ok' ? '#fffbf0' : '#fff5f5' }}>
+            <div ref={feedbackRef} style={{ textAlign: 'center', marginTop: '1rem', padding: '1rem', borderRadius: '0.5rem', background: feedback.type === 'perfect' ? 'var(--color-background)' : feedback.type === 'ok' ? '#fffbf0' : '#fff5f5' }}>
               <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: feedback.type === 'perfect' ? '#2a9d8f' : feedback.type === 'ok' ? '#e9c46a' : '#e63946' }}>
                 {feedback.type === 'perfect' ? `✓ Perfect ! ${getFireEmoji()}` : feedback.type === 'ok' ? '~ OK, presque !' : '✗ Faux'}
               </div>

@@ -224,7 +224,7 @@ export default function QCM() {
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Mode</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               {(Object.keys(MODE_CONFIG) as Mode[]).map(m => (
-                <button key={m} onClick={() => { setMode(m); loadHighScores(selectedList, m) }} style={{ flex: 1, padding: '0.6rem', background: mode === m ? '#2a9d8f' : '#e0f0ee', color: mode === m ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                <button key={m} onClick={() => { setMode(m); loadHighScores(selectedList, m) }} style={{ flex: 1, padding: '0.6rem', background: mode === m ? '#2a9d8f' : 'var(--color-border)', color: mode === m ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                   {MODE_CONFIG[m].emoji} {MODE_CONFIG[m].label}
                 </button>
               ))}
@@ -234,10 +234,10 @@ export default function QCM() {
           <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Direction</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={() => setDirection('foreign')} style={{ flex: 1, padding: '0.6rem', background: direction === 'foreign' ? '#2a9d8f' : '#e0f0ee', color: direction === 'foreign' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button onClick={() => setDirection('foreign')} style={{ flex: 1, padding: '0.6rem', background: direction === 'foreign' ? '#2a9d8f' : 'var(--color-border)', color: direction === 'foreign' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                 Langue → Français
               </button>
-              <button onClick={() => setDirection('french')} style={{ flex: 1, padding: '0.6rem', background: direction === 'french' ? '#2a9d8f' : '#e0f0ee', color: direction === 'french' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button onClick={() => setDirection('french')} style={{ flex: 1, padding: '0.6rem', background: direction === 'french' ? '#2a9d8f' : 'var(--color-border)', color: direction === 'french' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                 Français → Langue
               </button>
             </div>
@@ -356,7 +356,7 @@ export default function QCM() {
                   color: feedback
                     ? isCorrect ? 'white' : '#aaa'
                     : '#333',
-                  border: `2px solid ${feedback ? (isCorrect ? '#2a9d8f' : '#eee') : '#e0f0ee'}`,
+                  border: `2px solid ${feedback ? (isCorrect ? '#2a9d8f' : '#eee') : 'var(--color-border)'}`,
                   borderRadius: '0.75rem',
                   cursor: feedback ? 'default' : 'pointer',
                   fontSize: '0.9rem',

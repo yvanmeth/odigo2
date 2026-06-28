@@ -175,7 +175,7 @@ export default function Maths() {
     cursor: 'pointer',
     fontWeight: 'bold',
     fontSize: '0.9rem',
-    background: active ? color : '#e0f0ee',
+    background: active ? color : 'var(--color-border)',
     color: active ? 'white' : color === '#2a9d8f' ? '#2a9d8f' : '#555',
   })
 
@@ -229,7 +229,7 @@ export default function Maths() {
       <div style={{ maxWidth: '480px', margin: '0 auto' }}>
         <button
           onClick={() => setGameState('menu')}
-          style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+          style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
         >
           ← Retour
         </button>
@@ -282,7 +282,7 @@ export default function Maths() {
         </div>
 
         {/* Barre de progression */}
-        <div style={{ background: '#e0f0ee', borderRadius: '1rem', height: '8px', marginBottom: '1.5rem' }}>
+        <div style={{ background: 'var(--color-border)', borderRadius: '1rem', height: '8px', marginBottom: '1.5rem' }}>
           <div style={{ background: '#2a9d8f', borderRadius: '1rem', height: '8px', width: `${progress}%`, transition: 'width 0.3s ease' }} />
         </div>
 
@@ -329,7 +329,7 @@ export default function Maths() {
             fontSize: '1.5rem',
             textAlign: 'center',
             borderRadius: '0.75rem',
-            border: '2px solid #e0f0ee',
+            border: '2px solid var(--color-border)',
             outline: 'none',
             marginBottom: '1rem',
             boxSizing: 'border-box',
@@ -388,7 +388,7 @@ export default function Maths() {
           </button>
           <button
             onClick={() => setGameState('menu')}
-            style={{ padding: '0.75rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.75rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold' }}
+            style={{ padding: '0.75rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.75rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold' }}
           >
             ← Autre exercice
           </button>

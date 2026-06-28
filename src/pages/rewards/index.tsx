@@ -5,7 +5,7 @@ import RewardsBoutique from './RewardsBoutique'
 import RewardsPortfolio from './RewardsPortfolio'
 import RewardsProgress from './RewardsProgress'
 import RewardsHowItWorks from './RewardsHowItWorks'
-import type { RewardTab, Progress, IrlReward, IrlPurchase, ShopItem, UserPurchase } from './types'
+import type { RewardTab, Progress, IrlReward, IrlPurchase } from './types'
 
 export default function Rewards({ userId, onNavigate }: { userId?: string; onNavigate?: (page: string, exercise?: string) => void }) {
   const [activeTab, setActiveTab] = useState<RewardTab>('rewards')
@@ -14,16 +14,11 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
   const [weekSummaryVisible, setWeekSummaryVisible] = useState(false)
   const [irlRewards, setIrlRewards] = useState<IrlReward[]>([])
   const [parentIds, setParentIds] = useState<string[]>([])
-  const [shopItems, setShopItems] = useState<ShopItem[]>([])
-  const [purchases, setPurchases] = useState<UserPurchase[]>([])
-  const [gender, setGender] = useState<'M' | 'F' | 'X' | null>(null)
   const [irlPurchases, setIrlPurchases] = useState<IrlPurchase[]>([])
 
   useEffect(() => {
     fetchProgress()
     fetchIrlRewards()
-    fetchShop()
-    fetchGender()
     fetchIrlPurchases()
   }, [userId])
 
@@ -98,25 +93,6 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
     if (data) setIrlPurchases(data)
   }
 
-  const fetchShop = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const [itemsRes, purchasesRes] = await Promise.all([
-      supabase.from('shop_items').select('*').order('type').order('price'),
-      supabase.from('user_purchases').select('*').eq('user_id', user.id),
-    ])
-    if (itemsRes.data) setShopItems(itemsRes.data)
-    if (purchasesRes.data) setPurchases(purchasesRes.data)
-  }
-
-  const fetchGender = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const targetId = userId || user.id
-    const { data } = await supabase.from('profiles').select('gender').eq('id', targetId).single()
-    if (data) setGender(data.gender || 'X')
-  }
-
   const checkWeekReset = async (p: Progress, targetUserId: string) => {
     const currentWeek = getCurrentWeekKey()
     if (p.last_week_reset === currentWeek) return p
@@ -140,7 +116,6 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
     fetchProgress()
     fetchIrlRewards()
     fetchIrlPurchases()
-    fetchShop()
   }
 
   const isCurrentWeekActive = progress ? progress.digoos_this_week >= WEEK_THRESHOLD : false
@@ -150,7 +125,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
     border: 'none',
     borderRadius: '0.5rem',
     cursor: 'pointer',
-    background: activeTab === tab ? '#2a9d8f' : '#e0f0ee',
+    background: activeTab === tab ? '#2a9d8f' : 'var(--color-border)',
     color: activeTab === tab ? 'white' : '#2a9d8f',
     fontWeight: activeTab === tab ? 'bold' : 'normal',
     fontSize: '0.9rem',
@@ -204,9 +179,6 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
           onDigoosUpdate={onDigoosUpdate}
           irlRewards={irlRewards}
           parentIds={parentIds}
-          shopItems={shopItems}
-          purchases={purchases}
-          gender={gender}
           onNavigate={onNavigate}
         />
       )}

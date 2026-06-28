@@ -433,7 +433,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
               {children.map(child => (
-                <div key={child.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: '#f0faf8', borderRadius: '0.5rem' }}>
+                <div key={child.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--color-background)', borderRadius: '0.5rem' }}>
                   <div>
                     <div style={{ fontWeight: 'bold', color: '#333' }}>{child.first_name}</div>
                     <div style={{ fontSize: '0.8rem', color: '#888' }}>{child.relationship}</div>
@@ -473,7 +473,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
               </select>
 
               {inviteCode ? (
-                <div style={{ background: '#f0faf8', borderRadius: '0.5rem', padding: '0.75rem', textAlign: 'center' }}>
+                <div style={{ background: 'var(--color-background)', borderRadius: '0.5rem', padding: '0.75rem', textAlign: 'center' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2a9d8f', letterSpacing: '0.3rem', marginBottom: '0.5rem' }}>
                     {inviteCode.code}
                   </div>
@@ -525,7 +525,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
           </p>
           <button
             onClick={() => onSelectChild(null)}
-            style={{ padding: '0.6rem 1.2rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+            style={{ padding: '0.6rem 1.2rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
           >
             Accéder à mon espace
           </button>
@@ -594,7 +594,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                     style={{
                       padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem',
                       cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold',
-                      background: targetMode === 'all' ? '#2a9d8f' : '#e0f0ee',
+                      background: targetMode === 'all' ? '#2a9d8f' : 'var(--color-border)',
                       color: targetMode === 'all' ? 'white' : '#2a9d8f',
                     }}
                   >
@@ -605,7 +605,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                     style={{
                       padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem',
                       cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold',
-                      background: targetMode === 'specific' ? '#2a9d8f' : '#e0f0ee',
+                      background: targetMode === 'specific' ? '#2a9d8f' : 'var(--color-border)',
                       color: targetMode === 'specific' ? 'white' : '#2a9d8f',
                     }}
                   >
@@ -648,7 +648,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {irlRewards.map(r => (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: '#f0faf8', borderRadius: '0.75rem' }}>
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--color-background)', borderRadius: '0.75rem' }}>
                 <div>
                   <div style={{ fontWeight: 'bold', color: '#333' }}>{r.name}</div>
                   {r.description && <div style={{ fontSize: '0.82rem', color: '#888' }}>{r.description}</div>}
@@ -712,13 +712,13 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                 <button
                   onClick={() => setRewardType('digoos')}
-                  style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: rewardType === 'digoos' ? '#2a9d8f' : '#e0f0ee', color: rewardType === 'digoos' ? 'white' : '#2a9d8f' }}
+                  style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: rewardType === 'digoos' ? '#2a9d8f' : 'var(--color-border)', color: rewardType === 'digoos' ? 'white' : '#2a9d8f' }}
                 >
                   💰 Digoos
                 </button>
                 <button
                   onClick={() => setRewardType('irl_reward')}
-                  style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: rewardType === 'irl_reward' ? '#2a9d8f' : '#e0f0ee', color: rewardType === 'irl_reward' ? 'white' : '#2a9d8f' }}
+                  style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: rewardType === 'irl_reward' ? '#2a9d8f' : 'var(--color-border)', color: rewardType === 'irl_reward' ? 'white' : '#2a9d8f' }}
                 >
                   🎁 Récompense IRL
                 </button>
@@ -755,13 +755,13 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button
                     onClick={() => setMissionTargetMode('all')}
-                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: missionTargetMode === 'all' ? '#2a9d8f' : '#e0f0ee', color: missionTargetMode === 'all' ? 'white' : '#2a9d8f' }}
+                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: missionTargetMode === 'all' ? '#2a9d8f' : 'var(--color-border)', color: missionTargetMode === 'all' ? 'white' : '#2a9d8f' }}
                   >
                     Tous mes enfants
                   </button>
                   <button
                     onClick={() => setMissionTargetMode('specific')}
-                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: missionTargetMode === 'specific' ? '#2a9d8f' : '#e0f0ee', color: missionTargetMode === 'specific' ? 'white' : '#2a9d8f' }}
+                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: missionTargetMode === 'specific' ? '#2a9d8f' : 'var(--color-border)', color: missionTargetMode === 'specific' ? 'white' : '#2a9d8f' }}
                   >
                     Choisir
                   </button>
@@ -807,7 +807,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
               const childName = m.profiles?.first_name || 'Enfant'
               const irlName = irlRewardsList.find(r => r.id === m.reward_irl_id)?.name
               return (
-                <div key={m.id} style={{ background: '#f8fffe', border: '1px solid #e0f0ee', borderRadius: '0.75rem', padding: '1rem 1.25rem' }}>
+                <div key={m.id} style={{ background: '#f8fffe', border: '1px solid var(--color-border)', borderRadius: '0.75rem', padding: '1rem 1.25rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '0.15rem' }}>
@@ -825,7 +825,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
                       <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         {m.status === 'completed' ? (
-                          <span style={{ background: '#e0f0ee', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.78rem', fontWeight: 'bold' }}>✓ Accomplie</span>
+                          <span style={{ background: 'var(--color-border)', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.78rem', fontWeight: 'bold' }}>✓ Accomplie</span>
                         ) : (
                           <span style={{ background: '#fff8e0', color: '#b8860b', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.78rem', fontWeight: 'bold' }}>En attente</span>
                         )}
@@ -889,7 +889,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                   <span style={{ background: '#e9c46a', color: 'white', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                     {p.cost} Digoos
                   </span>
-                  <span style={{ background: '#f0faf8', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                  <span style={{ background: 'var(--color-background)', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                     ✓ Valable
                   </span>
                   <button

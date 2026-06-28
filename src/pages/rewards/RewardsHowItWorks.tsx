@@ -64,8 +64,7 @@ export default function RewardsHowItWorks() {
       <div style={cardStyle}>
         <h3 style={titleStyle}>🛍️ Comment dépenser des <Delta size={16} /></h3>
         <ul style={listStyle}>
-          <li>Thèmes de couleur : 50 <Delta size={16} /> (valable 30 jours)</li>
-          <li>Titres : 30 <Delta size={16} /> (permanent)</li>
+          <li>Thèmes de couleur : gratuit (Classic) ou 50 <Delta size={16} /> (permanent)</li>
           <li>Récompenses IRL : prix défini par tes parents</li>
           <li>Jeu des allumettes : 1 <Delta size={16} /> par partie</li>
         </ul>
@@ -84,7 +83,7 @@ export default function RewardsHowItWorks() {
       </div>
 
       <p style={{ fontStyle: 'italic', color: '#888', fontSize: '0.85rem' }}>
-        Tu peux poser des questions à Odigo sur le fonctionnement d'ODIGO — il connaît toutes ces règles !
+        Tu peux poser des questions à Odi le chatbot sur le fonctionnement d'ODIGO — il connaît toutes ces règles !
       </p>
     </div>
   )

@@ -1,4 +1,10 @@
 :root {
+  --color-primary: #2a9d8f;
+  --color-background: #f0faf8;
+  --color-accent: #e9c46a;
+  --color-border: #e0f0ee;
+  --color-card: #ffffff;
+
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
@@ -172,8 +178,8 @@ button:disabled {
 }
 
 .story-choice:hover:not(:disabled) {
-  border-color: #2a9d8f;
-  background: #f0faf8;
+  border-color: var(--color-primary);
+  background: var(--color-background);
 }
 
 .cartes-grid {

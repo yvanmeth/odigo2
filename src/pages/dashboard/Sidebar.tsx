@@ -69,7 +69,7 @@ export default function Sidebar({
   if (isMobile) {
     if (!mobileMenuOpen) return null
 
-    const navButton = (id: string, icon: React.ReactNode, label: string, color = '#555', activeColor = PRIMARY, activeBg = '#f0faf8', activeBorder = PRIMARY) => (
+    const navButton = (id: string, icon: React.ReactNode, label: string, color = '#555', activeColor = PRIMARY, activeBg = 'var(--color-background)', activeBorder = PRIMARY) => (
       <button
         key={id}
         onClick={() => { onNavigate(id); onMobileClose() }}
@@ -107,7 +107,7 @@ export default function Sidebar({
           overflowY: 'auto',
         }}>
           {/* Header avec logo + bouton fermer */}
-          <div style={{ padding: '1.25rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e0f0ee' }}>
+          <div style={{ padding: '1.25rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)' }}>
             <img src="/logo-full.svg" alt="ODIGO" style={{ height: '28px', objectFit: 'contain' }} />
             <button
               onClick={onMobileClose}
@@ -118,7 +118,7 @@ export default function Sidebar({
           </div>
 
           {/* Avatar (toujours en mode étendu) */}
-          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee', textAlign: 'center' }}>
+          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-border)', textAlign: 'center' }}>
             {avatarCard ? (
               <div style={{ width: '54px', height: '76px', borderRadius: '8px', overflow: 'hidden', margin: '0 auto 0.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
                 <img src={`/cards/${avatarCard.image_url}`} alt="Avatar" draggable={false} onContextMenu={e => e.preventDefault()} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
@@ -151,7 +151,7 @@ export default function Sidebar({
           </nav>
 
           {/* Déconnexion */}
-          <div style={{ padding: '1rem', borderTop: '1px solid #e0f0ee' }}>
+          <div style={{ padding: '1rem', borderTop: '1px solid var(--color-border)' }}>
             <button
               onClick={onSignOut}
               style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', padding: '0.75rem 1rem', background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '0.9rem' }}
@@ -170,7 +170,7 @@ export default function Sidebar({
     <div style={{
       width: collapsed ? '60px' : '220px',
       background: 'white',
-      borderRight: '1px solid #e0f0ee',
+      borderRight: '1px solid var(--color-border)',
       display: 'flex',
       flexDirection: 'column',
       transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -179,7 +179,7 @@ export default function Sidebar({
       boxShadow: '2px 0 8px rgba(0,0,0,0.04)'
     }}>
 
-      <div style={{ padding: '1.25rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e0f0ee' }}>
+      <div style={{ padding: '1.25rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)' }}>
         {!collapsed && <img src="/logo-full.svg" alt="ODIGO" style={{ height: '28px', objectFit: 'contain' }} />}
         <button
           onClick={onToggle}
@@ -190,7 +190,7 @@ export default function Sidebar({
       </div>
 
       {collapsed ? (
-        <div style={{ padding: '0.75rem 0.5rem', borderBottom: '1px solid #e0f0ee', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ padding: '0.75rem 0.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
           {avatarCard ? (
             <div style={{ width: '44px', height: '62px', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', flexShrink: 0 }}>
               <img src={`/cards/${avatarCard.image_url}`} alt="Avatar" draggable={false} onContextMenu={e => e.preventDefault()} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
@@ -203,7 +203,7 @@ export default function Sidebar({
           <div style={{ fontSize: '0.85rem', color: '#b8860b', fontWeight: 'bold' }}>{digoos.toLocaleString('fr-CH')} <Delta size={14} /></div>
         </div>
       ) : (
-        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee', textAlign: 'center' }}>
+        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-border)', textAlign: 'center' }}>
           {avatarCard ? (
             <div style={{ width: '54px', height: '76px', borderRadius: '8px', overflow: 'hidden', margin: '0 auto 0.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', flexShrink: 0 }}>
               <img src={`/cards/${avatarCard.image_url}`} alt="Avatar" draggable={false} onContextMenu={e => e.preventDefault()} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
@@ -270,7 +270,7 @@ export default function Sidebar({
               gap: '0.75rem',
               width: '100%',
               padding: '0.75rem 1rem',
-              background: activePage === item.id ? '#f0faf8' : 'none',
+              background: activePage === item.id ? 'var(--color-background)' : 'none',
               border: 'none',
               borderLeft: activePage === item.id ? `3px solid ${PRIMARY}` : '3px solid transparent',
               cursor: 'pointer',
@@ -287,7 +287,7 @@ export default function Sidebar({
         ))}
       </nav>
 
-      <div style={{ padding: '1rem', borderTop: '1px solid #e0f0ee' }}>
+      <div style={{ padding: '1rem', borderTop: '1px solid var(--color-border)' }}>
         <button
           onClick={onSignOut}
           style={{

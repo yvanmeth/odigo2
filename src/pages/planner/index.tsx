@@ -94,7 +94,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
     <div>
       {/* Barre supérieure — toggle liste / calendrier */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', gap: '0.2rem', background: '#f0faf8', borderRadius: '0.5rem', padding: '0.2rem' }}>
+        <div style={{ display: 'flex', gap: '0.2rem', background: 'var(--color-background)', borderRadius: '0.5rem', padding: '0.2rem' }}>
           <button style={viewToggle('list')} onClick={() => setPlannerView('list')}>📋 Liste</button>
           <button style={viewToggle('calendar')} onClick={() => setPlannerView('calendar')}>📅 Calendrier</button>
         </div>

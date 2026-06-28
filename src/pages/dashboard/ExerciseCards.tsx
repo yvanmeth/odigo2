@@ -22,7 +22,7 @@ export default function ExerciseCards({ onSelectExercise }: ExerciseCardsProps) 
             color: '#2a9d8f',
             marginBottom: '1rem',
             paddingBottom: '0.4rem',
-            borderBottom: '2px solid #e0f0ee',
+            borderBottom: '2px solid var(--color-border)',
           }}>
             {section.label}
           </h3>

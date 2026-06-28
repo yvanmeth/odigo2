@@ -17,7 +17,7 @@ export default function ProgressCircle({ value, max, streak, label, color, size 
   return (
     <div style={{ textAlign: 'center', flex: 1 }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={center} cy={center} r={radius} fill="none" stroke="#e0f0ee" strokeWidth={strokeWidth} />
+        <circle cx={center} cy={center} r={radius} fill="none" stroke="var(--color-border)" strokeWidth={strokeWidth} />
         <circle
           cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth}
           strokeDasharray={circumference} strokeDashoffset={offset}

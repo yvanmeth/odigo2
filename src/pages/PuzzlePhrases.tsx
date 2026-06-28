@@ -52,7 +52,7 @@ const MODES: { value: Mode; label: string; desc: string }[] = [
 const SERIES_LENGTHS: SeriesLength[] = [3, 5, 10]
 
 const btnPrimary: React.CSSProperties = { padding: '0.75rem 2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }
-const btnSecondary: React.CSSProperties = { padding: '0.75rem 2rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }
+const btnSecondary: React.CSSProperties = { padding: '0.75rem 2rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }
 
 const shuffleArray = <T,>(arr: T[]): T[] => {
   const a = [...arr]
@@ -66,7 +66,7 @@ const shuffleArray = <T,>(arr: T[]): T[] => {
 const slotColors = (status: SlotState['status']): { bg: string; border: string } => {
   if (status === 'correct') return { bg: '#a5d6a7', border: '#2a9d8f' }
   if (status === 'incorrect') return { bg: '#ffd6c2', border: '#e76f51' }
-  return { bg: 'white', border: '#e0f0ee' }
+  return { bg: 'white', border: 'var(--color-border)' }
 }
 
 const initSentence = (sentence: PuzzleSentence): { slots: SlotState[]; bankItems: BankItem[] } => {
@@ -427,14 +427,14 @@ export default function PuzzlePhrases() {
                     onClick={() => setMode(m.value)}
                     style={{
                       flex: 1, padding: '0.6rem 0.4rem', textAlign: 'center',
-                      background: mode === m.value ? '#2a9d8f' : '#e0f0ee',
+                      background: mode === m.value ? '#2a9d8f' : 'var(--color-border)',
                       color: mode === m.value ? 'white' : '#2a9d8f',
                       border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
                       fontSize: '0.85rem', fontWeight: mode === m.value ? 'bold' : 'normal',
                     }}
                   >
                     <div>{m.label}</div>
-                    <div style={{ fontSize: '0.7rem', color: mode === m.value ? '#e0f0ee' : '#aaa', marginTop: '0.2rem', fontWeight: 'normal' }}>{m.desc}</div>
+                    <div style={{ fontSize: '0.7rem', color: mode === m.value ? 'var(--color-border)' : '#aaa', marginTop: '0.2rem', fontWeight: 'normal' }}>{m.desc}</div>
                   </button>
                 ))}
               </div>
@@ -447,7 +447,7 @@ export default function PuzzlePhrases() {
                   <button
                     key={n}
                     onClick={() => setSeriesLength(n)}
-                    style={{ flex: 1, padding: '0.6rem', background: seriesLength === n ? '#2a9d8f' : '#e0f0ee', color: seriesLength === n ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: seriesLength === n ? 'bold' : 'normal' }}
+                    style={{ flex: 1, padding: '0.6rem', background: seriesLength === n ? '#2a9d8f' : 'var(--color-border)', color: seriesLength === n ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: seriesLength === n ? 'bold' : 'normal' }}
                   >
                     {n} phrases
                   </button>
@@ -505,11 +505,11 @@ export default function PuzzlePhrases() {
         </div>
       </div>
 
-      <div style={{ background: '#e0f0ee', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--color-border)', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
         <div className="progress-bar" style={{ width: `${(currentIndex / sentences.length) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem' }} />
       </div>
 
-      <div style={{ background: '#f0faf8', borderRadius: '1rem', padding: '1.25rem', fontSize: '1.2rem', fontWeight: 'bold', textAlign: 'center', marginBottom: '1.5rem', color: '#333' }}>
+      <div style={{ background: 'var(--color-background)', borderRadius: '1rem', padding: '1.25rem', fontSize: '1.2rem', fontWeight: 'bold', textAlign: 'center', marginBottom: '1.5rem', color: '#333' }}>
         {sentence.french}
       </div>
 
@@ -560,7 +560,7 @@ export default function PuzzlePhrases() {
                 <div
                   key={b.id}
                   onClick={() => handlePlaceFixed(b.id)}
-                  style={{ background: 'white', border: '1px solid #e0f0ee', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold', color: '#333' }}
+                  style={{ background: 'white', border: '1px solid var(--color-border)', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold', color: '#333' }}
                 >
                   {b.text}
                 </div>

@@ -122,7 +122,7 @@ export default function SubjectPostits({ userId, subjectId }: SubjectPostitsProp
               <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '0.4rem' }}>Taille</div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 {([['small', 'Petit'], ['square', 'Carré'], ['large', 'Grand']] as const).map(([s, label]) => (
-                  <button key={s} onClick={() => setPostitSize(s)} style={{ padding: '0.3rem 0.7rem', border: 'none', borderRadius: '0.4rem', cursor: 'pointer', background: postitSize === s ? '#2a9d8f' : '#e0f0ee', color: postitSize === s ? 'white' : '#2a9d8f', fontSize: '0.82rem' }}>
+                  <button key={s} onClick={() => setPostitSize(s)} style={{ padding: '0.3rem 0.7rem', border: 'none', borderRadius: '0.4rem', cursor: 'pointer', background: postitSize === s ? '#2a9d8f' : 'var(--color-border)', color: postitSize === s ? 'white' : '#2a9d8f', fontSize: '0.82rem' }}>
                     {label}
                   </button>
                 ))}
@@ -133,7 +133,7 @@ export default function SubjectPostits({ userId, subjectId }: SubjectPostitsProp
               <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '0.4rem' }}>Icône (facultatif)</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                 {POSTIT_ICONS.map(icon => (
-                  <button key={icon} onClick={() => setPostitIcon(postitIcon === icon ? null : icon)} style={{ padding: '0.3rem', border: 'none', borderRadius: '0.3rem', cursor: 'pointer', background: postitIcon === icon ? '#e0f0ee' : 'transparent', fontSize: '1.1rem' }}>
+                  <button key={icon} onClick={() => setPostitIcon(postitIcon === icon ? null : icon)} style={{ padding: '0.3rem', border: 'none', borderRadius: '0.3rem', cursor: 'pointer', background: postitIcon === icon ? 'var(--color-border)' : 'transparent', fontSize: '1.1rem' }}>
                     {icon}
                   </button>
                 ))}
@@ -144,7 +144,7 @@ export default function SubjectPostits({ userId, subjectId }: SubjectPostitsProp
               value={postitContent}
               onChange={e => setPostitContent(e.target.value)}
               placeholder="Contenu du post-it..."
-              style={{ width: '100%', height: '80px', padding: '0.6rem', border: '1px solid #e0f0ee', borderRadius: '0.5rem', fontSize: '0.9rem', resize: 'none', boxSizing: 'border-box', marginBottom: '0.75rem' }}
+              style={{ width: '100%', height: '80px', padding: '0.6rem', border: '1px solid var(--color-border)', borderRadius: '0.5rem', fontSize: '0.9rem', resize: 'none', boxSizing: 'border-box', marginBottom: '0.75rem' }}
             />
 
             <div style={{ display: 'flex', gap: '0.5rem' }}>

@@ -290,10 +290,10 @@ export default function WordDrop() {
           <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Direction</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={() => setDirection('foreign')} style={{ flex: 1, padding: '0.6rem', background: direction === 'foreign' ? '#2a9d8f' : '#e0f0ee', color: direction === 'foreign' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button onClick={() => setDirection('foreign')} style={{ flex: 1, padding: '0.6rem', background: direction === 'foreign' ? '#2a9d8f' : 'var(--color-border)', color: direction === 'foreign' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                 Langue étrangère → Français
               </button>
-              <button onClick={() => setDirection('french')} style={{ flex: 1, padding: '0.6rem', background: direction === 'french' ? '#2a9d8f' : '#e0f0ee', color: direction === 'french' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button onClick={() => setDirection('french')} style={{ flex: 1, padding: '0.6rem', background: direction === 'french' ? '#2a9d8f' : 'var(--color-border)', color: direction === 'french' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                 Français → Langue étrangère
               </button>
             </div>
@@ -348,7 +348,7 @@ export default function WordDrop() {
   }
 
   return (
-    <div style={{ position: 'relative', height: '500px', background: '#f0faf8', borderRadius: '1rem', overflow: 'hidden', userSelect: 'none' }}>
+    <div style={{ position: 'relative', height: '500px', background: 'var(--color-background)', borderRadius: '1rem', overflow: 'hidden', userSelect: 'none' }}>
 
       {/* HUD */}
       <div style={{ position: 'absolute', top: '1rem', left: '1rem', right: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
@@ -403,7 +403,7 @@ export default function WordDrop() {
               padding: '0.75rem 0.5rem',
               background: selectedKeyboard === i ? '#2a9d8f' : 'white',
               color: selectedKeyboard === i ? 'white' : '#333',
-              border: `2px solid ${selectedKeyboard === i ? '#2a9d8f' : '#e0f0ee'}`,
+              border: `2px solid ${selectedKeyboard === i ? '#2a9d8f' : 'var(--color-border)'}`,
               borderRadius: '0.75rem',
               cursor: 'pointer',
               fontSize: '0.9rem',

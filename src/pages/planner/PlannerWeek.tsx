@@ -38,7 +38,7 @@ export default function PlannerWeek({ calDate, items, onItemClick, onCellClick }
   return (
     <div>
       {/* Headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: '48px repeat(7, 1fr)', borderBottom: '1px solid #e0f0ee' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '48px repeat(7, 1fr)', borderBottom: '1px solid var(--color-border)' }}>
         <div />
         {days.map((day, i) => {
           const ds = toDateStr(day)
@@ -49,10 +49,20 @@ export default function PlannerWeek({ calDate, items, onItemClick, onCellClick }
               <div style={{ fontSize: '0.68rem', color: isToday ? '#2a9d8f' : '#999', fontWeight: isToday ? 'bold' : 'normal', textTransform: 'uppercase' }}>
                 {day.toLocaleDateString('fr-CH', { weekday: 'short' })}
               </div>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minWidth: 0 }}>
-                <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: isToday ? '#2a9d8f' : 'transparent', color: isToday ? 'white' : '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.88rem', fontWeight: 'bold', flexShrink: 0 }}>
-                  {day.getDate()}
-                </div>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto',
+                background: isToday ? '#2a9d8f' : 'transparent',
+                color: isToday ? 'white' : 'inherit',
+                fontWeight: 'bold',
+                flexShrink: 0,
+              }}>
+                {day.getDate()}
               </div>
             </div>
           )
@@ -60,7 +70,7 @@ export default function PlannerWeek({ calDate, items, onItemClick, onCellClick }
       </div>
 
       {/* Toute la journée */}
-      <div style={{ display: 'grid', gridTemplateColumns: '48px repeat(7, 1fr)', borderBottom: '1px solid #e0f0ee', background: '#fafafa', minHeight: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '48px repeat(7, 1fr)', borderBottom: '1px solid var(--color-border)', background: '#fafafa', minHeight: '24px' }}>
         <div style={{ fontSize: '0.6rem', color: '#ccc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>tj</div>
         {days.map((day, i) => {
           const ds = toDateStr(day)

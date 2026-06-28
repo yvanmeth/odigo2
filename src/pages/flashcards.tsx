@@ -281,7 +281,7 @@ export default function Flashcards() {
                   onClick={() => setSubject(s)}
                   style={{
                     padding: '0.4rem 0.8rem',
-                    background: subject === s ? '#2a9d8f' : '#e0f0ee',
+                    background: subject === s ? '#2a9d8f' : 'var(--color-border)',
                     color: subject === s ? 'white' : '#2a9d8f',
                     border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem'
                   }}
@@ -297,13 +297,13 @@ export default function Flashcards() {
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
                 onClick={() => setDirection('foreign')}
-                style={{ flex: 1, padding: '0.6rem', background: direction === 'foreign' ? '#2a9d8f' : '#e0f0ee', color: direction === 'foreign' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                style={{ flex: 1, padding: '0.6rem', background: direction === 'foreign' ? '#2a9d8f' : 'var(--color-border)', color: direction === 'foreign' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
                 {subject} → Français
               </button>
               <button
                 onClick={() => setDirection('french')}
-                style={{ flex: 1, padding: '0.6rem', background: direction === 'french' ? '#2a9d8f' : '#e0f0ee', color: direction === 'french' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                style={{ flex: 1, padding: '0.6rem', background: direction === 'french' ? '#2a9d8f' : 'var(--color-border)', color: direction === 'french' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
                 Français → {subject}
               </button>
@@ -318,7 +318,7 @@ export default function Flashcards() {
             🚀 Jouer
           </button>
 
-          <div style={{ marginTop: '1rem', background: '#f0faf8', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.82rem', color: '#555', lineHeight: '1.6' }}>
+          <div style={{ marginTop: '1rem', background: 'var(--color-background)', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.82rem', color: '#555', lineHeight: '1.6' }}>
             <strong style={{ color: '#2a9d8f' }}>Raccourcis clavier</strong><br />
             <span>Espace → retourner la carte</span><br />
             <span>→ su · ← pas su</span>
@@ -366,7 +366,7 @@ export default function Flashcards() {
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
           <button
             onClick={() => { setGameState('select'); setWords([]) }}
-            style={{ padding: '0.75rem 2rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}
+            style={{ padding: '0.75rem 2rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}
           >
             Changer de liste
           </button>
@@ -408,7 +408,7 @@ export default function Flashcards() {
       </div>
 
       {/* Barre de progression */}
-      <div style={{ background: '#e0f0ee', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--color-border)', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
         <div className="progress-bar" style={{
           width: `${totalCards > 0 ? (knownCount / totalCards) * 100 : 0}%`,
           background: '#2a9d8f', height: '100%', borderRadius: '1rem',
@@ -449,7 +449,7 @@ export default function Flashcards() {
               </div>
               <button
                 onClick={e => { e.stopPropagation(); speak(displayFront(currentCard), frontLang) }}
-                style={{ padding: '0.3rem 0.75rem', background: '#e0f0ee', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
+                style={{ padding: '0.3rem 0.75rem', background: 'var(--color-border)', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
               >
                 🔊 Écouter
               </button>
@@ -463,7 +463,7 @@ export default function Flashcards() {
               position: 'absolute', width: '100%', height: '100%',
               backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
               transform: 'rotateY(180deg)',
-              background: '#f0faf8', borderRadius: '1rem',
+              background: 'var(--color-background)', borderRadius: '1rem',
               boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               padding: '1.5rem', boxSizing: 'border-box',
@@ -501,7 +501,7 @@ export default function Flashcards() {
             onClick={handleKnown}
             disabled={!!swipeAnim}
             style={{ flex: 1, padding: '0.9rem', background: 'white', color: '#2a9d8f', border: '2px solid #2a9d8f', borderRadius: '0.75rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#f0faf8' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-background)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'white' }}
           >
             ✓ Su

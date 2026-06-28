@@ -249,7 +249,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               {NB_QUESTIONS.map(n => (
                 <button key={n} onClick={() => setNbQ(n)}
-                  style={{ flex: 1, padding: '0.6rem', background: nbQ === n ? '#2a9d8f' : '#e0f0ee', color: nbQ === n ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: nbQ === n ? 'bold' : 'normal' }}
+                  style={{ flex: 1, padding: '0.6rem', background: nbQ === n ? '#2a9d8f' : 'var(--color-border)', color: nbQ === n ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: nbQ === n ? 'bold' : 'normal' }}
                 >{n}</button>
               ))}
             </div>
@@ -308,7 +308,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
           <button onClick={() => { setGameState('select'); setQueue([]) }}
-            style={{ padding: '0.75rem 2rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}
+            style={{ padding: '0.75rem 2rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}
           >Changer de liste</button>
           <button onClick={genererQuestions}
             style={{ padding: '0.75rem 2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}
@@ -337,7 +337,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
         </div>
       </div>
 
-      <div style={{ background: '#e0f0ee', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--color-border)', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
         <div className="progress-bar" style={{ width: `${((questionNum - 1) / totalQ) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem' }} />
       </div>
 
@@ -359,7 +359,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
         <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
           <button
             onClick={() => speak(q.mot, 'fr-FR')}
-            style={{ padding: '0.3rem 0.75rem', background: '#e0f0ee', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
+            style={{ padding: '0.3rem 0.75rem', background: 'var(--color-border)', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
           >
             🔊 Écouter le mot
           </button>
@@ -377,10 +377,10 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           autoFocus
           style={{
             width: '100%', padding: '0.85rem 1rem',
-            border: feedback ? `2px solid ${feedback.correct ? '#2a9d8f' : '#e63946'}` : '2px solid #e0f0ee',
+            border: feedback ? `2px solid ${feedback.correct ? '#2a9d8f' : '#e63946'}` : '2px solid var(--color-border)',
             borderRadius: '0.75rem', fontSize: '1.1rem',
             outline: 'none', boxSizing: 'border-box',
-            background: feedback ? (feedback.correct ? '#f0faf8' : '#fff5f5') : 'white',
+            background: feedback ? (feedback.correct ? 'var(--color-background)' : '#fff5f5') : 'white',
             transition: 'border 0.2s',
           }}
         />
@@ -389,7 +389,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
       {feedback && (
         <div style={{
           textAlign: 'center', padding: '0.75rem', borderRadius: '0.75rem',
-          background: feedback.correct ? '#f0faf8' : '#fff5f5',
+          background: feedback.correct ? 'var(--color-background)' : '#fff5f5',
           marginBottom: '1rem', fontSize: '1rem', fontWeight: 'bold',
           color: feedback.correct ? '#2a9d8f' : '#e63946',
         }}>

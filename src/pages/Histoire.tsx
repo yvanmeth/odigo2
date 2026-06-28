@@ -230,7 +230,7 @@ const renderHighlighted = (context: string, highlight: string) => {
 
 const choiceBaseStyle: React.CSSProperties = {
   display: 'block', width: '100%', textAlign: 'left',
-  background: 'white', border: '2px solid #e0f0ee',
+  background: 'white', border: '2px solid var(--color-border)',
   borderRadius: '0.75rem', padding: '0.85rem',
   fontSize: '0.95rem', color: '#333',
   cursor: 'pointer', marginBottom: '0.75rem',
@@ -247,7 +247,7 @@ const primaryButtonStyle: React.CSSProperties = {
 }
 
 const secondaryButtonStyle: React.CSSProperties = {
-  padding: '0.75rem 1.5rem', background: '#e0f0ee', color: '#2a9d8f',
+  padding: '0.75rem 1.5rem', background: 'var(--color-border)', color: '#2a9d8f',
   border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
   fontSize: '0.95rem', fontWeight: 'bold',
 }
@@ -486,7 +486,7 @@ export default function Histoire() {
       y += 6
 
       // Ligne décorative
-      doc.setDrawColor('#e0f0ee')
+      doc.setDrawColor('var(--color-border)')
       doc.setLineWidth(0.3)
       doc.line(margin, y, pageWidth - margin, y)
       y += 6
@@ -510,7 +510,7 @@ export default function Histoire() {
         const choiceLines: string[] = doc.splitTextToSize(`→ ${choiceText}`, contentWidth - 10)
         checkNewPage(choiceLines.length * 6 + 8)
 
-        doc.setFillColor('#f0faf8')
+        doc.setFillColor('var(--color-background)')
         doc.roundedRect(margin, y - 4, contentWidth, choiceLines.length * 6 + 6, 2, 2, 'F')
 
         doc.setFontSize(10)
@@ -549,7 +549,7 @@ export default function Histoire() {
       <div style={{ maxWidth: '520px', margin: '0 auto' }}>
         <h2 style={{ color: '#2a9d8f', marginBottom: '1.5rem' }}>📖 Histoire interactive</h2>
 
-        <div style={{ background: '#f0faf8', borderRadius: '1rem', padding: '2rem', textAlign: 'center' }}>
+        <div style={{ background: 'var(--color-background)', borderRadius: '1rem', padding: '2rem', textAlign: 'center' }}>
           <div style={{ fontSize: '1.5rem', fontStyle: 'italic', color: '#333' }}>
             {capitalize(currentTitle.full)}
           </div>
@@ -693,7 +693,7 @@ export default function Histoire() {
                 onChange={e => setUserAnswer(e.target.value)}
                 placeholder="Ta réponse..."
                 disabled={questionLoading}
-                style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '2px solid #e0f0ee', fontSize: '1rem', marginBottom: '1rem', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '2px solid var(--color-border)', fontSize: '1rem', marginBottom: '1rem', boxSizing: 'border-box' }}
               />
               {questionError && (
                 <p style={{ color: '#e63946', fontSize: '0.85rem', marginBottom: '0.75rem', textAlign: 'center' }}>{questionError}</p>
@@ -768,7 +768,7 @@ export default function Histoire() {
         Chapitre {Math.min(chapterNum, MAX_NODES)} / {MAX_NODES}
       </div>
 
-      <div style={{ background: '#e0f0ee', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--color-border)', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
         <div className="progress-bar" style={{ width: `${(Math.min(chapterNum, MAX_NODES) / MAX_NODES) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem' }} />
       </div>
 

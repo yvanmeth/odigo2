@@ -376,7 +376,7 @@ export default function Home({ userId }: { userId?: string }) {
           <button key={key} onClick={() => toggleFilter(key)} style={{
             padding: '0.3rem 0.7rem', border: 'none', borderRadius: '0.4rem',
             cursor: 'pointer', fontSize: '0.8rem',
-            background: typeFilters[key] ? '#2a9d8f' : '#e0f0ee',
+            background: typeFilters[key] ? '#2a9d8f' : 'var(--color-border)',
             color: typeFilters[key] ? 'white' : '#2a9d8f',
           }}>
             {labels[key]}
@@ -456,7 +456,7 @@ export default function Home({ userId }: { userId?: string }) {
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: '#f0faf8' }}>
+                  <tr style={{ background: 'var(--color-background)' }}>
                     {['Date', 'Matière', 'Sujet', 'Révisions', 'Note attendue', 'Note obtenue'].map(h => (
                       <th key={h} style={thStyle}>{h}</th>
                     ))}
@@ -696,7 +696,7 @@ export default function Home({ userId }: { userId?: string }) {
                 </div>
               )}
               {m.reward_type === 'irl_reward' && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: '#f0faf8', color: '#2a9d8f', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: 'var(--color-background)', color: '#2a9d8f', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
                   🎁 Récompense IRL
                 </div>
               )}

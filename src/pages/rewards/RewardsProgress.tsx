@@ -3,8 +3,8 @@ import { supabase } from '../../lib/supabase'
 import { Delta } from '../../components/Delta'
 import { addDigoos } from '../../services/digoos'
 import {
-  WEEK_THRESHOLD, WEEK_VERY_ACTIVE_THRESHOLD, ALL_BADGES,
-  playBadgeSound, getCurrentWeekKey, getWeekLabel, getWeekRange, mondayForWeekKey,
+  WEEK_THRESHOLD, ALL_BADGES,
+  playBadgeSound, mondayForWeekKey,
 } from './helpers'
 import type { Badge, Progress } from './types'
 
@@ -54,10 +54,6 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
     }
   }
 
-  const currentWeek = getCurrentWeekKey()
-  const weekProgress = progress ? Math.min((progress.digoos_this_week / WEEK_THRESHOLD) * 100, 100) : 0
-  const isCurrentWeekActive = progress ? progress.digoos_this_week >= WEEK_THRESHOLD : false
-
   const handleClaimBadge = async (badge: Badge) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || !progress) return
@@ -66,25 +62,6 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
     const updatedClaimed = [...(progress.claimed_badges || []), badge.id]
     await supabase.from('progress').update({ claimed_badges: updatedClaimed }).eq('user_id', user.id)
     onDigoosUpdate()
-  }
-
-  const weekRange = getWeekRange(currentWeek)
-  const isWeekActive = (weekKey: string): boolean =>
-    (progress?.active_weeks || []).some((w: any) => (typeof w === 'string' ? w : w.week) === weekKey)
-
-  const getWeekDigoos = (weekKey: string): number =>
-    (progress?.active_weeks || [])
-      .filter((w: any) => (typeof w === 'string' ? w : w.week) === weekKey)
-      .reduce((sum: number, w: any) => sum + (typeof w === 'object' ? (w.digoos || 0) : 0), 0)
-
-  const getWeekColor = (weekKey: string, isFuture: boolean): string => {
-    if (isFuture) return '#f5f5f5'
-    if (weekKey === currentWeek) return '#e9c46a'
-    if (!isWeekActive(weekKey)) return '#e0e0e0'
-    const weekDigoos = getWeekDigoos(weekKey)
-    if (weekDigoos >= WEEK_VERY_ACTIVE_THRESHOLD) return '#2a9d8f'
-    if (weekDigoos >= WEEK_THRESHOLD) return '#a5d6a7'
-    return '#e0e0e0'
   }
 
   // ==================== RÉCOMPENSES À RÉCUPÉRER ====================
@@ -209,50 +186,6 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
-
-        {/* Digoos accumulés */}
-        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1rem' }}>💰 Digoos</h3>
-          <div style={{ color: '#555', fontSize: '0.9rem' }}>
-            Cette semaine : <strong style={{ color: isCurrentWeekActive ? '#2a9d8f' : '#e9c46a' }}>{progress?.digoos_this_week || 0}</strong> / {WEEK_THRESHOLD}
-          </div>
-          <div style={{ marginTop: '0.5rem', background: '#f0f0f0', borderRadius: '1rem', height: '8px', overflow: 'hidden' }}>
-            <div className="progress-bar" style={{ width: `${weekProgress}%`, background: isCurrentWeekActive ? '#2a9d8f' : '#e9c46a', height: '100%', borderRadius: '1rem' }} />
-          </div>
-          {isCurrentWeekActive && <div style={{ color: '#2a9d8f', fontSize: '0.8rem', marginTop: '0.25rem' }}>✅ Semaine active !</div>}
-        </div>
-
-        {/* Streak semaines */}
-        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1rem' }}>🔥 Série de semaines</h3>
-          <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#e9c46a', marginBottom: '0.25rem' }}>
-            {progress?.week_streak || 0}
-          </div>
-          <div style={{ color: '#888', fontSize: '0.85rem' }}>semaines consécutives actives</div>
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-            {weekRange.map(({ key, isFuture }) => (
-              <div
-                key={key}
-                title={getWeekLabel(key)}
-                style={{
-                  width: '32px', height: '32px', borderRadius: '0.3rem',
-                  background: getWeekColor(key, isFuture),
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.65rem', color: isFuture ? '#bbb' : 'white', fontWeight: 'bold', cursor: 'default',
-                }}
-              >
-                {key.split('-S')[1]}
-              </div>
-            ))}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '0.5rem' }}>
-            🟠 en cours · 🟢 active · 🟩 très active · ⬜ inactive · 🔲 à venir
-          </div>
-        </div>
-
-      </div>
-
       {/* Badges */}
       <div style={{ marginTop: '1.5rem', background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
         <h3 style={{ color: '#2a9d8f', marginBottom: '0.5rem', fontSize: '1rem' }}>
@@ -264,7 +197,7 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
             const claimed = !!progress?.claimed_badges?.includes(badge.id)
             const obtainable = conditionMet && !claimed
             const statusLabel = claimed ? 'Terminé ✓' : obtainable ? 'Obtenu' : 'En cours'
-            const statusBg = claimed ? '#f0faf8' : obtainable ? '#e9c46a' : '#f5f5f5'
+            const statusBg = claimed ? 'var(--color-background)' : obtainable ? '#e9c46a' : '#f5f5f5'
             const statusColor = claimed ? '#2a9d8f' : obtainable ? 'white' : '#888'
             return (
               <div key={badge.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', borderBottom: '1px solid #f5f5f5' }}>

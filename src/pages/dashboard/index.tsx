@@ -65,8 +65,14 @@ export default function Dashboard({ session }: Props) {
   }, [])
 
   useEffect(() => {
-    const saved = localStorage.getItem('odigo_theme_color')
-    document.documentElement.style.setProperty('--color-primary', saved || '#2a9d8f')
+    const savedTheme = localStorage.getItem('odigo_theme')
+    if (savedTheme) {
+      const root = document.documentElement
+      root.style.setProperty('--color-primary', localStorage.getItem('odigo_theme_color') || '#2a9d8f')
+      root.style.setProperty('--color-background', localStorage.getItem('odigo_theme_bg') || '#f0faf8')
+      root.style.setProperty('--color-accent', localStorage.getItem('odigo_theme_accent') || '#e9c46a')
+      root.style.setProperty('--color-border', localStorage.getItem('odigo_theme_border') || '#e0f0ee')
+    }
     fetchProfile()
   }, [])
 
@@ -196,14 +202,14 @@ export default function Dashboard({ session }: Props) {
   const backButton = (
     <button
       onClick={() => setActiveExercise(null)}
-      style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+      style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
     >
       ← Retour aux exercices
     </button>
   )
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif', background: '#f0faf8' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif', background: 'var(--color-background)' }}>
 
       {/* Barre supérieure mobile */}
       {isMobile && (
@@ -212,7 +218,7 @@ export default function Dashboard({ session }: Props) {
           top: 0, left: 0, right: 0,
           height: '56px',
           background: 'white',
-          borderBottom: '1px solid #e0f0ee',
+          borderBottom: '1px solid var(--color-border)',
           display: 'flex',
           alignItems: 'center',
           padding: '0 1rem',
@@ -339,7 +345,7 @@ export default function Dashboard({ session }: Props) {
             <div>
               <button
                 onClick={() => setActiveExercise(null)}
-                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
                 ← Retour
               </button>
@@ -374,7 +380,7 @@ export default function Dashboard({ session }: Props) {
           bottom: 0, left: 0, right: 0,
           height: '60px',
           background: 'white',
-          borderTop: '1px solid #e0f0ee',
+          borderTop: '1px solid var(--color-border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-around',

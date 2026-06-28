@@ -8,7 +8,7 @@ interface ChildSelectorProps {
 
 export default function ChildSelector({ children, viewingChildId, onSelectChild }: ChildSelectorProps) {
   return (
-    <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee', background: '#f9f9f9' }}>
+    <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-border)', background: '#f9f9f9' }}>
       <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '0.4rem' }}>Vue active</div>
       <select
         value={viewingChildId || ''}

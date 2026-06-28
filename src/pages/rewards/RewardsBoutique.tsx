@@ -1,32 +1,89 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Delta } from '../../components/Delta'
 import { EmptyState } from '../../components/EmptyState'
 import { supabase } from '../../lib/supabase'
 import { deductDigoos } from '../../services/digoos'
 import { formatDateDMY } from '../../lib/dates'
 import { useToast } from '../../components/Toast'
-import { formatDate } from './helpers'
-import type { IrlReward, ShopItem, UserPurchase, Progress } from './types'
+import type { IrlReward, Progress } from './types'
+
+interface Theme {
+  id: string
+  name: string
+  price: number
+  colors: {
+    primary: string
+    background: string
+    accent: string
+    border: string
+  }
+}
+
+const THEMES: Theme[] = [
+  {
+    id: 'classic',
+    name: 'ODIGO Classic',
+    price: 0,
+    colors: { primary: '#2a9d8f', background: '#f0faf8', accent: '#e9c46a', border: '#e0f0ee' },
+  },
+  {
+    id: 'foret',
+    name: 'Forêt',
+    price: 50,
+    colors: { primary: '#2d6a4f', background: '#f4f9f4', accent: '#95d5b2', border: '#d4edda' },
+  },
+  {
+    id: 'ocean',
+    name: 'Océan',
+    price: 50,
+    colors: { primary: '#1a6b8a', background: '#f0f7fa', accent: '#48cae4', border: '#cce9f5' },
+  },
+  {
+    id: 'sunset',
+    name: 'Coucher de soleil',
+    price: 50,
+    colors: { primary: '#e76f51', background: '#fff8f5', accent: '#f4a261', border: '#fde0d4' },
+  },
+  {
+    id: 'minuit',
+    name: 'Minuit',
+    price: 50,
+    colors: { primary: '#5c6bc0', background: '#f5f5ff', accent: '#9fa8da', border: '#e0e0f5' },
+  },
+]
 
 interface RewardsBoutiqueProps {
   progress: Progress | null
   onDigoosUpdate: () => void
   irlRewards: IrlReward[]
   parentIds: string[]
-  shopItems: ShopItem[]
-  purchases: UserPurchase[]
-  gender: 'M' | 'F' | 'X' | null
   onNavigate?: (page: string, exercise?: string) => void
 }
 
 export default function RewardsBoutique({
-  progress, onDigoosUpdate, irlRewards, parentIds, shopItems, purchases, gender, onNavigate,
+  progress, onDigoosUpdate, irlRewards, parentIds, onNavigate,
 }: RewardsBoutiqueProps) {
   const { showToast } = useToast()
   const [loadingRewardId, setLoadingRewardId] = useState<string | null>(null)
-  const [loadingPurchaseId, setLoadingPurchaseId] = useState<string | null>(null)
   const [expandedReward, setExpandedReward] = useState<string | null>(null)
-  const [digoolandSection, setDigoolandSection] = useState<'divertissement' | 'personnaliser' | null>(null)
+  const [activeThemeId, setActiveThemeId] = useState<string>(() => localStorage.getItem('odigo_theme') || 'classic')
+  const [cardsOwned, setCardsOwned] = useState(0)
+  const [cardsTotal, setCardsTotal] = useState(0)
+
+  useEffect(() => {
+    fetchCardCounts()
+  }, [progress?.user_id])
+
+  const fetchCardCounts = async () => {
+    const targetId = progress?.user_id
+    if (!targetId) return
+    const [ownedRes, totalRes] = await Promise.all([
+      supabase.from('user_cards').select('id', { count: 'exact', head: true }).eq('user_id', targetId),
+      supabase.from('cards').select('id', { count: 'exact', head: true }),
+    ])
+    setCardsOwned(ownedRes.count || 0)
+    setCardsTotal(totalRes.count || 0)
+  }
 
   const handleObtenir = async (reward: IrlReward) => {
     setLoadingRewardId(reward.id)
@@ -47,151 +104,26 @@ export default function RewardsBoutique({
     setLoadingRewardId(null)
   }
 
-  const handlePurchase = async (item: ShopItem) => {
-    if (!!loadingPurchaseId) return
-    if ((progress?.digoos || 0) < item.price) {
-      showToast('Digoos insuffisants', 'error')
-      return
-    }
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    setLoadingPurchaseId(item.id)
-    await deductDigoos(item.price)
-    const now = new Date()
-    const expiresAt = item.duration_days
-      ? new Date(now.getTime() + item.duration_days * 86400000).toISOString()
-      : null
-    await supabase.from('user_purchases').insert({
-      user_id: user.id,
-      item_id: item.id,
-      purchased_at: now.toISOString(),
-      expires_at: expiresAt,
-      active: false,
-    })
-    showToast('✨ Acheté !')
-    onDigoosUpdate()
-    setLoadingPurchaseId(null)
-  }
-
-  const handleActivateTheme = async (purchase: UserPurchase, color: string) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const themeItemIds = shopItems.filter(i => i.type === 'theme').map(i => i.id)
-    if (themeItemIds.length > 0) {
-      await supabase.from('user_purchases').update({ active: false }).eq('user_id', user.id).in('item_id', themeItemIds)
-    }
-    await supabase.from('user_purchases').update({ active: true }).eq('id', purchase.id)
-    localStorage.setItem('odigo_theme_color', color)
-    window.location.reload()
-  }
-
-  const getPurchase = (itemId: string) => purchases.find(p => p.item_id === itemId)
-  const isExpiredPurchase = (p: UserPurchase) => !!p.expires_at && new Date(p.expires_at) < new Date()
-
-  const getItemName = (item: ShopItem): string => {
-    if (item.type === 'title') {
-      if (gender === 'M') return item.name_masculine || item.name
-      if (gender === 'F') return item.name_feminine || item.name
-      return item.name_masculine && item.name_feminine
-        ? item.name_masculine + ' / ' + item.name_feminine
-        : item.name
-    }
-    return item.name
-  }
-
-  const themes = shopItems.filter(i => i.type === 'theme')
-  const titles = shopItems.filter(i => i.type === 'title')
-
-  const renderShopItem = (item: ShopItem) => {
-    const purchase = getPurchase(item.id)
-    const expired = purchase ? isExpiredPurchase(purchase) : false
-    const canAfford = (progress?.digoos || 0) >= item.price
-    const isLoading = loadingPurchaseId === item.id
-
-    let statusNode: React.ReactNode = null
-
-    if (item.price === 0) {
-      statusNode = <span style={{ fontSize: '0.8rem', color: '#2a9d8f', fontWeight: 'bold' }}>✓ Actif</span>
-    } else if (!purchase) {
-      statusNode = (
-        <button
-          onClick={() => handlePurchase(item)}
-          disabled={!canAfford || !!isLoading}
-          style={{
-            padding: '0.4rem 0.75rem', border: 'none', borderRadius: '0.5rem',
-            background: canAfford ? '#2a9d8f' : '#ddd',
-            color: canAfford ? 'white' : '#aaa',
-            cursor: canAfford ? 'pointer' : 'default',
-            fontSize: '0.8rem', fontWeight: 'bold',
-          }}
-        >
-          {isLoading ? '...' : canAfford ? <span>Obtenir — {item.price} <Delta size={16} /></span> : 'Digoos insuffisants'}
-        </button>
-      )
-    } else if (expired) {
-      statusNode = (
-        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.8rem', color: '#e63946' }}>Expiré</span>
-          <button
-            onClick={() => handlePurchase(item)}
-            disabled={!canAfford || !!isLoading}
-            style={{
-              padding: '0.3rem 0.6rem', border: 'none', borderRadius: '0.4rem',
-              background: canAfford ? '#2a9d8f' : '#ddd',
-              color: canAfford ? 'white' : '#aaa',
-              cursor: canAfford ? 'pointer' : 'default',
-              fontSize: '0.78rem',
-            }}
-          >
-            {isLoading ? '...' : 'Renouveler'}
-          </button>
-        </div>
-      )
-    } else if (item.type === 'title') {
-      statusNode = <span style={{ fontSize: '0.8rem', color: '#2a9d8f', fontWeight: 'bold' }}>✓ Obtenu</span>
-    } else if (purchase.active) {
-      statusNode = (
-        <span style={{ fontSize: '0.8rem', color: '#2a9d8f', fontWeight: 'bold' }}>
-          ✓ Actif{purchase.expires_at ? ` jusqu'au ${formatDate(purchase.expires_at)}` : ''}
-        </span>
-      )
-    } else {
-      statusNode = (
-        <button
-          onClick={() => item.color && handleActivateTheme(purchase, item.color)}
-          style={{
-            padding: '0.4rem 0.75rem', border: 'none', borderRadius: '0.5rem',
-            background: '#e9c46a', color: 'white',
-            cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold',
-          }}
-        >
-          Activer
-        </button>
-      )
-    }
-
-    return (
-      <div key={item.id} style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {item.type === 'theme' && item.color && (
-          <div style={{ width: '36px', height: '36px', borderRadius: '0.5rem', background: item.color }} />
-        )}
-        {item.type === 'title' && <span style={{ fontSize: '1.4rem' }}>🏷️</span>}
-        <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>{getItemName(item)}</div>
-        {item.description && <div style={{ fontSize: '0.82rem', color: '#888' }}>{item.description}</div>}
-        {item.price > 0 && (
-          <div style={{ fontSize: '0.8rem', color: '#e9c46a', fontWeight: 'bold' }}>{item.price} <Delta size={16} /></div>
-        )}
-        {statusNode}
-      </div>
-    )
+  const applyTheme = (theme: Theme) => {
+    const root = document.documentElement
+    root.style.setProperty('--color-primary', theme.colors.primary)
+    root.style.setProperty('--color-background', theme.colors.background)
+    root.style.setProperty('--color-accent', theme.colors.accent)
+    root.style.setProperty('--color-border', theme.colors.border)
+    localStorage.setItem('odigo_theme', theme.id)
+    localStorage.setItem('odigo_theme_color', theme.colors.primary)
+    localStorage.setItem('odigo_theme_bg', theme.colors.background)
+    localStorage.setItem('odigo_theme_accent', theme.colors.accent)
+    localStorage.setItem('odigo_theme_border', theme.colors.border)
+    setActiveThemeId(theme.id)
   }
 
   return (
     <div>
-      {/* Récompenses IRL */}
+      {/* A) Récompenses IRL */}
       {parentIds.length > 0 && (
         <div style={{ marginBottom: '2.5rem' }}>
-          <h3 style={{ color: '#2a9d8f', marginBottom: '0.25rem', fontSize: '1.1rem' }}>🎁 Récompenses IRL</h3>
+          <h3 style={{ color: 'var(--color-primary)', marginBottom: '0.25rem', fontSize: '1.1rem' }}>🎁 Récompenses IRL</h3>
           <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>Voici les récompenses actuellement disponibles.</p>
 
           {irlRewards.length === 0 ? (
@@ -222,7 +154,7 @@ export default function RewardsBoutique({
                           <button onClick={() => setExpandedReward(
                             expandedReward === r.id ? null : r.id
                           )} style={{
-                            background: 'none', border: 'none', color: '#2a9d8f',
+                            background: 'none', border: 'none', color: 'var(--color-primary)',
                             cursor: 'pointer', fontSize: '0.8rem', padding: 0,
                           }}>
                             {expandedReward === r.id ? 'Voir moins ▲' : 'Voir plus ▼'}
@@ -235,7 +167,7 @@ export default function RewardsBoutique({
                     {r.stock === 0 && <span style={{ fontSize: '0.78rem', color: '#e63946', marginTop: '0.25rem', display: 'block' }}>Plus de stock</span>}
                     {r.valid_until && <div style={{ fontSize: '0.8rem', color: '#888' }}>Valable jusqu'au {formatDateDMY(r.valid_until)}</div>}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.5rem' }}>
-                      <div style={{ display: 'inline-block', background: '#e9c46a', color: 'white', fontWeight: 'bold', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem' }}>
+                      <div style={{ display: 'inline-block', background: 'var(--color-accent)', color: 'white', fontWeight: 'bold', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem' }}>
                         {r.cost} <Delta size={16} />
                       </div>
                       <button
@@ -243,7 +175,7 @@ export default function RewardsBoutique({
                         disabled={!canBuy || isLoading}
                         style={{
                           width: '100%', marginTop: '0.25rem', padding: '0.6rem',
-                          background: canBuy ? '#2a9d8f' : '#ddd',
+                          background: canBuy ? 'var(--color-primary)' : '#ddd',
                           color: canBuy ? 'white' : '#aaa',
                           border: 'none', borderRadius: '0.5rem',
                           cursor: canBuy && !isLoading ? 'pointer' : 'default',
@@ -261,133 +193,105 @@ export default function RewardsBoutique({
         </div>
       )}
 
-      {/* Digooland */}
+      {/* B) Cartes OΔIGO */}
+      <div style={{ marginBottom: '2.5rem' }}>
+        <h3 style={{ color: 'var(--color-primary)', marginBottom: '1rem', fontSize: '1.1rem' }}>🎴 Cartes OΔIGO</h3>
+        <button
+          onClick={() => onNavigate?.('exercises', 'cartes')}
+          style={{
+            width: '100%', padding: '1rem',
+            background: 'var(--color-primary)', color: 'white',
+            border: 'none', borderRadius: '0.75rem',
+            cursor: 'pointer', fontWeight: 'bold',
+            fontSize: '1rem', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            gap: '0.5rem',
+          }}
+        >
+          🎴 Voir la collection
+        </button>
+        <div style={{ textAlign: 'center', marginTop: '0.5rem', color: '#888', fontSize: '0.85rem' }}>
+          {cardsOwned} / {cardsTotal} cartes dans ta collection
+        </div>
+      </div>
+
+      {/* C) Divertissement */}
+      <div style={{ marginBottom: '2.5rem' }}>
+        <h3 style={{ color: 'var(--color-primary)', marginBottom: '1rem', fontSize: '1.1rem' }}>🎮 Divertissement</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.4rem' }}>⚔️</span>
+            <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Jeu des allumettes</div>
+            <button
+              onClick={() => onNavigate?.('exercises', 'allumettes')}
+              style={{ alignSelf: 'flex-start', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: '1rem', padding: '0.4rem 0.8rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}
+            >
+              <span style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Jouer</span>
+              <span style={{ color: '#ffffff', fontSize: '0.85rem' }}>1 <Delta size={14} /></span>
+            </button>
+          </div>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.4rem' }}>📖</span>
+            <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Histoire interactive</div>
+            <button
+              onClick={() => onNavigate?.('exercises', 'histoire')}
+              style={{ alignSelf: 'flex-start', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: '1rem', padding: '0.4rem 0.8rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}
+            >
+              <span style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Jouer</span>
+              <span style={{ color: '#ffffff', fontSize: '0.85rem' }}>1 <Delta size={14} /> par choix</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* D) Thèmes */}
       <div>
-        <h3 style={{ color: '#2a9d8f', marginBottom: '1rem', fontSize: '1.1rem' }}>✨ Digooland</h3>
-
-        {digoolandSection === null && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-            <div
-              onClick={() => setDigoolandSection('divertissement')}
-              style={{
-                background: 'white', borderRadius: '1rem', padding: '1.5rem',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.06)', textAlign: 'center',
-                borderTop: '4px solid #e76f51', cursor: 'pointer', transition: 'transform 0.15s ease',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-              onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
-            >
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🎮</div>
-              <div style={{ fontWeight: 'bold', color: '#333', fontSize: '1rem', marginBottom: '0.5rem' }}>Divertissement</div>
-              <div style={{ fontSize: '0.85rem', color: '#888', lineHeight: '1.4' }}>Jeux, histoires et plus à venir...</div>
-            </div>
-            <div
-              onClick={() => setDigoolandSection('personnaliser')}
-              style={{
-                background: 'white', borderRadius: '1rem', padding: '1.5rem',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.06)', textAlign: 'center',
-                borderTop: '4px solid #2a9d8f', cursor: 'pointer', transition: 'transform 0.15s ease',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-              onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
-            >
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🎨</div>
-              <div style={{ fontWeight: 'bold', color: '#333', fontSize: '1rem', marginBottom: '0.5rem' }}>Personnaliser</div>
-              <div style={{ fontSize: '0.85rem', color: '#888', lineHeight: '1.4' }}>Thèmes, titres et avatars</div>
-            </div>
-          </div>
-        )}
-
-        {digoolandSection === 'divertissement' && (
-          <div>
-            <button
-              onClick={() => setDigoolandSection(null)}
-              style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-            >
-              ← Retour
-            </button>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-              <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.4rem' }}>⚔️</span>
-                <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Jeu des allumettes</div>
-                <button
-                  onClick={() => onNavigate?.('exercises', 'allumettes')}
-                  style={{ alignSelf: 'flex-start', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '1rem', padding: '0.4rem 0.8rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}
-                >
-                  <span style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Jouer</span>
-                  <span style={{ color: '#ffffff', fontSize: '0.85rem' }}>1 <Delta size={14} /></span>
-                </button>
-              </div>
-              <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.4rem' }}>📖</span>
-                <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Histoire interactive</div>
-                <button
-                  onClick={() => onNavigate?.('exercises', 'histoire')}
-                  style={{ alignSelf: 'flex-start', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '1rem', padding: '0.4rem 0.8rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}
-                >
-                  <span style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>Jouer</span>
-                  <span style={{ color: '#ffffff', fontSize: '0.85rem' }}>1 <Delta size={14} /> par choix</span>
-                </button>
-              </div>
-              <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.4rem' }}>🃏</span>
-                <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Cartes à collectionner</div>
-                <button
-                  onClick={() => onNavigate?.('exercises', 'cartes')}
-                  style={{ alignSelf: 'flex-start', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '1rem', padding: '0.4rem 0.8rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
-                >
-                  Voir la collection
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {digoolandSection === 'personnaliser' && (
-          <div>
-            <button
-              onClick={() => setDigoolandSection(null)}
-              style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-            >
-              ← Retour
-            </button>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🎨 Personnalise ton Odigo</h4>
-              {themes.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-                  {themes.map(renderShopItem)}
+        <h3 style={{ color: 'var(--color-primary)', marginBottom: '1rem', fontSize: '1.1rem' }}>🎨 Thèmes</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
+          {THEMES.map(theme => {
+            const isActive = activeThemeId === theme.id
+            return (
+              <div
+                key={theme.id}
+                onClick={() => applyTheme(theme)}
+                style={{
+                  borderRadius: '0.75rem',
+                  overflow: 'hidden',
+                  border: isActive ? '3px solid #2a9d8f' : '2px solid #e0e0e0',
+                  cursor: 'pointer',
+                }}
+              >
+                {/* Aperçu miniature du thème */}
+                <div style={{
+                  background: theme.colors.background,
+                  padding: '0.75rem',
+                  height: '80px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.4rem',
+                }}>
+                  <div style={{ background: theme.colors.primary, height: '12px', borderRadius: '4px', width: '30%' }} />
+                  <div style={{
+                    background: '#fff',
+                    border: `1px solid ${theme.colors.border}`,
+                    height: '20px', borderRadius: '4px', flex: 1,
+                  }} />
+                  <div style={{ background: theme.colors.accent, height: '8px', borderRadius: '4px', width: '50%' }} />
                 </div>
-              ) : (
-                <p style={{ color: '#aaa' }}>Aucun thème disponible pour l'instant.</p>
-              )}
-            </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🏷️ Titres</h4>
-              {titles.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-                  {titles.map(renderShopItem)}
-                </div>
-              ) : (
-                <p style={{ color: '#aaa' }}>Aucun titre disponible pour l'instant.</p>
-              )}
-            </div>
-
-            <div>
-              <h4 style={{ color: '#555', marginBottom: '0.75rem', fontWeight: 'bold', fontSize: '0.95rem' }}>🐾 Avatars</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-                <div style={{ background: 'white', borderRadius: '1rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: 0.6, cursor: 'default' }}>
-                  <span style={{ fontSize: '1.4rem' }}>🐾</span>
-                  <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>Avatar Odigo</div>
-                  <span style={{ display: 'inline-block', background: '#e0e0e0', color: '#888', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', alignSelf: 'flex-start' }}>
-                    Bientôt disponible
-                  </span>
+                <div style={{
+                  padding: '0.5rem 0.75rem',
+                  background: 'white',
+                  borderTop: `2px solid ${theme.colors.border}`,
+                }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{theme.name}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#888' }}>
+                    {theme.price === 0 ? 'Gratuit' : `${theme.price} Δ`}
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            )
+          })}
+        </div>
       </div>
     </div>
   )

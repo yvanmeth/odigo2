@@ -290,7 +290,7 @@ const Allumettes = () => {
                   style={{
                     flex: 1,
                     padding: '0.6rem',
-                    background: difficulty === level ? PRIMARY : '#e0f0ee',
+                    background: difficulty === level ? PRIMARY : 'var(--color-border)',
                     color: difficulty === level ? 'white' : PRIMARY,
                     border: 'none',
                     borderRadius: '0.5rem',
@@ -377,7 +377,7 @@ const Allumettes = () => {
           </button>
           <button
             onClick={handleQuit}
-            style={{ padding: '0.75rem 1.5rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}
+            style={{ padding: '0.75rem 1.5rem', background: 'var(--color-border)', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}
           >
             Quitter
           </button>
@@ -394,7 +394,7 @@ const Allumettes = () => {
         <h2 style={{ color: turn === 'player' ? PRIMARY : ACCENT, fontSize: '1.3rem', margin: 0 }}>
           {turn === 'player' ? '⚡ Ton tour' : "🤖 Tour d'Odigo"}
         </h2>
-        <span style={{ background: '#e0f0ee', color: PRIMARY, padding: '0.3rem 0.7rem', borderRadius: '1rem', fontSize: '0.8rem' }}>
+        <span style={{ background: 'var(--color-border)', color: PRIMARY, padding: '0.3rem 0.7rem', borderRadius: '1rem', fontSize: '0.8rem' }}>
           {DIFFICULTY_LABELS[difficulty]}
         </span>
       </div>
@@ -434,7 +434,7 @@ const Allumettes = () => {
           </button>
           <button
             onClick={() => setSelection(null)}
-            style={{ padding: '0.6rem 1.5rem', background: '#e0f0ee', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+            style={{ padding: '0.6rem 1.5rem', background: 'var(--color-border)', color: PRIMARY, border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
           >
             Annuler
           </button>

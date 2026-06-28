@@ -152,7 +152,7 @@ export default function SubjectNotes({ userId, subjectId }: SubjectNotesProps) {
 
   const toolBtnStyle = (active: boolean): CSSProperties => ({
     padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.4rem', cursor: 'pointer',
-    background: active ? '#2a9d8f' : '#e0f0ee', color: active ? 'white' : '#2a9d8f',
+    background: active ? '#2a9d8f' : 'var(--color-border)', color: active ? 'white' : '#2a9d8f',
     fontSize: '0.85rem', fontWeight: 'bold',
   })
 
@@ -165,7 +165,7 @@ export default function SubjectNotes({ userId, subjectId }: SubjectNotesProps) {
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <button onClick={handleEditorBack} style={{ padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+          <button onClick={handleEditorBack} style={{ padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
             ← Retour aux notes
           </button>
         </div>
@@ -174,7 +174,7 @@ export default function SubjectNotes({ userId, subjectId }: SubjectNotesProps) {
           value={editingNote.title}
           onChange={e => handleNoteTitleChange(e.target.value)}
           placeholder="Titre de la note"
-          style={{ width: '100%', fontSize: '1.3rem', fontWeight: 'bold', border: 'none', borderBottom: '2px solid #e0f0ee', padding: '0.5rem 0', marginBottom: '1rem', outline: 'none', boxSizing: 'border-box' }}
+          style={{ width: '100%', fontSize: '1.3rem', fontWeight: 'bold', border: 'none', borderBottom: '2px solid var(--color-border)', padding: '0.5rem 0', marginBottom: '1rem', outline: 'none', boxSizing: 'border-box' }}
         />
 
         <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -186,29 +186,29 @@ export default function SubjectNotes({ userId, subjectId }: SubjectNotesProps) {
               if (val === 'titre') editor?.chain().focus().toggleHeading({ level: 1 }).run()
               if (val === 'sous-titre') editor?.chain().focus().toggleHeading({ level: 2 }).run()
             }}
-            style={{ padding: '0.3rem 0.5rem', borderRadius: '0.4rem', border: '1px solid #e0f0ee', fontSize: '0.85rem', cursor: 'pointer', color: '#2a9d8f' }}
+            style={{ padding: '0.3rem 0.5rem', borderRadius: '0.4rem', border: '1px solid var(--color-border)', fontSize: '0.85rem', cursor: 'pointer', color: '#2a9d8f' }}
           >
             <option value="normal">Normal</option>
             <option value="titre">Titre</option>
             <option value="sous-titre">Sous-titre</option>
           </select>
-          <span style={{ width: '1px', background: '#e0f0ee', alignSelf: 'stretch', margin: '0 0.25rem' }} />
+          <span style={{ width: '1px', background: 'var(--color-border)', alignSelf: 'stretch', margin: '0 0.25rem' }} />
           <button onClick={() => editor?.chain().focus().toggleBold().run()} title="Gras" style={toolBtnStyle(!!editor?.isActive('bold'))}>B</button>
           <button onClick={() => editor?.chain().focus().toggleItalic().run()} title="Italique" style={{ ...toolBtnStyle(!!editor?.isActive('italic')), fontStyle: 'italic' }}>I</button>
-          <span style={{ width: '1px', background: '#e0f0ee', alignSelf: 'stretch', margin: '0 0.25rem' }} />
+          <span style={{ width: '1px', background: 'var(--color-border)', alignSelf: 'stretch', margin: '0 0.25rem' }} />
           <button onClick={() => editor?.chain().focus().toggleBulletList().run()} title="Liste à puces" style={toolBtnStyle(!!editor?.isActive('bulletList'))}>• Liste</button>
           <button onClick={() => editor?.chain().focus().toggleOrderedList().run()} title="Liste numérotée" style={toolBtnStyle(!!editor?.isActive('orderedList'))}>1. Liste</button>
-          <span style={{ width: '1px', background: '#e0f0ee', alignSelf: 'stretch', margin: '0 0.25rem' }} />
+          <span style={{ width: '1px', background: 'var(--color-border)', alignSelf: 'stretch', margin: '0 0.25rem' }} />
           <button onClick={() => editor?.chain().focus().setTextAlign('left').run()} title="Aligner à gauche" style={toolBtnStyle(!!editor?.isActive({ textAlign: 'left' }))}>⬅</button>
           <button onClick={() => editor?.chain().focus().setTextAlign('center').run()} title="Centrer" style={toolBtnStyle(!!editor?.isActive({ textAlign: 'center' }))}>↔</button>
           <button onClick={() => editor?.chain().focus().setTextAlign('right').run()} title="Aligner à droite" style={toolBtnStyle(!!editor?.isActive({ textAlign: 'right' }))}>➡</button>
-          <span style={{ width: '1px', background: '#e0f0ee', alignSelf: 'stretch', margin: '0 0.25rem' }} />
+          <span style={{ width: '1px', background: 'var(--color-border)', alignSelf: 'stretch', margin: '0 0.25rem' }} />
           <button onClick={() => editor?.chain().focus().toggleHighlight({ color: '#fff176' }).run()} title="Surligner en jaune" style={toolBtnStyle(!!editor?.isActive('highlight', { color: '#fff176' }))}>🟡</button>
           <button onClick={() => editor?.chain().focus().toggleHighlight({ color: '#a8e6a3' }).run()} title="Surligner en vert" style={toolBtnStyle(!!editor?.isActive('highlight', { color: '#a8e6a3' }))}>🟢</button>
           <button onClick={() => editor?.chain().focus().toggleHighlight({ color: '#f9c0c0' }).run()} title="Surligner en rose" style={toolBtnStyle(!!editor?.isActive('highlight', { color: '#f9c0c0' }))}>🌸</button>
         </div>
 
-        <div className="odigo-note-editor" style={{ border: '1px solid #e0f0ee', borderRadius: '0.5rem', padding: '0.75rem', minHeight: '420px' }}>
+        <div className="odigo-note-editor" style={{ border: '1px solid var(--color-border)', borderRadius: '0.5rem', padding: '0.75rem', minHeight: '420px' }}>
           <EditorContent editor={editor} />
         </div>
 
@@ -269,7 +269,7 @@ export default function SubjectNotes({ userId, subjectId }: SubjectNotesProps) {
               {archiveFolders.length > 0 && (
                 <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
                   {archiveFolders.map(f => (
-                    <button key={f} onClick={() => setArchiveFolderInput(f)} style={{ padding: '0.2rem 0.5rem', background: archiveFolderInput === f ? '#2a9d8f' : '#e0f0ee', color: archiveFolderInput === f ? 'white' : '#2a9d8f', border: 'none', borderRadius: '1rem', cursor: 'pointer', fontSize: '0.78rem' }}>
+                    <button key={f} onClick={() => setArchiveFolderInput(f)} style={{ padding: '0.2rem 0.5rem', background: archiveFolderInput === f ? '#2a9d8f' : 'var(--color-border)', color: archiveFolderInput === f ? 'white' : '#2a9d8f', border: 'none', borderRadius: '1rem', cursor: 'pointer', fontSize: '0.78rem' }}>
                       📁 {f}
                     </button>
                   ))}

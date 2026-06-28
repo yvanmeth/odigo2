@@ -292,7 +292,7 @@ Contexte scolaire : ${evalInfo}`
         const owned = cardsRes.data?.length || 0
         response = `⚡ Ta collection :\n\n` +
           `🎴 ${owned} / ${totalRes.count || 0} cartes différentes\n\n` +
-          `Rends-toi dans Digooland pour tenter ta chance au tirage au sort !`
+          `Rends-toi dans la Boutique pour tenter ta chance au tirage au sort !`
         break
       }
 
@@ -498,7 +498,7 @@ Contexte scolaire : ${evalInfo}`
                     maxWidth: '85%',
                     padding: '0.6rem 0.9rem',
                     borderRadius: msg.role === 'user' ? '1rem 1rem 0.25rem 1rem' : '1rem 1rem 1rem 0.25rem',
-                    background: msg.role === 'user' ? '#2a9d8f' : msg.isCommand ? '#f0faf8' : '#f0faf8',
+                    background: msg.role === 'user' ? '#2a9d8f' : msg.isCommand ? 'var(--color-background)' : 'var(--color-background)',
                     color: msg.role === 'user' ? 'white' : '#333',
                     fontSize: '0.9rem',
                     lineHeight: '1.4',
@@ -523,7 +523,7 @@ Contexte scolaire : ${evalInfo}`
             })}
             {loading && (
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <div style={{ background: '#f0faf8', borderRadius: '1rem 1rem 1rem 0.25rem', padding: '0.6rem 0.9rem', color: '#888', fontSize: '0.9rem' }}>
+                <div style={{ background: 'var(--color-background)', borderRadius: '1rem 1rem 1rem 0.25rem', padding: '0.6rem 0.9rem', color: '#888', fontSize: '0.9rem' }}>
                   ...
                 </div>
               </div>
@@ -532,7 +532,7 @@ Contexte scolaire : ${evalInfo}`
           </div>
 
           {/* Input */}
-          <div style={{ padding: '0.75rem', borderTop: '1px solid #e0f0ee', display: 'flex', gap: '0.5rem', position: 'relative' }}>
+          <div style={{ padding: '0.75rem', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '0.5rem', position: 'relative' }}>
             {input.startsWith('/') && input.length > 0 && (() => {
               const matches = SLASH_COMMANDS.filter(c => c.cmd.startsWith(input.split(' ')[0]))
               return matches.length > 0 ? (
@@ -542,7 +542,7 @@ Contexte scolaire : ${evalInfo}`
                   left: '0.75rem',
                   right: '0.75rem',
                   background: 'white',
-                  border: '1px solid #e0f0ee',
+                  border: '1px solid var(--color-border)',
                   borderRadius: '0.5rem',
                   marginBottom: '0.25rem',
                   maxHeight: '160px',
@@ -560,7 +560,7 @@ Contexte scolaire : ${evalInfo}`
                         fontSize: '0.85rem',
                         borderBottom: '1px solid #f5f5f5',
                       }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#f0faf8')}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-background)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <strong style={{ color: '#2a9d8f' }}>{c.cmd}</strong>

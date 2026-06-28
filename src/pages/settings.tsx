@@ -296,7 +296,7 @@ export default function Settings() {
               onClick={() => setProfile({ ...profile, gender: g })}
               style={{
                 flex: 1, minWidth: '80px', padding: '0.6rem',
-                background: (profile.gender || 'X') === g ? '#2a9d8f' : '#e0f0ee',
+                background: (profile.gender || 'X') === g ? '#2a9d8f' : 'var(--color-border)',
                 color: (profile.gender || 'X') === g ? 'white' : '#2a9d8f',
                 border: 'none', borderRadius: '0.5rem',
                 cursor: 'pointer', fontSize: '0.82rem',
@@ -314,13 +314,13 @@ export default function Settings() {
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
           <button
             onClick={() => setRole('student')}
-            style={{ flex: 1, padding: '0.6rem', background: role === 'student' ? '#2a9d8f' : '#e0f0ee', color: role === 'student' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+            style={{ flex: 1, padding: '0.6rem', background: role === 'student' ? '#2a9d8f' : 'var(--color-border)', color: role === 'student' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
           >
             👦 Élève
           </button>
           <button
             onClick={() => setRole('parent')}
-            style={{ flex: 1, padding: '0.6rem', background: role === 'parent' ? '#2a9d8f' : '#e0f0ee', color: role === 'parent' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+            style={{ flex: 1, padding: '0.6rem', background: role === 'parent' ? '#2a9d8f' : 'var(--color-border)', color: role === 'parent' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
           >
             👨‍👧 Parent
           </button>
@@ -357,7 +357,7 @@ export default function Settings() {
                 padding: '0.3rem 0.8rem',
                 borderRadius: '2rem',
                 border: `1px solid ${profile.interests?.includes(interest) ? '#2a9d8f' : '#ddd'}`,
-                background: profile.interests?.includes(interest) ? '#f0faf8' : 'white',
+                background: profile.interests?.includes(interest) ? 'var(--color-background)' : 'white',
                 color: profile.interests?.includes(interest) ? '#2a9d8f' : '#555',
                 cursor: 'pointer',
                 fontSize: '0.85rem',
@@ -391,7 +391,7 @@ export default function Settings() {
             {profile.interests.filter(i => !SUGGESTED_INTERESTS.includes(i)).map(interest => (
               <span
                 key={interest}
-                style={{ padding: '0.3rem 0.8rem', borderRadius: '2rem', background: '#e0f0ee', color: '#2a9d8f', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                style={{ padding: '0.3rem 0.8rem', borderRadius: '2rem', background: 'var(--color-border)', color: '#2a9d8f', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
               >
                 {interest}
                 <button
@@ -662,7 +662,7 @@ export default function Settings() {
               onClick={() => setFeedbackType(value)}
               style={{
                 flex: 1, padding: '0.6rem',
-                background: feedbackType === value ? '#2a9d8f' : '#e0f0ee',
+                background: feedbackType === value ? '#2a9d8f' : 'var(--color-border)',
                 color: feedbackType === value ? 'white' : '#2a9d8f',
                 border: 'none', borderRadius: '0.5rem',
                 cursor: 'pointer', fontSize: '0.82rem',
@@ -688,7 +688,7 @@ export default function Settings() {
             minHeight: '100px',
             padding: '0.75rem',
             borderRadius: '0.5rem',
-            border: '1px solid #e0f0ee',
+            border: '1px solid var(--color-border)',
             fontSize: '0.9rem',
             fontFamily: 'Nunito, sans-serif',
             resize: 'vertical',
@@ -706,7 +706,7 @@ export default function Settings() {
             onClick={handleFeedback}
             disabled={!feedbackText.trim() || feedbackLoading}
             style={{
-              background: feedbackText.trim() ? '#2a9d8f' : '#e0f0ee',
+              background: feedbackText.trim() ? '#2a9d8f' : 'var(--color-border)',
               color: feedbackText.trim() ? 'white' : '#aaa',
               border: 'none', borderRadius: '0.5rem',
               padding: '0.6rem 1.5rem', cursor: feedbackText.trim() ? 'pointer' : 'default',

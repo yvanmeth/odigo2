@@ -36,7 +36,7 @@ interface Props {
 
 const modalChoiceBtnStyle: React.CSSProperties = {
   padding: '0.6rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
-  background: '#e0f0ee', color: '#2a9d8f', fontSize: '0.88rem', textAlign: 'left', fontWeight: 'bold',
+  background: 'var(--color-border)', color: '#2a9d8f', fontSize: '0.88rem', textAlign: 'left', fontWeight: 'bold',
 }
 
 export default function PlannerList({ evaluations, revisions, events, reminders, subjects, missions, onRefresh, onDelete, onDeleteEvent, pendingEditItem, onPendingEditConsumed }: Props) {
@@ -297,7 +297,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
   // ---- Styles ----
   const tabStyle = (tab: Tab) => ({
     padding: '0.6rem 1.2rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' as const,
-    background: activeTab === tab ? '#2a9d8f' : '#e0f0ee',
+    background: activeTab === tab ? '#2a9d8f' : 'var(--color-border)',
     color: activeTab === tab ? 'white' : '#2a9d8f',
     fontWeight: activeTab === tab ? 'bold' : 'normal', fontSize: '0.9rem',
   })
@@ -569,7 +569,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
                 </div>
               )}
               {m.reward_type === 'irl_reward' && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: '#f0faf8', color: '#2a9d8f', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: 'var(--color-background)', color: '#2a9d8f', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
                   🎁 Récompense IRL
                 </div>
               )}

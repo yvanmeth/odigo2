@@ -194,7 +194,7 @@ export default function SubjectWordlists({ userId, subjectId }: SubjectWordlists
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-        <button onClick={() => setEditingList(null)} style={{ padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+        <button onClick={() => setEditingList(null)} style={{ padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
           ← Retour aux listes
         </button>
         <h3 style={{ margin: 0, color: '#2a9d8f', fontSize: '1.1rem' }}>{editingList.name}</h3>
@@ -213,7 +213,7 @@ export default function SubjectWordlists({ userId, subjectId }: SubjectWordlists
       ) : (
         listItems.map(item => (
           editingItem?.id === item.id ? (
-            <div key={item.id} style={{ background: '#f0faf8', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '0.5rem' }}>
+            <div key={item.id} style={{ background: 'var(--color-background)', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '0.5rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <input type="text" value={editSource} onChange={e => setEditSource(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '120px', marginBottom: 0 }} />
                 <input type="text" value={editTarget} onChange={e => setEditTarget(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '120px', marginBottom: 0 }} />

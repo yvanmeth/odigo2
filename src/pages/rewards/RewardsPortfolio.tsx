@@ -145,7 +145,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
         <span style={{ background: '#e9c46a', color: 'white', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
           {purchase.cost} <Delta size={16} />
         </span>
-        <span style={{ background: '#f0faf8', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+        <span style={{ background: 'var(--color-background)', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
           {used ? 'Utilisée' : '✓ Valable'}
         </span>
       </div>
@@ -157,7 +157,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     border: 'none',
     borderRadius: '0.5rem',
     cursor: 'pointer',
-    background: activeTab === tab ? '#2a9d8f' : '#e0f0ee',
+    background: activeTab === tab ? '#2a9d8f' : 'var(--color-border)',
     color: activeTab === tab ? 'white' : '#2a9d8f',
     fontWeight: activeTab === tab ? 'bold' : 'normal',
     fontSize: '0.9rem',
@@ -186,7 +186,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
             <div style={{ marginTop: '1.5rem' }}>
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                style={{ padding: '0.5rem 1rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                style={{ padding: '0.5rem 1rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
               >
                 {showHistory ? '▲' : '▼'} Voir l'historique ({usedPurchases.length})
               </button>
@@ -208,7 +208,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
             <EmptyState
               emoji="🎴"
               title="Aucune carte dans ta collection"
-              subtitle="Rends-toi dans Digooland pour découvrir les cartes disponibles !"
+              subtitle="Rends-toi dans la Boutique pour découvrir les cartes disponibles !"
             />
           ) : (
             <div>
@@ -274,7 +274,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                   <div style={{ width: '60%' }}>
                     <div style={{ fontWeight: 'bold', color: '#2a9d8f', fontSize: '1.1rem' }}>{uc.card.name}</div>
                     {uc.card.species?.name && (
-                      <span style={{ display: 'inline-block', background: '#f0faf8', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '0.4rem' }}>
+                      <span style={{ display: 'inline-block', background: 'var(--color-background)', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '0.4rem' }}>
                         {uc.card.species.name}
                       </span>
                     )}
@@ -295,7 +295,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                           style={{
                             marginTop: '0.5rem',
                             padding: '0.3rem 0.75rem',
-                            background: isCurrentAvatar ? '#f0faf8' : '#2a9d8f',
+                            background: isCurrentAvatar ? 'var(--color-background)' : '#2a9d8f',
                             color: isCurrentAvatar ? '#2a9d8f' : 'white',
                             border: isCurrentAvatar ? '1px solid #2a9d8f' : 'none',
                             borderRadius: '0.5rem',

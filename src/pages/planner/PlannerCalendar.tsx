@@ -19,7 +19,7 @@ interface Props {
 
 const modalChoiceBtnStyle: React.CSSProperties = {
   padding: '0.6rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
-  background: '#e0f0ee', color: '#2a9d8f', fontSize: '0.88rem', textAlign: 'left', fontWeight: 'bold',
+  background: 'var(--color-border)', color: '#2a9d8f', fontSize: '0.88rem', textAlign: 'left', fontWeight: 'bold',
 }
 
 const TABLE_MAP: Record<CalendarItem['type'], string> = {
@@ -72,13 +72,13 @@ export default function PlannerCalendar({ items, onEdit, onDelete, onDeleteEvent
 
   const navBtnStyle = {
     padding: '0.35rem 0.65rem', border: 'none', borderRadius: '0.4rem', cursor: 'pointer' as const,
-    background: '#e0f0ee', color: '#2a9d8f', fontSize: '0.9rem',
+    background: 'var(--color-border)', color: '#2a9d8f', fontSize: '0.9rem',
   }
 
   return (
     <div style={{ background: 'white', borderRadius: '1rem', overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
       {/* Barre navigation */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', borderBottom: '1px solid #e0f0ee', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: '0.35rem' }}>
           <button onClick={() => navigate(-1)} style={navBtnStyle}>←</button>
           <button onClick={() => setCalDate(new Date())} style={navBtnStyle}>Aujourd'hui</button>
@@ -87,7 +87,7 @@ export default function PlannerCalendar({ items, onEdit, onDelete, onDeleteEvent
         <div style={{ flex: 1, fontWeight: 'bold', color: '#333', fontSize: '0.9rem', textAlign: 'center' }}>
           {formatDateHeader(calDate, calView)}
         </div>
-        <div style={{ display: 'flex', gap: '0.2rem', background: '#f0faf8', borderRadius: '0.5rem', padding: '0.2rem' }}>
+        <div style={{ display: 'flex', gap: '0.2rem', background: 'var(--color-background)', borderRadius: '0.5rem', padding: '0.2rem' }}>
           <button style={calViewToggle('day')} onClick={() => setCalView('day')}>Jour</button>
           <button style={calViewToggle('week')} onClick={() => setCalView('week')}>Semaine</button>
           <button style={calViewToggle('month')} onClick={() => setCalView('month')}>Mois</button>
@@ -120,7 +120,7 @@ export default function PlannerCalendar({ items, onEdit, onDelete, onDeleteEvent
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
               {editingItem.type !== 'mission' && (
                 <>
-                  <button onClick={() => { onEdit(editingItem); setEditingItem(null) }} style={{ background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.7rem', cursor: 'pointer', fontSize: '0.82rem' }}>
+                  <button onClick={() => { onEdit(editingItem); setEditingItem(null) }} style={{ background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.4rem', padding: '0.35rem 0.7rem', cursor: 'pointer', fontSize: '0.82rem' }}>
                     ✏️ Modifier
                   </button>
                   <button onClick={() => {

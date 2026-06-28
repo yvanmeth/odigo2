@@ -375,7 +375,7 @@ export default function WordLists({ userId }: { userId?: string }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           <button
             onClick={() => { setSelectedList(null); setEditingItem(null) }}
-            style={{ padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+            style={{ padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
           >
             ← Retour
           </button>
@@ -384,7 +384,7 @@ export default function WordLists({ userId }: { userId?: string }) {
             {typeLabel}
           </span>
           {selectedList.language && (
-            <span style={{ padding: '0.2rem 0.6rem', borderRadius: '1rem', background: '#e0f0ee', color: '#2a9d8f', fontSize: '0.78rem', fontWeight: 'bold' }}>
+            <span style={{ padding: '0.2rem 0.6rem', borderRadius: '1rem', background: 'var(--color-border)', color: '#2a9d8f', fontSize: '0.78rem', fontWeight: 'bold' }}>
               {selectedList.language}
             </span>
           )}
@@ -394,7 +394,7 @@ export default function WordLists({ userId }: { userId?: string }) {
         <div style={{ background: 'white', borderRadius: '0.75rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#f0faf8' }}>
+              <tr style={{ background: 'var(--color-background)' }}>
                 <th style={{ ...thStyle, width: '2.5rem' }}>#</th>
                 <th style={thStyle}>{singleCol ? 'Mot' : sourceLang}</th>
                 {!singleCol && <th style={thStyle}>Français</th>}
@@ -411,7 +411,7 @@ export default function WordLists({ userId }: { userId?: string }) {
               )}
               {items.map((item, idx) =>
                 editingItem?.id === item.id ? (
-                  <tr key={item.id} style={{ background: '#f0faf8' }}>
+                  <tr key={item.id} style={{ background: 'var(--color-background)' }}>
                     <td style={{ padding: '0.5rem 1rem', color: '#aaa', fontSize: '0.85rem' }}>{idx + 1}</td>
                     <td style={{ padding: '0.5rem 1rem' }}>
                       <input value={editSource} onChange={e => setEditSource(e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
@@ -478,11 +478,11 @@ export default function WordLists({ userId }: { userId?: string }) {
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: showPasteZone || showParsedPreview ? '1rem' : '0' }}>
             <button
               onClick={() => { setShowPasteZone(!showPasteZone); setShowParsedPreview(false) }}
-              style={{ padding: '0.6rem 1rem', background: showPasteZone ? '#2a9d8f' : '#e0f0ee', color: showPasteZone ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+              style={{ padding: '0.6rem 1rem', background: showPasteZone ? '#2a9d8f' : 'var(--color-border)', color: showPasteZone ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
             >
               📋 Coller depuis Excel
             </button>
-            <label style={{ padding: '0.6rem 1rem', background: '#e0f0ee', color: '#2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+            <label style={{ padding: '0.6rem 1rem', background: 'var(--color-border)', color: '#2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
               📂 Importer CSV
               <input type="file" accept=".csv" onChange={handleFileImport} style={{ display: 'none' }} />
             </label>
@@ -527,7 +527,7 @@ export default function WordLists({ userId }: { userId?: string }) {
                 ))}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button onClick={() => setParsedRows(parsedRows.map(r => ({ ...r, selected: true })))} style={{ padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>Tout sélectionner</button>
+                <button onClick={() => setParsedRows(parsedRows.map(r => ({ ...r, selected: true })))} style={{ padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>Tout sélectionner</button>
                 <button onClick={handleConfirmParsed} style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>Importer la sélection</button>
                 <button onClick={() => { setParsedRows([]); setShowParsedPreview(false); setPasteText(''); setShowPasteZone(false) }} style={{ padding: '0.4rem 0.8rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>Annuler</button>
               </div>
@@ -541,7 +541,7 @@ export default function WordLists({ userId }: { userId?: string }) {
         {/* Import par image */}
         <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: importWords.length > 0 ? '1rem' : '0' }}>
-            <label style={{ padding: '0.6rem 1rem', background: '#e0f0ee', color: '#2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>
+            <label style={{ padding: '0.6rem 1rem', background: 'var(--color-border)', color: '#2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>
               📷 Importer par image
               <input type="file" accept="image/*" onChange={handleImageImport} style={{ display: 'none' }} />
             </label>
@@ -561,7 +561,7 @@ export default function WordLists({ userId }: { userId?: string }) {
                 ))}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button onClick={() => setImportWords(importWords.map(w => ({ ...w, selected: true })))} style={{ padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>Tout sélectionner</button>
+                <button onClick={() => setImportWords(importWords.map(w => ({ ...w, selected: true })))} style={{ padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>Tout sélectionner</button>
                 <button onClick={handleConfirmImport} style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>Importer la sélection</button>
                 <button onClick={() => setImportWords([])} style={{ padding: '0.4rem 0.8rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>Annuler</button>
               </div>
@@ -579,7 +579,7 @@ export default function WordLists({ userId }: { userId?: string }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <button
             onClick={() => setEditingList(null)}
-            style={{ padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+            style={{ padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
           >
             ← Retour
           </button>
@@ -620,7 +620,7 @@ export default function WordLists({ userId }: { userId?: string }) {
         <h2 style={{ margin: 0, color: '#2a9d8f' }}>Listes de mots</h2>
         <button
           onClick={() => setShowNewList(!showNewList)}
-          style={{ padding: '0.5rem 1rem', background: showNewList ? '#e0f0ee' : '#2a9d8f', color: showNewList ? '#2a9d8f' : 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}
+          style={{ padding: '0.5rem 1rem', background: showNewList ? 'var(--color-border)' : '#2a9d8f', color: showNewList ? '#2a9d8f' : 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}
         >
           {showNewList ? '✕ Annuler' : '+ Nouvelle liste'}
         </button>
@@ -658,7 +658,7 @@ export default function WordLists({ userId }: { userId?: string }) {
         <div style={{ background: 'white', borderRadius: '0.75rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#f0faf8' }}>
+              <tr style={{ background: 'var(--color-background)' }}>
                 <th style={thStyle}>Nom</th>
                 <th style={thStyle}>Matière</th>
                 <th style={thStyle}>Créé le</th>

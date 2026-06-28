@@ -44,7 +44,7 @@ const STEPS: StepContent[] = [
     icon: <Trophy size={48} color="#e9c46a" />,
     title: '🏆 Les Récompenses',
     text: <>Les <Delta size={14} /> gagnés peuvent être dépensés de deux façons : les récompenses IRL créées par les parents (sorties, cadeaux...) et les récompenses internes (cartes à collectionner, jeux, thèmes...).</>,
-    details: <>Les parents créent des récompenses sur mesure depuis leur espace parent et fixent le prix en <Delta size={12} />. Dans Digooland, tu peux aussi acheter des cartes à collectionner ODIGO et accéder à des jeux !</>,
+    details: <>Les parents créent des récompenses sur mesure depuis leur espace parent et fixent le prix en <Delta size={12} />. Dans la Boutique, tu peux aussi acheter des cartes à collectionner ODIGO et accéder à des jeux !</>,
   },
   {
     icon: (
@@ -106,7 +106,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
               {showDetails ? 'Réduire ▲' : 'En savoir plus ▼'}
             </button>
             {showDetails && (
-              <div style={{ background: '#f0faf8', borderRadius: '0.5rem', padding: '0.75rem', marginTop: '0.5rem', fontSize: '0.85rem', color: '#555', lineHeight: 1.6 }}>
+              <div style={{ background: 'var(--color-background)', borderRadius: '0.5rem', padding: '0.75rem', marginTop: '0.5rem', fontSize: '0.85rem', color: '#555', lineHeight: 1.6 }}>
                 {current.details}
               </div>
             )}
@@ -116,7 +116,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
         {/* Indicateur d'étapes (points) */}
         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '1.5rem', marginBottom: '1rem' }}>
           {([1, 2, 3, 4, 5, 6] as OnboardingStep[]).map(i => (
-            <div key={i} style={{ width: step === i ? '20px' : '8px', height: '8px', borderRadius: '4px', background: step === i ? '#2a9d8f' : '#e0f0ee', transition: 'all 0.2s ease' }} />
+            <div key={i} style={{ width: step === i ? '20px' : '8px', height: '8px', borderRadius: '4px', background: step === i ? '#2a9d8f' : 'var(--color-border)', transition: 'all 0.2s ease' }} />
           ))}
         </div>
 
@@ -125,7 +125,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
           <button
             onClick={() => goTo((step - 1) as OnboardingStep)}
             disabled={step === 1}
-            style={{ background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', padding: '0.6rem 1.25rem', cursor: step === 1 ? 'default' : 'pointer', opacity: step === 1 ? 0.3 : 1 }}
+            style={{ background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', padding: '0.6rem 1.25rem', cursor: step === 1 ? 'default' : 'pointer', opacity: step === 1 ? 0.3 : 1 }}
           >
             ← Précédent
           </button>

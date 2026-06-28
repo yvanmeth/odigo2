@@ -66,7 +66,7 @@ export default function LoginPage() {
 
   const containerStyle: CSSProperties = {
     minHeight: '100vh', display: 'flex', alignItems: 'center',
-    justifyContent: 'center', background: '#f0faf8', fontFamily: 'sans-serif',
+    justifyContent: 'center', background: 'var(--color-background)', fontFamily: 'sans-serif',
   }
 
   const cardStyle: CSSProperties = {
@@ -89,7 +89,7 @@ export default function LoginPage() {
   }
 
   const btnSecondary: CSSProperties = {
-    padding: '0.75rem 1.25rem', background: '#e0f0ee',
+    padding: '0.75rem 1.25rem', background: 'var(--color-border)',
     color: '#2a9d8f', border: 'none', borderRadius: '0.5rem',
     fontSize: '1rem', cursor: 'pointer', fontWeight: 'bold',
   }
@@ -108,7 +108,7 @@ export default function LoginPage() {
   )
 
   const progressBar = isSignupStep && (
-    <div style={{ height: '4px', background: '#e0f0ee', borderRadius: '2px', marginBottom: '1.5rem' }}>
+    <div style={{ height: '4px', background: 'var(--color-border)', borderRadius: '2px', marginBottom: '1.5rem' }}>
       <div style={{ height: '100%', background: '#2a9d8f', borderRadius: '2px', width: progressWidth, transition: 'width 0.3s ease' }} />
     </div>
   )
@@ -228,7 +228,7 @@ export default function LoginPage() {
                 key={g} type="button" onClick={() => setGender(g)}
                 style={{
                   flex: 1, minWidth: '80px', padding: '0.6rem',
-                  background: gender === g ? '#2a9d8f' : '#e0f0ee',
+                  background: gender === g ? '#2a9d8f' : 'var(--color-border)',
                   color: gender === g ? 'white' : '#2a9d8f',
                   border: 'none', borderRadius: '0.5rem',
                   cursor: 'pointer', fontSize: '0.82rem',
@@ -261,8 +261,8 @@ export default function LoginPage() {
         key={value}
         onClick={() => setSelectedRole(value)}
         style={{
-          border: `2px solid ${selectedRole === value ? '#2a9d8f' : '#e0f0ee'}`,
-          background: selectedRole === value ? '#f0faf8' : 'white',
+          border: `2px solid ${selectedRole === value ? '#2a9d8f' : 'var(--color-border)'}`,
+          background: selectedRole === value ? 'var(--color-background)' : 'white',
           borderRadius: '0.75rem', padding: '1.25rem', cursor: 'pointer',
           marginBottom: '0.75rem', textAlign: 'center',
         }}

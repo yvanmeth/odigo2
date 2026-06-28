@@ -69,7 +69,7 @@ export default function CalendarCreateModal({ initialDate, initialTime, userId, 
 
   const typeBtnStyle = (t: ItemType): React.CSSProperties => ({
     padding: '0.4rem 0.75rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
-    background: itemType === t ? '#2a9d8f' : '#e0f0ee',
+    background: itemType === t ? '#2a9d8f' : 'var(--color-border)',
     color: itemType === t ? 'white' : '#2a9d8f',
     fontWeight: itemType === t ? 'bold' : 'normal', fontSize: '0.85rem',
   })

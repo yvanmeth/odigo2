@@ -149,7 +149,7 @@ export default function SubjectGrid({ userId, onSelectSubject }: SubjectGridProp
           style={{
             padding: '0.5rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
             fontSize: '0.9rem', fontWeight: 'bold',
-            background: manageMode ? '#2a9d8f' : '#e0f0ee',
+            background: manageMode ? '#2a9d8f' : 'var(--color-border)',
             color: manageMode ? 'white' : '#2a9d8f',
           }}
         >

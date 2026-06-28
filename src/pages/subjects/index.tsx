@@ -15,7 +15,7 @@ export default function Subjects({ userId }: { userId?: string }) {
 
   const tabStyle = (tab: SubjectTab): CSSProperties => ({
     padding: '0.6rem 1.2rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
-    background: subjectTab === tab ? '#2a9d8f' : '#e0f0ee',
+    background: subjectTab === tab ? '#2a9d8f' : 'var(--color-border)',
     color: subjectTab === tab ? 'white' : '#2a9d8f',
     fontWeight: subjectTab === tab ? 'bold' : 'normal', fontSize: '0.9rem',
   })
@@ -34,7 +34,7 @@ export default function Subjects({ userId }: { userId?: string }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
         <button
           onClick={() => setSelectedSubject(null)}
-          style={{ padding: '0.4rem 0.8rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+          style={{ padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
         >
           ← Retour
         </button>

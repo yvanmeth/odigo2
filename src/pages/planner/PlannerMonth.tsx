@@ -19,7 +19,7 @@ export default function PlannerMonth({ calDate, items, onItemClick, onDayClick }
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: '#f0faf8' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--color-background)' }}>
         {DAY_NAMES.map((name, i) => (
           <div key={name} style={{ textAlign: 'center', padding: '0.5rem', fontSize: '0.78rem', fontWeight: 'bold', color: i >= 5 ? '#888' : '#2a9d8f' }}>
             {name}
