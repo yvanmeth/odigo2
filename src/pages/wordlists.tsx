@@ -12,6 +12,7 @@ interface WordList {
   name: string
   list_type: string
   language: string | null
+  share_code: string
   created_at: string
   subjects?: { name: string } | null
 }
@@ -70,6 +71,11 @@ export default function WordLists({ userId }: { userId?: string }) {
   const [newListSubjectId, setNewListSubjectId] = useState('')
   const [newListType, setNewListType] = useState('vocabulaire')
   const [newListLang, setNewListLang] = useState('Anglais')
+
+  // Import d'une liste partagée
+  const [showImportForm, setShowImportForm] = useState(false)
+  const [shareCodeInput, setShareCodeInput] = useState('')
+  const [shareImportLoading, setShareImportLoading] = useState(false)
 
   // Edit list form
   const [editName, setEditName] = useState('')
@@ -157,6 +163,70 @@ export default function WordLists({ userId }: { userId?: string }) {
     setShowNewList(false)
     showToast('Liste créée')
     fetchLists()
+  }
+
+  const handleImportList = async () => {
+    if (shareCodeInput.length !== 5) {
+      showToast('Le code doit faire 5 caractères', 'error')
+      return
+    }
+
+    setShareImportLoading(true)
+
+    const { data: sourceList, error: findError } = await supabase
+      .from('word_lists')
+      .select('*')
+      .eq('share_code', shareCodeInput)
+      .single()
+
+    if (findError || !sourceList) {
+      showToast('Code introuvable', 'error')
+      setShareImportLoading(false)
+      return
+    }
+
+    const { data: sourceWords } = await supabase
+      .from('word_items')
+      .select('source_word, target_word, context')
+      .eq('list_id', sourceList.id)
+
+    const tid = await getTargetId()
+
+    const { data: newList, error: insertError } = await supabase
+      .from('word_lists')
+      .insert({
+        user_id: tid,
+        subject_id: null,
+        name: sourceList.name + ' (partagée)',
+        list_type: sourceList.list_type,
+        language: sourceList.language,
+      })
+      .select()
+      .single()
+
+    if (insertError || !newList) {
+      showToast("Erreur lors de l'import", 'error')
+      setShareImportLoading(false)
+      return
+    }
+
+    if (sourceWords && sourceWords.length > 0) {
+      await supabase.from('word_items').insert(
+        sourceWords.map(w => ({
+          list_id: newList.id,
+          source_word: w.source_word,
+          target_word: w.target_word,
+          context: w.context,
+        }))
+      )
+    }
+
+    showToast(`Liste "${sourceList.name}" importée !`)
+    setShareCodeInput('')
+    setShowImportForm(false)
+    setShowNewList(false)
+    fetchLists()
+    setShareImportLoading(false)
   }
 
   const handleUpdateList = async () => {
@@ -372,7 +442,7 @@ export default function WordLists({ userId }: { userId?: string }) {
 
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
           <button
             onClick={() => { setSelectedList(null); setEditingItem(null) }}
             style={{ padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
@@ -388,6 +458,32 @@ export default function WordLists({ userId }: { userId?: string }) {
               {selectedList.language}
             </span>
           )}
+        </div>
+
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '0.5rem',
+          background: 'var(--color-background)', borderRadius: '0.5rem',
+          padding: '0.5rem 0.75rem', marginBottom: '1.5rem',
+          width: 'fit-content',
+        }}>
+          <span style={{ fontSize: '0.85rem', color: '#888' }}>
+            Code de partage :
+          </span>
+          <span style={{
+            fontWeight: 'bold', fontSize: '1rem',
+            color: '#2a9d8f', letterSpacing: '0.1em',
+          }}>
+            {selectedList.share_code}
+          </span>
+          <button onClick={() => {
+            navigator.clipboard.writeText(selectedList.share_code)
+            showToast('Code copié !')
+          }} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: '#2a9d8f', padding: '0.2rem',
+          }}>
+            📋
+          </button>
         </div>
 
         {/* Tableau des mots */}
@@ -619,7 +715,7 @@ export default function WordLists({ userId }: { userId?: string }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <h2 style={{ margin: 0, color: '#2a9d8f' }}>Listes de mots</h2>
         <button
-          onClick={() => setShowNewList(!showNewList)}
+          onClick={() => { setShowNewList(!showNewList); setShowImportForm(false) }}
           style={{ padding: '0.5rem 1rem', background: showNewList ? 'var(--color-border)' : '#2a9d8f', color: showNewList ? '#2a9d8f' : 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}
         >
           {showNewList ? '✕ Annuler' : '+ Nouvelle liste'}
@@ -628,27 +724,64 @@ export default function WordLists({ userId }: { userId?: string }) {
 
       {showNewList && (
         <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1.5rem', maxWidth: '480px' }}>
-          <label style={labelStyle}>Nom de la liste</label>
-          <input type="text" placeholder="Ex : Vocabulaire chapitre 3" value={newListName} onChange={e => setNewListName(e.target.value)} style={inputStyle} />
-          <label style={labelStyle}>Matière (optionnel)</label>
-          <select value={newListSubjectId} onChange={e => setNewListSubjectId(e.target.value)} style={inputStyle}>
-            <option value="">— Sans matière —</option>
-            {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <label style={labelStyle}>Type</label>
-          <select value={newListType} onChange={e => setNewListType(e.target.value)} style={inputStyle}>
-            <option value="vocabulaire">Vocabulaire</option>
-            <option value="conjugaison">Conjugaison</option>
-            <option value="dictée">Dictée</option>
-          </select>
-          <label style={labelStyle}>Langue de la liste</label>
-          <select value={newListLang} onChange={e => setNewListLang(e.target.value)} style={inputStyle}>
-            {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <p style={hintStyle}>Le mot source = mot dans cette langue<br />Le mot cible = traduction en français</p>
-          <button onClick={handleCreateList} style={{ width: '100%', padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}>
-            Enregistrer
+          <button
+            onClick={() => setShowImportForm(!showImportForm)}
+            style={{ background: 'none', border: 'none', color: '#2a9d8f', cursor: 'pointer', fontSize: '0.85rem', padding: 0, marginBottom: '1rem', textDecoration: 'underline' }}
+          >
+            {showImportForm ? '← Créer une nouvelle liste' : 'Tu as un code de partage ? → Importer une liste'}
           </button>
+
+          {showImportForm ? (
+            <div>
+              <label style={labelStyle}>Code de partage</label>
+              <input
+                type="text"
+                value={shareCodeInput}
+                onChange={e => setShareCodeInput(e.target.value.toUpperCase())}
+                maxLength={5}
+                placeholder="Ex: A3F9K"
+                style={{
+                  ...inputStyle,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.2em',
+                  fontWeight: 'bold',
+                  textAlign: 'center',
+                  fontSize: '1.2rem',
+                }}
+              />
+              <button
+                onClick={handleImportList}
+                disabled={shareImportLoading}
+                style={{ width: '100%', padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: shareImportLoading ? 'default' : 'pointer', fontWeight: 'bold', opacity: shareImportLoading ? 0.7 : 1 }}
+              >
+                {shareImportLoading ? 'Import en cours...' : 'Importer cette liste'}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <label style={labelStyle}>Nom de la liste</label>
+              <input type="text" placeholder="Ex : Vocabulaire chapitre 3" value={newListName} onChange={e => setNewListName(e.target.value)} style={inputStyle} />
+              <label style={labelStyle}>Matière (optionnel)</label>
+              <select value={newListSubjectId} onChange={e => setNewListSubjectId(e.target.value)} style={inputStyle}>
+                <option value="">— Sans matière —</option>
+                {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <label style={labelStyle}>Type</label>
+              <select value={newListType} onChange={e => setNewListType(e.target.value)} style={inputStyle}>
+                <option value="vocabulaire">Vocabulaire</option>
+                <option value="conjugaison">Conjugaison</option>
+                <option value="dictée">Dictée</option>
+              </select>
+              <label style={labelStyle}>Langue de la liste</label>
+              <select value={newListLang} onChange={e => setNewListLang(e.target.value)} style={inputStyle}>
+                {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+              <p style={hintStyle}>Le mot source = mot dans cette langue<br />Le mot cible = traduction en français</p>
+              <button onClick={handleCreateList} style={{ width: '100%', padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                Enregistrer
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -37,8 +37,6 @@ const applyMove = (board: Board, move: Move): Board => {
 const totalMatches = (board: Board): number =>
   board.reduce((sum, line) => sum + line.filter(Boolean).length, 0)
 
-const lineCount = (line: boolean[]): number => line.filter(Boolean).length
-
 const getValidMoves = (board: Board): Move[] => {
   const moves: Move[] = []
   board.forEach((line, lineIndex) => {
@@ -70,23 +68,72 @@ const moveEasy = (board: Board): Move => {
   return pickRandom(movesOnLine)
 }
 
-const moveHard = (board: Board): Move => {
-  const validMoves = getValidMoves(board)
-  const total = totalMatches(board)
+const encodeBoard = (board: Board): string =>
+  board.map(line => line.map(b => b ? '1' : '0').join('')).join('|')
 
-  if (total === 1) return validMoves[0]
+const memo = new Map<string, boolean>()
+// true = la position est GAGNANTE pour le joueur qui doit jouer
 
-  if (total <= 3) {
-    const movesLeavingOne = validMoves.filter(move => totalMatches(applyMove(board, move)) === 1)
-    return movesLeavingOne.length > 0 ? pickRandom(movesLeavingOne) : pickRandom(validMoves)
+// Détermine si la position actuelle est gagnante pour celui qui doit jouer
+// (en supposant jeu parfait des deux côtés)
+const isWinningPosition = (board: Board): boolean => {
+  const key = encodeBoard(board)
+  if (memo.has(key)) return memo.get(key)!
+
+  const moves = getValidMoves(board)
+
+  // Aucun coup possible : position perdante pour celui qui doit jouer
+  if (moves.length === 0) {
+    memo.set(key, false)
+    return false
   }
 
-  const winningMoves = validMoves.filter(move => {
-    const resulting = applyMove(board, move)
-    return resulting.reduce((xor, line) => xor ^ lineCount(line), 0) === 0
-  })
+  // Cherche s'il existe un coup qui mène l'adversaire dans une position perdante pour lui
+  let winning = false
+  for (const move of moves) {
+    const newBoard = applyMove(board, move)
 
-  return winningMoves.length > 0 ? pickRandom(winningMoves) : pickRandom(validMoves)
+    // Si plus aucune allumette après ce coup, celui qui vient de jouer a pris
+    // la dernière et perd → cette position est gagnante pour nous
+    if (totalMatches(newBoard) === 0) {
+      winning = true
+      break
+    }
+
+    // Sinon, si la position résultante est perdante pour l'adversaire,
+    // alors ce coup est gagnant pour nous
+    if (!isWinningPosition(newBoard)) {
+      winning = true
+      break
+    }
+  }
+
+  memo.set(key, winning)
+  return winning
+}
+
+const moveHard = (board: Board): Move => {
+  memo.clear() // reset à chaque appel — le plateau change de structure entre 2 manches
+
+  const moves = getValidMoves(board)
+
+  // Chercher un coup qui laisse l'adversaire dans une position perdante
+  for (const move of moves) {
+    const newBoard = applyMove(board, move)
+
+    // Si ce coup prend la dernière allumette, ne pas le jouer (on perdrait)
+    if (totalMatches(newBoard) === 0) continue
+
+    if (!isWinningPosition(newBoard)) {
+      return move
+    }
+  }
+
+  // Aucun coup gagnant trouvé (position perdante quoi qu'on fasse)
+  // → jouer un coup qui ne prend pas la dernière allumette si possible
+  const safeMoves = moves.filter(move => totalMatches(applyMove(board, move)) > 0)
+
+  return safeMoves.length > 0 ? pickRandom(safeMoves) : pickRandom(moves)
 }
 
 const Allumettes = () => {

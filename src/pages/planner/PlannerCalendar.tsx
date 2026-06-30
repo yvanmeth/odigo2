@@ -53,13 +53,17 @@ export default function PlannerCalendar({ items, onEdit, onDelete, onDeleteEvent
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const popoverWidth = 220
     const popoverHeight = 130
-    const spaceRight = window.innerWidth - rect.right
-    const spaceBottom = window.innerHeight - rect.bottom
-    const x = spaceRight >= popoverWidth ? rect.right + 8 : rect.left - popoverWidth - 8
-    const y = spaceBottom >= popoverHeight ? rect.top : rect.top - popoverHeight
-    const clampedX = Math.max(8, Math.min(x, window.innerWidth - popoverWidth - 8))
-    const clampedY = Math.max(8, Math.min(y, window.innerHeight - popoverHeight - 8))
-    setEditPopoverPos({ x: clampedX, y: clampedY })
+
+    let x = rect.left + (rect.width / 2) - (popoverWidth / 2)
+    let y = rect.bottom + 8
+
+    x = Math.max(8, Math.min(x, window.innerWidth - popoverWidth - 8))
+
+    if (y + popoverHeight > window.innerHeight - 8) {
+      y = rect.top - popoverHeight - 8
+    }
+
+    setEditPopoverPos({ x, y })
     setEditingItem(item)
   }
 

@@ -318,6 +318,17 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
     padding: '0.3rem 0.6rem', cursor: 'pointer' as const, fontSize: '0.85rem',
   }
 
+  // Vue Liste — événements limités aux 30 prochains jours (la vue Calendrier reste non filtrée)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const limitDate = new Date(today)
+  limitDate.setDate(limitDate.getDate() + 30)
+
+  const upcomingEvents = events.filter(e => {
+    const eventDate = parseLocalDate(e.event_date)
+    return eventDate >= today && eventDate <= limitDate
+  })
+
   return (
     <div>
       {/* Onglets */}
@@ -532,8 +543,15 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
       {/* Liste événements */}
       {activeTab === 'events' && (
         <div>
-          {events.length === 0 && <EmptyState emoji="📅" title="Aucun événement" subtitle="Ajoute des événements importants à ton agenda." actionLabel="+ Ajouter" onAction={() => setShowForm(true)} />}
-          {events.map(ev => (
+          {upcomingEvents.length === 0 && events.length === 0 && (
+            <EmptyState emoji="📅" title="Aucun événement" subtitle="Ajoute des événements importants à ton agenda." actionLabel="+ Ajouter" onAction={() => setShowForm(true)} />
+          )}
+          {upcomingEvents.length === 0 && events.length > 0 && (
+            <p style={{ color: '#aaa', fontSize: '0.9rem', textAlign: 'center', padding: '2rem 0' }}>
+              Aucun événement dans les 30 prochains jours.
+            </p>
+          )}
+          {upcomingEvents.map(ev => (
             <div key={ev.id} style={cardStyle}>
               <div>
                 <div style={{ fontWeight: 'bold', color: '#333' }}>
