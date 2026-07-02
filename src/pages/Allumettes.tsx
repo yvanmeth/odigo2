@@ -82,10 +82,11 @@ const isWinningPosition = (board: Board): boolean => {
 
   const moves = getValidMoves(board)
 
-  // Aucun coup possible : position perdante pour celui qui doit jouer
+  // Plateau vide (aucun coup possible) : l'adversaire vient de prendre la dernière
+  // allumette et perd → la position est GAGNANTE pour le joueur actuel
   if (moves.length === 0) {
-    memo.set(key, false)
-    return false
+    memo.set(key, true)
+    return true
   }
 
   // Cherche s'il existe un coup qui mène l'adversaire dans une position perdante pour lui
@@ -93,14 +94,10 @@ const isWinningPosition = (board: Board): boolean => {
   for (const move of moves) {
     const newBoard = applyMove(board, move)
 
-    // Si plus aucune allumette après ce coup, celui qui vient de jouer a pris
-    // la dernière et perd → cette position est gagnante pour nous
-    if (totalMatches(newBoard) === 0) {
-      winning = true
-      break
-    }
+    // Prendre la dernière allumette = perdre → ignorer ce coup
+    if (totalMatches(newBoard) === 0) continue
 
-    // Sinon, si la position résultante est perdante pour l'adversaire,
+    // Si la position résultante est perdante pour l'adversaire,
     // alors ce coup est gagnant pour nous
     if (!isWinningPosition(newBoard)) {
       winning = true

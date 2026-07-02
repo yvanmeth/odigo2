@@ -196,6 +196,28 @@ button:disabled {
   }
 }
 
+@keyframes drawCardFlip {
+  0%   { transform: rotateY(0deg) scale(1); }
+  40%  { transform: rotateY(90deg) scale(1.05); }
+  60%  { transform: rotateY(90deg) scale(1.05); }
+  100% { transform: rotateY(0deg) scale(1); }
+}
+
+.draw-card-flip {
+  animation: drawCardFlip 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes drawCardReveal {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  80%  { transform: scale(0.97); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.draw-card-reveal {
+  animation: drawCardReveal 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
 .card-flip {
   transition: transform 0.6s ease;
   transform-style: preserve-3d;

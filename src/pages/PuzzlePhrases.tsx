@@ -524,7 +524,11 @@ export default function PuzzlePhrases() {
                 value={userInputs[i] || ''}
                 disabled={slot.status === 'correct'}
                 onChange={e => setUserInputs(prev => prev.map((v, idx) => idx === i ? e.target.value : v))}
-                style={{ padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: `2px solid ${border}`, background: bg, fontSize: '0.95rem', width: '110px', textAlign: 'center' }}
+                style={{
+                  padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: `2px solid ${border}`,
+                  background: bg, fontSize: '0.95rem', width: '110px', textAlign: 'center',
+                  color: '#1a1a1a', WebkitTextFillColor: '#1a1a1a', caretColor: '#2a9d8f',
+                }}
               />
             )
           })}
@@ -542,7 +546,7 @@ export default function PuzzlePhrases() {
                   style={{
                     minWidth: '60px', minHeight: '2.5rem', padding: '0.5rem 0.75rem',
                     borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 'bold', fontSize: '0.95rem', color: '#333',
+                    fontWeight: 'bold', fontSize: '0.95rem', color: '#1a1a1a',
                     border: placedItem ? `2px solid ${border}` : '2px dashed #ccc',
                     background: placedItem ? bg : 'transparent',
                     cursor: placedItem && !placedItem.locked ? 'pointer' : 'default',
@@ -560,7 +564,7 @@ export default function PuzzlePhrases() {
                 <div
                   key={b.id}
                   onClick={() => handlePlaceFixed(b.id)}
-                  style={{ background: 'white', border: '1px solid var(--color-border)', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold', color: '#333' }}
+                  style={{ background: 'white', border: '1px solid var(--color-border)', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold', color: '#1a1a1a' }}
                 >
                   {b.text}
                 </div>

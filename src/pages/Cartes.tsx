@@ -6,7 +6,6 @@ import { useToast } from '../components/Toast'
 
 const PRIMARY = '#2a9d8f'
 const DRAW_PRICE = 1000
-const DRAW_STEPS = 25
 
 interface CardValue {
   value: {
@@ -49,8 +48,7 @@ const renderValuePills = (cardValues?: CardValue[]) => (
       {cardValues.map(cv => (
         <span key={cv.value.id} style={{
           background: cv.value.category.color,
-          color: cv.value.category.color === '#e9c46a'
-            ? '#333' : 'white',
+          color: cv.value.category.color === '#e9c46a' ? '#333' : 'white',
           fontSize: '0.7rem',
           padding: '0.15rem 0.5rem',
           borderRadius: '1rem',
@@ -70,12 +68,18 @@ export default function Cartes() {
   const [digoos, setDigoos] = useState(0)
   const [flipped, setFlipped] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
-  const [drawingState, setDrawingState] = useState<'idle' | 'drawing' | 'revealed'>('idle')
-  const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const [drawnCard, setDrawnCard] = useState<CardData | null>(null)
-  const [modalFlipped, setModalFlipped] = useState(false)
-  const [isNewCard, setIsNewCard] = useState(false)
-  const [drawnQuantity, setDrawnQuantity] = useState(1)
+  const [drawModal, setDrawModal] = useState<{
+    open: boolean
+    phase: 'spinning' | 'flipping' | 'revealed'
+    highlightedIndex: number
+    drawnCard: CardData | null
+    isNew: boolean
+    newQuantity: number
+  }>({
+    open: false, phase: 'spinning',
+    highlightedIndex: -1, drawnCard: null,
+    isNew: false, newQuantity: 1,
+  })
 
   const fetchData = async (initial = false) => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -112,117 +116,96 @@ export default function Cartes() {
     setLoading(false)
   }
 
-  useEffect(() => {
-    fetchData(true)
-  }, [])
+  useEffect(() => { fetchData(true) }, [])
 
-  useEffect(() => {
-    if (drawingState !== 'revealed') return
-    const t = setTimeout(() => setModalFlipped(true), 150)
-    return () => clearTimeout(t)
-  }, [drawingState])
+  const startFlip = async (drawn: CardData) => {
+    setDrawModal(prev => ({ ...prev, phase: 'flipping' }))
 
-  const revealCard = async (card: CardData) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const existing = userCards.find(uc => uc.card_id === card.id)
+    const existing = userCards.find(uc => uc.card_id === drawn.id)
+    const isNew = !existing
+    const newQuantity = existing ? existing.quantity + 1 : 1
+
     if (existing) {
       await supabase.from('user_cards')
         .update({ quantity: existing.quantity + 1 })
         .eq('id', existing.id)
-      setIsNewCard(false)
-      setDrawnQuantity(existing.quantity + 1)
     } else {
       await supabase.from('user_cards').insert({
         user_id: user.id,
-        card_id: card.id,
+        card_id: drawn.id,
         purchased_price: DRAW_PRICE,
         quantity: 1,
       })
       await supabase.from('cards')
-        .update({ stock_remaining: card.stock_remaining - 1 })
-        .eq('id', card.id)
-      setIsNewCard(true)
-      setDrawnQuantity(1)
+        .update({ stock_remaining: drawn.stock_remaining - 1 })
+        .eq('id', drawn.id)
     }
 
-    setFlipped(prev => ({ ...prev, [card.id]: true }))
-    setDrawnCard(card)
-    setDrawingState('revealed')
-    await fetchData()
+    setFlipped(prev => ({ ...prev, [drawn.id]: true }))
+
+    setTimeout(() => {
+      setDrawModal(prev => ({ ...prev, phase: 'revealed', isNew, newQuantity }))
+      fetchData()
+    }, 1200)
   }
 
-  const animateDraw = (availableCards: CardData[], targetCard: CardData) => {
-    const targetIndex = availableCards.findIndex(c => c.id === targetCard.id)
-    let step = 0
+  const startDraw = async () => {
+    if (digoos < DRAW_PRICE || drawModal.open) return
 
-    const tick = () => {
-      setHighlightedIndex(step % availableCards.length)
-      step++
-
-      if (step < DRAW_STEPS) {
-        const progress = step / DRAW_STEPS
-        const delay = 80 + progress * progress * 400
-
-        if (step === DRAW_STEPS - 1) {
-          setTimeout(() => {
-            setHighlightedIndex(targetIndex)
-            setTimeout(() => revealCard(targetCard), 600)
-          }, delay)
-        } else {
-          setTimeout(tick, delay)
-        }
-      }
-    }
-    tick()
-  }
-
-  const handleDraw = async () => {
-    if (digoos < DRAW_PRICE || drawingState !== 'idle') return
-
-    const today = new Date().toISOString().slice(0, 10)
+    const today = new Date().toISOString().split('T')[0]
     const available = cards.filter(c => c.available_from <= today && c.stock_remaining > 0)
+
     if (available.length === 0) {
       showToast('Aucune carte disponible pour le tirage.', 'error')
       return
     }
 
     const drawn = available[Math.floor(Math.random() * available.length)]
+    const targetIndex = Math.floor(Math.random() * 12)
 
     await deductDigoos(DRAW_PRICE)
-    setDrawingState('drawing')
-    animateDraw(available, drawn)
-  }
 
-  const handleContinue = () => {
-    setDrawingState('idle')
-    setDrawnCard(null)
-    setHighlightedIndex(-1)
-    setModalFlipped(false)
+    setDrawModal({ open: true, phase: 'spinning', highlightedIndex: 0, drawnCard: drawn, isNew: false, newQuantity: 1 })
+
+    const totalSteps = 32
+    let step = 0
+
+    const tick = () => {
+      const progress = step / totalSteps
+      const delay = 50 + progress * progress * progress * 750
+
+      setDrawModal(prev => ({ ...prev, highlightedIndex: step % 12 }))
+
+      step++
+
+      if (step < totalSteps - 1) {
+        setTimeout(tick, delay)
+      } else {
+        setTimeout(() => {
+          setDrawModal(prev => ({ ...prev, highlightedIndex: targetIndex }))
+          setTimeout(() => startFlip(drawn), 1200)
+        }, delay)
+      }
+    }
+    tick()
   }
 
   if (loading) {
-    return (
-      <div style={{ textAlign: 'center', color: '#888', padding: '2rem' }}>
-        Chargement...
-      </div>
-    )
+    return <div style={{ textAlign: 'center', color: '#888', padding: '2rem' }}>Chargement...</div>
   }
 
   const ownedCardIds = new Set(userCards.map(uc => uc.card_id))
   const ownedCount = cards.filter(c => ownedCardIds.has(c.id)).length
 
-  const today = new Date().toISOString().slice(0, 10)
-  const availableForDraw = cards.filter(c => c.available_from <= today && c.stock_remaining > 0)
-  const highlightedCardId = drawingState === 'drawing' && highlightedIndex >= 0
-    ? availableForDraw[highlightedIndex]?.id
-    : null
-
   const displayCards: DisplayCard[] = [
     ...cards,
     ...Array(Math.max(0, 12 - cards.length)).fill(null).map((_, i) => ({ id: `mystery-${i}`, mystery: true as const })),
   ]
+
+  const canDraw = digoos >= DRAW_PRICE && !drawModal.open
 
   return (
     <div>
@@ -238,26 +221,48 @@ export default function Cartes() {
         </span>
       </div>
 
-      <p style={{ fontSize: '0.82rem', color: '#aaa', textAlign: 'center', marginBottom: '1.5rem' }}>
+      <p style={{ fontSize: '0.82rem', color: '#aaa', textAlign: 'center', marginBottom: '1rem' }}>
         D'autres cartes OΔIGO arriveront bientôt ⏳
       </p>
 
+      {/* Bouton tirage — AU-DESSUS de la grille */}
+      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <button
+          onClick={startDraw}
+          disabled={!canDraw}
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: canDraw ? PRIMARY : '#ccc',
+            color: 'white',
+            border: 'none',
+            borderRadius: '0.5rem',
+            cursor: canDraw ? 'pointer' : 'default',
+            fontSize: '1rem',
+            fontWeight: 'bold',
+          }}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+            🎲 Tirage au sort — {DRAW_PRICE} <Delta size={16} />
+          </span>
+        </button>
+        <p style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '0.5rem' }}>
+          Une carte au hasard parmi toutes celles disponibles. Les doublons sont possibles !
+        </p>
+      </div>
+
+      {/* Grille de collection */}
       <div className="cartes-grid">
         {displayCards.map(card => {
           const mystery = isMysteryCard(card)
           const owned = !mystery && ownedCardIds.has(card.id)
           const isFlipped = !!flipped[card.id]
-          const isHighlighted = !mystery && card.id === highlightedCardId
           const quantity = !mystery ? (userCards.find(uc => uc.card_id === card.id)?.quantity || 1) : 1
 
           return (
             <div key={card.id} style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
               position: 'relative', padding: '0.4rem', borderRadius: '12px', boxSizing: 'border-box',
-              border: isHighlighted ? '3px solid #e9c46a' : '3px solid transparent',
-              transform: isHighlighted ? 'scale(1.05)' : 'scale(1)',
-              boxShadow: isHighlighted ? '0 0 20px rgba(233,196,106,0.6)' : 'none',
-              transition: 'all 0.1s ease',
+              border: '3px solid transparent',
             }}>
               <div
                 className={`card-flip${isFlipped ? ' flipped' : ''}`}
@@ -322,68 +327,123 @@ export default function Cartes() {
         })}
       </div>
 
-      <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-        <button
-          onClick={handleDraw}
-          disabled={digoos < DRAW_PRICE || drawingState !== 'idle'}
-          style={{
-            padding: '0.75rem 1.5rem',
-            background: digoos >= DRAW_PRICE && drawingState === 'idle' ? PRIMARY : '#ccc',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.5rem',
-            cursor: digoos >= DRAW_PRICE && drawingState === 'idle' ? 'pointer' : 'default',
-            fontSize: '1rem',
-            fontWeight: 'bold',
-          }}
-        >
-          {drawingState === 'drawing'
-            ? '🎲 Tirage en cours...'
-            : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>🎲 Tirage au sort — {DRAW_PRICE} <Delta size={16} /></span>}
-        </button>
-        <p style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '0.5rem' }}>
-          Une carte au hasard parmi toutes celles disponibles. Les doublons sont possibles !
-        </p>
-      </div>
-
-      {drawingState === 'revealed' && drawnCard && (
+      {/* Modal de tirage */}
+      {drawModal.open && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem',
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.92)', zIndex: 1000,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          gap: '1.5rem',
         }}>
-          <div
-            className={`card-flip${modalFlipped ? ' flipped' : ''}`}
-            style={{ width: '220px', height: '308px', position: 'relative' }}
-          >
-            <div className="card-front">
-              <img
-                src="/cards/card-back.png"
-                alt="Carte mystère"
-                className="card-image"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            </div>
-            <div className="card-back">
-              <img
-                src={`/cards/${drawnCard.image_url}`}
-                alt={drawnCard.name}
-                className="card-image"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            </div>
-          </div>
 
-          <p style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center', margin: 0 }}>
-            {isNewCard ? '🎉 Nouvelle carte !' : `✨ Tu as déjà cette carte ! (x${drawnQuantity})`}
-          </p>
-          <p style={{ color: 'white', fontSize: '1rem', margin: 0 }}>{drawnCard.name}</p>
+          {/* Phase spinning et flipping — grille 4×3 */}
+          {drawModal.phase !== 'revealed' && (
+            <>
+              <div style={{ color: 'white', fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+                🎲 Tirage en cours...
+              </div>
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(4, 70px)', gap: '8px',
+              }}>
+                {Array.from({ length: 12 }, (_, idx) => {
+                  const isHighlighted = idx === drawModal.highlightedIndex
+                  const isFlipping = drawModal.phase === 'flipping' && isHighlighted
 
-          <button
-            onClick={handleContinue}
-            style={{ padding: '0.6rem 1.5rem', background: PRIMARY, color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold' }}
-          >
-            Continuer
-          </button>
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        width: '70px', height: '98px',
+                        borderRadius: '8px', overflow: 'hidden',
+                        position: 'relative',
+                        boxShadow: isHighlighted ? '0 0 24px rgba(233,196,106,1)' : 'none',
+                        transform: isHighlighted ? 'scale(1.12)' : 'scale(1)',
+                        border: isHighlighted ? '3px solid #e9c46a' : '3px solid transparent',
+                        transition: 'all 0.06s ease',
+                        zIndex: isHighlighted ? 2 : 1,
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      {isFlipping && drawModal.drawnCard ? (
+                        <div style={{ perspective: '600px', width: '100%', height: '100%' }}>
+                          <img
+                            className="draw-card-flip"
+                            src={`/cards/${drawModal.drawnCard.image_url}`}
+                            style={{
+                              width: '100%', height: '100%',
+                              borderRadius: '5px', objectFit: 'cover',
+                              backfaceVisibility: 'hidden',
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <img
+                          src="/cards/card-back.png"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Phase revealed — carte en grand */}
+          {drawModal.phase === 'revealed' && drawModal.drawnCard && (
+            <div className="draw-card-reveal" style={{
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', gap: '1rem',
+            }}>
+              <img
+                src={`/cards/${drawModal.drawnCard.image_url}`}
+                alt={drawModal.drawnCard.name}
+                style={{
+                  width: '200px',
+                  height: '280px',
+                  borderRadius: '16px',
+                  objectFit: 'cover',
+                  boxShadow: '0 0 60px rgba(233,196,106,0.5)',
+                }}
+              />
+              <div style={{
+                color: 'white', fontWeight: 'bold',
+                fontSize: '1.3rem', textAlign: 'center',
+                textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+              }}>
+                {drawModal.drawnCard.name}
+              </div>
+              <div style={{
+                padding: '0.4rem 1rem',
+                borderRadius: '1rem',
+                fontWeight: 'bold', fontSize: '0.9rem',
+                background: drawModal.isNew ? '#2a9d8f' : '#e9c46a',
+                color: 'white',
+              }}>
+                {drawModal.isNew
+                  ? '🎉 Nouvelle carte !'
+                  : `✨ Tu l'as déjà ! (x${drawModal.newQuantity})`
+                }
+              </div>
+              <button
+                onClick={() => setDrawModal(prev => ({
+                  ...prev, open: false, phase: 'spinning',
+                  highlightedIndex: -1, drawnCard: null,
+                }))}
+                style={{
+                  marginTop: '0.5rem',
+                  background: 'white', color: '#2a9d8f',
+                  border: 'none', borderRadius: '0.75rem',
+                  padding: '0.75rem 2rem',
+                  fontWeight: 'bold', fontSize: '1rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Continuer
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
