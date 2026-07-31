@@ -334,7 +334,7 @@ export default function Dashboard({ session }: Props) {
             <div>{backButton}<PuzzlePhrases /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'anagramme' && (
-            <div>{backButton}<Anagramme /></div>
+            <div>{backButton}<Anagramme userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'maths-calcul' && (
             <Maths initialExercise="calcul" onBack={() => setActiveExercise(null)} />

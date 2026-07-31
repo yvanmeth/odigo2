@@ -41,7 +41,11 @@ const shuffleLetters = (word: string): string[] => {
   return shuffled
 }
 
-export default function Anagramme() {
+interface AnagrammeProps {
+  userId?: string
+}
+
+export default function Anagramme({ userId }: AnagrammeProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedListId, setSelectedListId] = useState('')
@@ -66,11 +70,12 @@ export default function Anagramme() {
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    const targetId = userId || user.id
     const { data } = await supabase
       .from('word_lists')
       .select('id, name, list_type')
-      .eq('user_id', user.id)
-      .in('list_type', ['vocabulary', 'dictation'])
+      .eq('user_id', targetId)
+      .in('list_type', ['vocabulaire', 'dictée'])
       .order('name')
     setLists(data || [])
   }
