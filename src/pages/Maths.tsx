@@ -94,9 +94,14 @@ const DIFFICULTIES: { id: Difficulty; label: string; icon: string }[] = [
   { id: 'difficile', label: 'Difficile', icon: '💪' },
 ]
 
-export default function Maths() {
-  const [gameState, setGameState] = useState<GameState>('menu')
-  const [selectedExercise, setSelectedExercise] = useState<MathExercise | null>(null)
+interface MathsProps {
+  initialExercise?: MathExercise
+  onBack?: () => void
+}
+
+export default function Maths({ initialExercise, onBack }: MathsProps) {
+  const [gameState, setGameState] = useState<GameState>(initialExercise ? 'select' : 'menu')
+  const [selectedExercise, setSelectedExercise] = useState<MathExercise | null>(initialExercise ?? null)
   const [difficulty, setDifficulty] = useState<Difficulty>('moyen')
 
   const [questions, setQuestions] = useState<Question[]>([])
@@ -228,7 +233,7 @@ export default function Maths() {
     return (
       <div style={{ maxWidth: '480px', margin: '0 auto' }}>
         <button
-          onClick={() => setGameState('menu')}
+          onClick={() => onBack ? onBack() : setGameState('menu')}
           style={{ marginBottom: '1.5rem', padding: '0.4rem 0.8rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
         >
           ← Retour
@@ -387,13 +392,13 @@ export default function Maths() {
             🔄 Rejouer
           </button>
           <button
-            onClick={() => setGameState('menu')}
+            onClick={() => onBack ? onBack() : setGameState('menu')}
             style={{ padding: '0.75rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.75rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold' }}
           >
             ← Autre exercice
           </button>
           <button
-            onClick={() => { setSelectedExercise(null); setGameState('menu') }}
+            onClick={() => onBack ? onBack() : (setSelectedExercise(null), setGameState('menu'))}
             style={{ padding: '0.75rem', background: 'none', color: '#aaa', border: '1px solid #ddd', borderRadius: '0.75rem', cursor: 'pointer', fontSize: '0.9rem' }}
           >
             Quitter

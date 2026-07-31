@@ -32,7 +32,7 @@ export interface IrlReward {
 export interface IrlPurchase {
   id: string
   child_id: string
-  reward_id: string
+  reward_id: string | null
   reward_name: string
   cost: number
   status: 'valid' | 'used'

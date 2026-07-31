@@ -23,6 +23,7 @@ import Maths from '../Maths'
 import Allumettes from '../Allumettes'
 import Histoire from '../Histoire'
 import Cartes from '../Cartes'
+import Anagramme from '../Anagramme'
 import Sidebar from './Sidebar'
 import OnboardingModal from './OnboardingModal'
 import ExerciseCards from './ExerciseCards'
@@ -332,8 +333,20 @@ export default function Dashboard({ session }: Props) {
           {activePage === 'exercises' && activeExercise === 'puzzlephrases' && (
             <div>{backButton}<PuzzlePhrases /></div>
           )}
-          {activePage === 'exercises' && activeExercise === 'maths' && (
-            <div>{backButton}<Maths /></div>
+          {activePage === 'exercises' && activeExercise === 'anagramme' && (
+            <div>{backButton}<Anagramme /></div>
+          )}
+          {activePage === 'exercises' && activeExercise === 'maths-calcul' && (
+            <Maths initialExercise="calcul" onBack={() => setActiveExercise(null)} />
+          )}
+          {activePage === 'exercises' && activeExercise === 'maths-multiplication' && (
+            <Maths initialExercise="multiplication" onBack={() => setActiveExercise(null)} />
+          )}
+          {activePage === 'exercises' && activeExercise === 'maths-division' && (
+            <Maths initialExercise="division" onBack={() => setActiveExercise(null)} />
+          )}
+          {activePage === 'exercises' && activeExercise === 'maths-equation' && (
+            <Maths initialExercise="equation" onBack={() => setActiveExercise(null)} />
           )}
           {activePage === 'exercises' && activeExercise === 'allumettes' && (
             <div>{backButton}<Allumettes /></div>

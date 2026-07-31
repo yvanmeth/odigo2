@@ -139,6 +139,11 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
           Acheté le {formatDate(purchase.purchased_at)}
           {used && purchase.used_at && ` · Utilisé le ${formatDate(purchase.used_at)}`}
         </div>
+        {purchase.reward_id === null && (
+          <div style={{ fontSize: '0.75rem', color: '#bbb', marginTop: '0.2rem' }}>
+            (récompense archivée)
+          </div>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <div style={{ borderLeft: '1px dashed #ccc', alignSelf: 'stretch' }} />

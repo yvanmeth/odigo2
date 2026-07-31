@@ -334,17 +334,27 @@ export default function Cartes() {
           background: 'rgba(0,0,0,0.92)', zIndex: 1000,
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
-          gap: '1.5rem',
+          overflowY: 'auto',
         }}>
+          <div style={{
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem',
+            padding: '1.5rem',
+          }}>
 
           {/* Phase spinning et flipping — grille 4×3 */}
           {drawModal.phase !== 'revealed' && (
             <>
-              <div style={{ color: 'white', fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+              <div style={{ color: 'white', fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
                 🎲 Tirage en cours...
               </div>
               <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(4, 70px)', gap: '8px',
+                display: 'grid', gridTemplateColumns: 'repeat(4, 56px)', gap: '0.4rem',
               }}>
                 {Array.from({ length: 12 }, (_, idx) => {
                   const isHighlighted = idx === drawModal.highlightedIndex
@@ -354,7 +364,7 @@ export default function Cartes() {
                     <div
                       key={idx}
                       style={{
-                        width: '70px', height: '98px',
+                        width: '56px', height: '78px',
                         borderRadius: '8px', overflow: 'hidden',
                         position: 'relative',
                         boxShadow: isHighlighted ? '0 0 24px rgba(233,196,106,1)' : 'none',
@@ -400,8 +410,8 @@ export default function Cartes() {
                 src={`/cards/${drawModal.drawnCard.image_url}`}
                 alt={drawModal.drawnCard.name}
                 style={{
-                  width: '200px',
-                  height: '280px',
+                  width: '160px',
+                  height: '224px',
                   borderRadius: '16px',
                   objectFit: 'cover',
                   boxShadow: '0 0 60px rgba(233,196,106,0.5)',
@@ -435,7 +445,7 @@ export default function Cartes() {
                   marginTop: '0.5rem',
                   background: 'white', color: '#2a9d8f',
                   border: 'none', borderRadius: '0.75rem',
-                  padding: '0.75rem 2rem',
+                  padding: '0.6rem 1.5rem',
                   fontWeight: 'bold', fontSize: '1rem',
                   cursor: 'pointer',
                 }}
@@ -444,6 +454,7 @@ export default function Cartes() {
               </button>
             </div>
           )}
+          </div>
         </div>
       )}
     </div>
