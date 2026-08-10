@@ -39,9 +39,8 @@ interface SlotState {
 interface WordList {
   id: string
   name: string
+  language: string
 }
-
-const LANGUAGES = ['Anglais', 'Allemand', 'Espagnol', 'Grec', 'Arabe', 'Italien']
 
 const MODES: { value: Mode; label: string; desc: string }[] = [
   { value: 'facile', label: '😊 Facile', desc: 'Replace les mots dans l\'ordre' },
@@ -148,7 +147,6 @@ export default function PuzzlePhrases() {
   const [selectedListId, setSelectedListId] = useState('')
   const [mode, setMode] = useState<Mode>('facile')
   const [seriesLength, setSeriesLength] = useState<SeriesLength>(5)
-  const [language, setLanguage] = useState('Anglais')
 
   const [sentences, setSentences] = useState<PuzzleSentence[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -171,7 +169,7 @@ export default function PuzzlePhrases() {
     if (!user) return
     const { data } = await supabase
       .from('word_lists')
-      .select('id, name')
+      .select('id, name, language')
       .eq('user_id', user.id)
       .eq('list_type', 'vocabulaire')
     if (data) {
@@ -204,11 +202,13 @@ export default function PuzzlePhrases() {
       wordItems[Math.floor(Math.random() * wordItems.length)]
     )
 
+    const listLang = lists.find(l => l.id === selectedListId)?.language || 'Anglais'
+
     try {
-      const systemPrompt = buildSystemPrompt(mode, language, seriesLength)
+      const systemPrompt = buildSystemPrompt(mode, listLang, seriesLength)
       const userPrompt = buildUserPrompt(
         pickedWords.map(w => ({ source_word: w.source_word, target_word: w.target_word || '' })),
-        language
+        listLang
       )
       const txt = await callAPI(systemPrompt, userPrompt, 4000)
       const parsed: { french: string; words: { text: string; type: 'fixed' | 'category'; category?: string; options?: string[] }[] }[] = JSON.parse(txt)
@@ -402,21 +402,10 @@ export default function PuzzlePhrases() {
                   style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
                 >
                   <option value="">-- Sélectionner --</option>
-                  {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  {lists.map(l => <option key={l.id} value={l.id}>{l.name} — {l.language}</option>)}
                 </select>
               </div>
             )}
-
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Langue</label>
-              <select
-                value={language}
-                onChange={e => setLanguage(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
-              >
-                {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
-            </div>
 
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Mode</label>

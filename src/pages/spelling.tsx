@@ -13,20 +13,17 @@ interface WordItem {
 interface WordList {
   id: string
   name: string
+  language: string
+  list_type: string
 }
 
 type GameState = 'select' | 'playing' | 'result'
 
 const TOTAL_WORDS = 15
 
-const LANG_CODES: Record<string, string> = {
-  'Français': 'fr-FR',
-  'Anglais': 'en-US',
-  'Allemand': 'de-DE',
-  'Espagnol': 'es-ES',
-  'Grec': 'el-GR',
-  'Arabe': 'ar-SA',
-  'Italien': 'it-IT',
+const LANG_VOICE_MAP: Record<string, string> = {
+  'Anglais': 'en-GB', 'Allemand': 'de-DE', 'Grec': 'el-GR',
+  'Arabe': 'ar-DZ', 'Italien': 'it-IT', 'Espagnol': 'es-ES', 'Français': 'fr-FR',
 }
 
 export default function Spelling() {
@@ -35,7 +32,7 @@ export default function Spelling() {
   const [selectedList, setSelectedList] = useState('')
   const [direction, setDirection] = useState<'foreign' | 'french'>('foreign')
   const [words, setWords] = useState<WordItem[]>([])
-  const [subjectName, setSubjectName] = useState('Anglais')
+  const [listLanguage, setListLanguage] = useState('')
 
   const [queue, setQueue] = useState<WordItem[]>([])
   const [failedWords, setFailedWords] = useState<WordItem[]>([])
@@ -64,7 +61,7 @@ export default function Spelling() {
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).order('name')
+    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', user.id).eq('list_type', 'vocabulaire').order('name')
     if (data) setLists(data)
   }
 
@@ -147,10 +144,9 @@ export default function Spelling() {
     return word.split(' ').map(w => w[0] + w.slice(1).split('').map(() => '_').join(' ')).join('   ')
   }
 
-  // Langue dictée = langue de la réponse
   const getDictationLang = () => {
     if (direction === 'foreign') return 'fr-FR'
-    return LANG_CODES[subjectName] || 'en-US'
+    return LANG_VOICE_MAP[listLanguage] || 'en-GB'
   }
 
   const speak = (text: string) => {
@@ -279,7 +275,7 @@ export default function Spelling() {
     return ''
   }
 
-  const targetLang = direction === 'foreign' ? 'français' : subjectName
+  const targetLang = direction === 'foreign' ? 'français' : (listLanguage || 'langue étrangère')
 
   if (gameState === 'select') {
     return (
@@ -294,18 +290,13 @@ export default function Spelling() {
               onChange={e => {
                 setSelectedList(e.target.value)
                 loadHighScores(e.target.value)
+                const l = lists.find(x => x.id === e.target.value)
+                if (l) setListLanguage(l.language)
               }}
               style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
             >
               <option value="">-- Sélectionner --</option>
-              {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Matière (pour la prononciation)</label>
-            <select value={subjectName} onChange={e => setSubjectName(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}>
-              {Object.keys(LANG_CODES).map(lang => <option key={lang} value={lang}>{lang}</option>)}
+              {lists.map(l => <option key={l.id} value={l.id}>{l.name} — {l.language} ({l.list_type})</option>)}
             </select>
           </div>
 

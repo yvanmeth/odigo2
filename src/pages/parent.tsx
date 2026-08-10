@@ -60,8 +60,6 @@ interface Mission {
   profiles?: { first_name: string | null } | null
 }
 
-const REACTIONS = ['👍', '❤️', '👏', '🔥', '💯', '😎', '🤩', '⭐', '🙌', '🫶']
-
 export default function ParentDashboard({ onSelectChild }: { onSelectChild: (childId: string | null) => void }) {
   const { showToast } = useToast()
   const [children, setChildren] = useState<Child[]>([])
@@ -97,7 +95,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
   const [missionTargetMode, setMissionTargetMode] = useState<'all' | 'specific'>('all')
   const [missionTargetChildren, setMissionTargetChildren] = useState<string[]>([])
 
-  // Récompenses en attente (coupons des enfants)
+  // Récompenses en attente
   const [pendingPurchases, setPendingPurchases] = useState<PendingPurchase[]>([])
   const [markingUsedId, setMarkingUsedId] = useState<string | null>(null)
 
@@ -114,21 +112,19 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-  
+
     const { data: links } = await supabase
       .from('parent_child')
       .select('child_id, relationship')
       .eq('parent_id', user.id)
 
-     
-  
     if (links && links.length > 0) {
       const childIds = links.map(d => d.child_id)
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, first_name')
         .in('id', childIds)
-  
+
       if (profiles) {
         const enriched = profiles.map(p => ({
           id: p.id,
@@ -167,11 +163,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     const code = Math.random().toString(36).substring(2, 8).toUpperCase()
     const { data } = await supabase
       .from('invite_codes')
-      .insert({
-        parent_id: user.id,
-        code,
-        used: false,
-      })
+      .insert({ parent_id: user.id, code, used: false })
       .select()
       .single()
 
@@ -422,118 +414,89 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
 
-        {/* Mes enfants */}
-        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>👨‍👧 Mes enfants</h3>
+      {/* 1. Mes enfants */}
+      <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
+        <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>👨‍👩‍👧 Mes enfants</h3>
 
-          {children.length === 0 ? (
-            <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucun enfant lié pour l'instant.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
-              {children.map(child => (
-                <div key={child.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--color-background)', borderRadius: '0.5rem' }}>
-                  <div>
-                    <div style={{ fontWeight: 'bold', color: '#333' }}>{child.first_name}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#888' }}>{child.relationship}</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      onClick={() => onSelectChild(child.id)}
-                      style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
-                    >
-                      Voir
-                    </button>
-                    <button
-                      onClick={() => removeChild(child.id)}
-                      style={{ padding: '0.4rem 0.8rem', background: 'none', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
-                    >
-                      ×
-                    </button>
-                  </div>
+        {children.length === 0 ? (
+          <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucun enfant lié pour l'instant.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
+            {children.map(child => (
+              <div key={child.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--color-background)', borderRadius: '0.5rem' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', color: '#333' }}>{child.first_name}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#888' }}>{child.relationship}</div>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {children.length < 5 && (
-            <div>
-              <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-                Génère un code et transmets-le à ton enfant pour lier les comptes.
-              </p>
-              <select
-                value={selectedRelationship}
-                onChange={e => setSelectedRelationship(e.target.value)}
-                style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.85rem', marginBottom: '0.5rem' }}
-              >
-                <option value="père">Père</option>
-                <option value="mère">Mère</option>
-                <option value="autre">Autre</option>
-              </select>
-
-              {inviteCode ? (
-                <div style={{ background: 'var(--color-background)', borderRadius: '0.5rem', padding: '0.75rem', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2a9d8f', letterSpacing: '0.3rem', marginBottom: '0.5rem' }}>
-                    {inviteCode.code}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#aaa', marginBottom: '0.5rem' }}>
-                    Expire le {new Date(inviteCode.expires_at).toLocaleDateString('fr-CH')}
-                  </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button
-                    onClick={copyCode}
-                    style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                    onClick={() => onSelectChild(child.id)}
+                    style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
                   >
-                    {copied ? '✓ Copié !' : 'Copier le code'}
+                    Voir
+                  </button>
+                  <button
+                    onClick={() => removeChild(child.id)}
+                    style={{ padding: '0.4rem 0.8rem', background: 'none', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
+                  >
+                    ×
                   </button>
                 </div>
-              ) : (
-                <button
-                  onClick={generateCode}
-                  disabled={generatingCode}
-                  style={{ width: '100%', padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-                >
-                  {generatingCode ? 'Génération...' : '+ Générer un code d\'invitation'}
-                </button>
-              )}
-            </div>
-          )}
-
-          {children.length >= 5 && (
-            <p style={{ color: '#aaa', fontSize: '0.8rem' }}>Maximum 5 enfants atteint.</p>
-          )}
-        </div>
-
-        {/* Réactions disponibles */}
-        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ color: '#2a9d8f', marginBottom: '0.5rem' }}>💬 Réactions</h3>
-          <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
-            Depuis la vue de ton enfant, tu peux laisser une réaction sur ses évaluations et révisions. Il la verra à sa prochaine connexion.
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {REACTIONS.map(r => (
-              <span key={r} style={{ fontSize: '1.5rem' }}>{r}</span>
+              </div>
             ))}
           </div>
-        </div>
+        )}
 
-        {/* Mon espace */}
-        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ color: '#2a9d8f', marginBottom: '0.5rem' }}>👤 Mon espace</h3>
-          <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
-            Tu as aussi ton propre espace ODIGO — planificateur, listes de mots et exercices.
-          </p>
-          <button
-            onClick={() => onSelectChild(null)}
-            style={{ padding: '0.6rem 1.2rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-          >
-            Accéder à mon espace
-          </button>
-        </div>
+        {children.length < 5 && (
+          <div>
+            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+              Génère un code et transmets-le à ton enfant pour lier les comptes.
+            </p>
+            <select
+              value={selectedRelationship}
+              onChange={e => setSelectedRelationship(e.target.value)}
+              style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.85rem', marginBottom: '0.5rem' }}
+            >
+              <option value="père">Père</option>
+              <option value="mère">Mère</option>
+              <option value="autre">Autre</option>
+            </select>
+
+            {inviteCode ? (
+              <div style={{ background: 'var(--color-background)', borderRadius: '0.5rem', padding: '0.75rem', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2a9d8f', letterSpacing: '0.3rem', marginBottom: '0.5rem' }}>
+                  {inviteCode.code}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#aaa', marginBottom: '0.5rem' }}>
+                  Expire le {new Date(inviteCode.expires_at).toLocaleDateString('fr-CH')}
+                </div>
+                <button
+                  onClick={copyCode}
+                  style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  {copied ? '✓ Copié !' : 'Copier le code'}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={generateCode}
+                disabled={generatingCode}
+                style={{ width: '100%', padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+              >
+                {generatingCode ? 'Génération...' : '+ Générer un code d\'invitation'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {children.length >= 5 && (
+          <p style={{ color: '#aaa', fontSize: '0.8rem' }}>Maximum 5 enfants atteint.</p>
+        )}
       </div>
 
-      {/* Récompenses IRL */}
-      <div style={{ marginTop: '1.5rem', background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+      {/* 2. Récompenses IRL */}
+      <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ color: '#2a9d8f', margin: 0 }}>🎁 Récompenses IRL</h3>
           <button
@@ -591,23 +554,13 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button
                     onClick={() => setTargetMode('all')}
-                    style={{
-                      padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem',
-                      cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold',
-                      background: targetMode === 'all' ? '#2a9d8f' : 'var(--color-border)',
-                      color: targetMode === 'all' ? 'white' : '#2a9d8f',
-                    }}
+                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: targetMode === 'all' ? '#2a9d8f' : 'var(--color-border)', color: targetMode === 'all' ? 'white' : '#2a9d8f' }}
                   >
                     Tous mes enfants
                   </button>
                   <button
                     onClick={() => setTargetMode('specific')}
-                    style={{
-                      padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem',
-                      cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold',
-                      background: targetMode === 'specific' ? '#2a9d8f' : 'var(--color-border)',
-                      color: targetMode === 'specific' ? 'white' : '#2a9d8f',
-                    }}
+                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: targetMode === 'specific' ? '#2a9d8f' : 'var(--color-border)', color: targetMode === 'specific' ? 'white' : '#2a9d8f' }}
                   >
                     Choisir
                   </button>
@@ -664,8 +617,53 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
         )}
       </div>
 
-      {/* Missions */}
-      <div style={{ marginTop: '1.5rem', background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+      {/* 3. Récompenses en attente */}
+      <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
+        <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>⏳ Récompenses en attente</h3>
+
+        {pendingPurchases.length === 0 ? (
+          <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucune récompense en attente.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {pendingPurchases.map(p => (
+              <div
+                key={p.id}
+                style={{
+                  background: 'white', border: '2px dashed #2a9d8f', borderRadius: '0.75rem',
+                  padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  flexWrap: 'wrap', gap: '0.75rem',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 'bold', color: '#333' }}>🎁 {p.reward_name}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                    {p.profiles?.first_name || 'Enfant'} · Acheté le {formatDate(p.purchased_at)}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ borderLeft: '1px dashed #ccc', alignSelf: 'stretch' }} />
+                  <span style={{ background: '#e9c46a', color: 'white', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    {p.cost} Digoos
+                  </span>
+                  <span style={{ background: 'var(--color-background)', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    ✓ Valable
+                  </span>
+                  <button
+                    onClick={() => handleMarkUsed(p)}
+                    disabled={markingUsedId === p.id}
+                    style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: markingUsedId === p.id ? 'default' : 'pointer', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                  >
+                    {markingUsedId === p.id ? '...' : 'Marquer comme utilisée'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 4. Missions */}
+      <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ color: '#2a9d8f', margin: 0 }}>🎯 Missions</h3>
           <button
@@ -861,50 +859,6 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
         )}
       </div>
 
-      {/* Récompenses en attente */}
-      <div style={{ marginTop: '1.5rem', background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-        <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🎁 Récompenses en attente</h3>
-
-        {pendingPurchases.length === 0 ? (
-          <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucune récompense en attente.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {pendingPurchases.map(p => (
-              <div
-                key={p.id}
-                style={{
-                  background: 'white', border: '2px dashed #2a9d8f', borderRadius: '0.75rem',
-                  padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  flexWrap: 'wrap', gap: '0.75rem',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 'bold', color: '#333' }}>🎁 {p.reward_name}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#888' }}>
-                    {p.profiles?.first_name || 'Enfant'} · Acheté le {formatDate(p.purchased_at)}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{ borderLeft: '1px dashed #ccc', alignSelf: 'stretch' }} />
-                  <span style={{ background: '#e9c46a', color: 'white', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                    {p.cost} Digoos
-                  </span>
-                  <span style={{ background: 'var(--color-background)', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                    ✓ Valable
-                  </span>
-                  <button
-                    onClick={() => handleMarkUsed(p)}
-                    disabled={markingUsedId === p.id}
-                    style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: markingUsedId === p.id ? 'default' : 'pointer', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
-                  >
-                    {markingUsedId === p.id ? '...' : 'Marquer comme utilisée'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   )
 }

@@ -24,6 +24,8 @@ import Allumettes from '../Allumettes'
 import Histoire from '../Histoire'
 import Cartes from '../Cartes'
 import Anagramme from '../Anagramme'
+import ConjugaisonEtrangere from '../ConjugaisonEtrangere'
+import AnagrammeFrancais from '../AnagrammeFrancais'
 import Sidebar from './Sidebar'
 import OnboardingModal from './OnboardingModal'
 import ExerciseCards from './ExerciseCards'
@@ -335,6 +337,12 @@ export default function Dashboard({ session }: Props) {
           )}
           {activePage === 'exercises' && activeExercise === 'anagramme' && (
             <div>{backButton}<Anagramme userId={effectiveUserId} /></div>
+          )}
+          {activePage === 'exercises' && activeExercise === 'conjugaison-etrangere' && (
+            <div>{backButton}<ConjugaisonEtrangere /></div>
+          )}
+          {activePage === 'exercises' && activeExercise === 'anagramme-francais' && (
+            <div>{backButton}<AnagrammeFrancais userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'maths-calcul' && (
             <Maths initialExercise="calcul" onBack={() => setActiveExercise(null)} />

@@ -43,17 +43,25 @@ export default function Subjects({ userId }: { userId?: string }) {
         </h2>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button style={tabStyle('evals')} onClick={() => setSubjectTab('evals')}>📅 Évaluations</button>
-        <button style={tabStyle('notes')} onClick={() => setSubjectTab('notes')}>📝 Notes</button>
-        <button style={tabStyle('postits')} onClick={() => setSubjectTab('postits')}>🗒️ Post-its</button>
-        <button style={tabStyle('wordlists')} onClick={() => setSubjectTab('wordlists')}>📋 Listes</button>
-      </div>
+      {(() => {
+        const LANGUAGE_SUBJECTS = ['Français', 'Allemand', 'Anglais', 'Grec', 'Arabe', 'Italien']
+        const hasWordlists = LANGUAGE_SUBJECTS.includes(selectedSubject.name)
+        return (
+          <>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button style={tabStyle('evals')} onClick={() => setSubjectTab('evals')}>📅 Évaluations</button>
+              <button style={tabStyle('notes')} onClick={() => setSubjectTab('notes')}>📝 Notes</button>
+              <button style={tabStyle('postits')} onClick={() => setSubjectTab('postits')}>🗒️ Post-its</button>
+              {hasWordlists && <button style={tabStyle('wordlists')} onClick={() => setSubjectTab('wordlists')}>📋 Listes</button>}
+            </div>
 
-      {subjectTab === 'evals' && <SubjectEvals userId={userId} subjectId={selectedSubject.id} />}
-      {subjectTab === 'notes' && <SubjectNotes userId={userId} subjectId={selectedSubject.id} />}
-      {subjectTab === 'postits' && <SubjectPostits userId={userId} subjectId={selectedSubject.id} />}
-      {subjectTab === 'wordlists' && <SubjectWordlists userId={userId} subjectId={selectedSubject.id} />}
+            {subjectTab === 'evals' && <SubjectEvals userId={userId} subjectId={selectedSubject.id} />}
+            {subjectTab === 'notes' && <SubjectNotes userId={userId} subjectId={selectedSubject.id} />}
+            {subjectTab === 'postits' && <SubjectPostits userId={userId} subjectId={selectedSubject.id} />}
+            {subjectTab === 'wordlists' && hasWordlists && <SubjectWordlists userId={userId} subjectName={selectedSubject.name} />}
+          </>
+        )
+      })()}
     </div>
   )
 }

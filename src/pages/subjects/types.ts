@@ -39,7 +39,7 @@ export interface Postit {
 export interface WordListItem {
   id: string
   user_id: string
-  subject_id: number | string
+  language: string
   name: string
   list_type: string
   created_at: string
@@ -84,9 +84,9 @@ export const POSTIT_SIZES = {
 export const POSTIT_ICONS = ['❤️', '✏️', '⚠️', '⭐', '📌', '✅', '💡', '🔍', '❓', '🎯']
 
 export const WORD_LIST_TYPES: Record<string, string> = {
-  vocabulary: 'Vocabulaire',
-  conjugation: 'Conjugaison',
-  dictation: 'Dictée',
+  vocabulaire: 'Vocabulaire',
+  conjugaison: 'Conjugaison',
+  dictée: 'Dictée',
 }
 
 export function getPreview(html: string): string {

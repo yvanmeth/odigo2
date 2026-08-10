@@ -8,13 +8,11 @@ import { EmptyState } from '../components/EmptyState'
 interface WordList {
   id: string
   user_id: string
-  subject_id: number | null
   name: string
   list_type: string
-  language: string | null
+  language: string
   share_code: string
   created_at: string
-  subjects?: { name: string } | null
 }
 
 interface WordItem {
@@ -40,11 +38,6 @@ const LIST_TYPE_COLORS: Record<string, string> = {
   dictée: '#e9c46a',
 }
 
-const SUBJECT_COLOR_MAP: Record<string, string> = {
-  'Français': '#4CAF50', 'Maths': '#2196F3', 'Allemand': '#FF9800',
-  'Anglais': '#9C27B0', 'Grec': '#00BCD4', 'Arabe': '#F44336',
-  'Géo': '#795548', 'Histoire': '#607D8B',
-}
 
 function fmtDate(iso: string): string {
   const [y, m, d] = iso.split('T')[0].split('-')
@@ -59,7 +52,6 @@ export default function WordLists({ userId }: { userId?: string }) {
   const { showToast } = useToast()
   const [lists, setLists] = useState<WordList[]>([])
   const [wordCounts, setWordCounts] = useState<Record<string, number>>({})
-  const [subjects, setSubjects] = useState<{ id: number; name: string }[]>([])
   const [selectedList, setSelectedList] = useState<WordList | null>(null)
   const [editingList, setEditingList] = useState<WordList | null>(null)
   const [items, setItems] = useState<WordItem[]>([])
@@ -68,7 +60,6 @@ export default function WordLists({ userId }: { userId?: string }) {
 
   // New list form
   const [newListName, setNewListName] = useState('')
-  const [newListSubjectId, setNewListSubjectId] = useState('')
   const [newListType, setNewListType] = useState('vocabulaire')
   const [newListLang, setNewListLang] = useState('Anglais')
 
@@ -79,7 +70,6 @@ export default function WordLists({ userId }: { userId?: string }) {
 
   // Edit list form
   const [editName, setEditName] = useState('')
-  const [editSubjectId, setEditSubjectId] = useState('')
   const [editType, setEditType] = useState('vocabulaire')
   const [editLang, setEditLang] = useState('Anglais')
 
@@ -103,7 +93,6 @@ export default function WordLists({ userId }: { userId?: string }) {
 
   useEffect(() => {
     fetchLists()
-    fetchSubjects()
   }, [userId])
 
   const getTargetId = async (): Promise<string | undefined> => {
@@ -117,7 +106,7 @@ export default function WordLists({ userId }: { userId?: string }) {
     const tid = await getTargetId()
     const { data } = await supabase
       .from('word_lists')
-      .select('*, subjects(name)')
+      .select('*')
       .eq('user_id', tid)
       .order('created_at', { ascending: false })
     if (data && data.length > 0) {
@@ -139,11 +128,6 @@ export default function WordLists({ userId }: { userId?: string }) {
     setLoading(false)
   }
 
-  const fetchSubjects = async () => {
-    const { data } = await supabase.from('subjects').select('id, name').order('name')
-    if (data) setSubjects(data)
-  }
-
   const fetchItems = async (listId: string) => {
     const { data } = await supabase.from('word_items').select('*').eq('list_id', listId).order('created_at')
     if (data) setItems(data)
@@ -155,11 +139,10 @@ export default function WordLists({ userId }: { userId?: string }) {
     await supabase.from('word_lists').insert({
       user_id: tid,
       name: newListName.trim(),
-      subject_id: newListSubjectId ? parseInt(newListSubjectId) : null,
       list_type: newListType,
       language: newListLang,
     })
-    setNewListName(''); setNewListSubjectId(''); setNewListType('vocabulaire'); setNewListLang('Anglais')
+    setNewListName(''); setNewListType('vocabulaire'); setNewListLang('Anglais')
     setShowNewList(false)
     showToast('Liste créée')
     fetchLists()
@@ -233,7 +216,6 @@ export default function WordLists({ userId }: { userId?: string }) {
     if (!editingList || !editName.trim()) return
     await supabase.from('word_lists').update({
       name: editName.trim(),
-      subject_id: editSubjectId ? parseInt(editSubjectId) : null,
       list_type: editType,
       language: editLang,
     }).eq('id', editingList.id)
@@ -244,7 +226,6 @@ export default function WordLists({ userId }: { userId?: string }) {
   const openEditList = (list: WordList) => {
     setEditingList(list)
     setEditName(list.name)
-    setEditSubjectId(list.subject_id ? String(list.subject_id) : '')
     setEditType(list.list_type)
     setEditLang(list.language || 'Anglais')
     setSelectedList(null)
@@ -684,11 +665,6 @@ export default function WordLists({ userId }: { userId?: string }) {
         <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', maxWidth: '480px' }}>
           <label style={labelStyle}>Nom de la liste</label>
           <input type="text" value={editName} onChange={e => setEditName(e.target.value)} style={inputStyle} />
-          <label style={labelStyle}>Matière (optionnel)</label>
-          <select value={editSubjectId} onChange={e => setEditSubjectId(e.target.value)} style={inputStyle}>
-            <option value="">— Sans matière —</option>
-            {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
           <label style={labelStyle}>Type</label>
           <select value={editType} onChange={e => setEditType(e.target.value)} style={inputStyle}>
             <option value="vocabulaire">Vocabulaire</option>
@@ -761,11 +737,6 @@ export default function WordLists({ userId }: { userId?: string }) {
             <div>
               <label style={labelStyle}>Nom de la liste</label>
               <input type="text" placeholder="Ex : Vocabulaire chapitre 3" value={newListName} onChange={e => setNewListName(e.target.value)} style={inputStyle} />
-              <label style={labelStyle}>Matière (optionnel)</label>
-              <select value={newListSubjectId} onChange={e => setNewListSubjectId(e.target.value)} style={inputStyle}>
-                <option value="">— Sans matière —</option>
-                {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
               <label style={labelStyle}>Type</label>
               <select value={newListType} onChange={e => setNewListType(e.target.value)} style={inputStyle}>
                 <option value="vocabulaire">Vocabulaire</option>
@@ -787,64 +758,72 @@ export default function WordLists({ userId }: { userId?: string }) {
 
       {lists.length === 0 ? (
         <EmptyState emoji="📋" title="Aucune liste de mots" subtitle="Crée ta première liste pour commencer les exercices." actionLabel="+ Nouvelle liste" onAction={() => setShowNewList(true)} />
-      ) : (
-        <div style={{ background: 'white', borderRadius: '0.75rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--color-background)' }}>
-                <th style={thStyle}>Nom</th>
-                <th style={thStyle}>Matière</th>
-                <th style={thStyle}>Créé le</th>
-                <th style={{ ...thStyle, textAlign: 'center' }}>Mots</th>
-                <th style={thStyle}>Type</th>
-                <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lists.map((list, idx) => {
-                const subjectName = list.subjects?.name
-                const subjectColor = subjectName ? (SUBJECT_COLOR_MAP[subjectName] || '#2a9d8f') : null
-                const typeBg = LIST_TYPE_COLORS[list.list_type] || '#aaa'
-                const typeLabel = LIST_TYPE_LABELS[list.list_type] || list.list_type
-                return (
-                  <tr key={list.id} style={{ background: idx % 2 === 0 ? 'white' : '#fafafa', borderBottom: '1px solid #f5f5f5' }}>
-                    <td style={{ padding: '0.75rem 1rem' }}>
-                      <span
-                        onClick={() => handleSelectList(list)}
-                        style={{ fontWeight: 'bold', color: '#333', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#cce9e5' }}
-                      >
-                        {list.name}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem' }}>
-                      {subjectName && subjectColor ? (
-                        <span style={{ padding: '0.15rem 0.5rem', borderRadius: '1rem', background: subjectColor + '22', color: subjectColor, fontSize: '0.8rem', fontWeight: 'bold', border: `1px solid ${subjectColor}44` }}>
-                          {subjectName}
-                        </span>
-                      ) : (
-                        <span style={{ color: '#bbb' }}>—</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', color: '#666', fontSize: '0.88rem' }}>{fmtDate(list.created_at)}</td>
-                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#555', fontWeight: 'bold' }}>{wordCounts[list.id] ?? 0}</td>
-                    <td style={{ padding: '0.75rem 1rem' }}>
-                      <span style={{ padding: '0.15rem 0.5rem', borderRadius: '1rem', background: typeBg, color: typeBg === '#e9c46a' ? '#555' : 'white', fontSize: '0.78rem', fontWeight: 'bold' }}>
-                        {typeLabel}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
-                        <button onClick={() => openEditList(list)} style={actionBtnStyle}><Pencil size={14} /></button>
-                        <button onClick={() => handleDeleteList(list.id)} style={{ ...actionBtnStyle, background: '#e63946' }}><Trash2 size={14} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      ) : (() => {
+        const grouped: Record<string, WordList[]> = {}
+        for (const list of lists) {
+          const lang = list.language || 'Sans langue'
+          if (!grouped[lang]) grouped[lang] = []
+          grouped[lang].push(list)
+        }
+        const sortedLangs = Object.keys(grouped).sort((a, b) => {
+          if (a === 'Sans langue') return 1
+          if (b === 'Sans langue') return -1
+          return a.localeCompare(b, 'fr')
+        })
+        return (
+          <>
+            {sortedLangs.map(lang => (
+              <div key={lang} style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ color: '#2a9d8f', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
+                  {lang}
+                  <span style={{ fontSize: '0.8rem', color: '#aaa', fontWeight: 'normal' }}>— {grouped[lang].length} liste{grouped[lang].length > 1 ? 's' : ''}</span>
+                </h3>
+                <div style={{ background: 'white', borderRadius: '0.75rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--color-background)' }}>
+                        <th style={thStyle}>Nom</th>
+                        <th style={thStyle}>Créé le</th>
+                        <th style={{ ...thStyle, textAlign: 'center' }}>Mots</th>
+                        <th style={thStyle}>Type</th>
+                        <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {grouped[lang].map((list, idx) => {
+                        const typeBg = LIST_TYPE_COLORS[list.list_type] || '#aaa'
+                        const typeLabel = LIST_TYPE_LABELS[list.list_type] || list.list_type
+                        return (
+                          <tr key={list.id} style={{ background: idx % 2 === 0 ? 'white' : '#fafafa', borderBottom: '1px solid #f5f5f5' }}>
+                            <td style={{ padding: '0.75rem 1rem' }}>
+                              <span onClick={() => handleSelectList(list)} style={{ fontWeight: 'bold', color: '#333', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#cce9e5' }}>
+                                {list.name}
+                              </span>
+                            </td>
+                            <td style={{ padding: '0.75rem 1rem', color: '#666', fontSize: '0.88rem' }}>{fmtDate(list.created_at)}</td>
+                            <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#555', fontWeight: 'bold' }}>{wordCounts[list.id] ?? 0}</td>
+                            <td style={{ padding: '0.75rem 1rem' }}>
+                              <span style={{ padding: '0.15rem 0.5rem', borderRadius: '1rem', background: typeBg, color: typeBg === '#e9c46a' ? '#555' : 'white', fontSize: '0.78rem', fontWeight: 'bold' }}>
+                                {typeLabel}
+                              </span>
+                            </td>
+                            <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                                <button onClick={() => openEditList(list)} style={actionBtnStyle}><Pencil size={14} /></button>
+                                <button onClick={() => handleDeleteList(list.id)} style={{ ...actionBtnStyle, background: '#e63946' }}><Trash2 size={14} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </>
+        )
+      })()}
     </div>
   )
 }

@@ -4,17 +4,23 @@ import { supabase } from '../../lib/supabase'
 import type { WordListItem, WordEntry } from './types'
 import { WORD_LIST_TYPES } from './types'
 
-interface SubjectWordlistsProps {
-  userId?: string
-  subjectId: number | string
+const SUBJECT_LANGUAGE_MAP: Record<string, string> = {
+  'Français': 'Français', 'Anglais': 'Anglais', 'Allemand': 'Allemand',
+  'Grec': 'Grec', 'Arabe': 'Arabe', 'Italien': 'Italien',
 }
 
-export default function SubjectWordlists({ userId, subjectId }: SubjectWordlistsProps) {
+interface SubjectWordlistsProps {
+  userId?: string
+  subjectName: string
+}
+
+export default function SubjectWordlists({ userId, subjectName }: SubjectWordlistsProps) {
+  const subjectLanguage = SUBJECT_LANGUAGE_MAP[subjectName] || subjectName
   const [wordLists, setWordLists] = useState<WordListItem[]>([])
   const [wordCounts, setWordCounts] = useState<Record<string, number>>({})
   const [showNewListForm, setShowNewListForm] = useState(false)
   const [newListName, setNewListName] = useState('')
-  const [newListType, setNewListType] = useState('vocabulary')
+  const [newListType, setNewListType] = useState('vocabulaire')
   const [renamingListId, setRenamingListId] = useState<string | null>(null)
   const [renameListValue, setRenameListValue] = useState('')
   const [editingList, setEditingList] = useState<WordListItem | null>(null)
@@ -25,7 +31,7 @@ export default function SubjectWordlists({ userId, subjectId }: SubjectWordlists
   const [editSource, setEditSource] = useState('')
   const [editTarget, setEditTarget] = useState('')
 
-  useEffect(() => { fetchWordLists() }, [subjectId])
+  useEffect(() => { fetchWordLists() }, [subjectName])
 
   const getTargetId = async () => {
     if (userId) return userId
@@ -37,7 +43,7 @@ export default function SubjectWordlists({ userId, subjectId }: SubjectWordlists
     const tid = await getTargetId()
     if (!tid) return
     const { data } = await supabase.from('word_lists').select('*')
-      .eq('user_id', tid).eq('subject_id', subjectId).order('name')
+      .eq('user_id', tid).eq('language', subjectLanguage).order('name')
     if (data) {
       setWordLists(data)
       const counts: Record<string, number> = {}
@@ -53,13 +59,13 @@ export default function SubjectWordlists({ userId, subjectId }: SubjectWordlists
     const tid = await getTargetId()
     if (!tid || !newListName.trim()) return
     const { data } = await supabase.from('word_lists').insert({
-      user_id: tid, subject_id: subjectId, name: newListName.trim(), list_type: newListType,
+      user_id: tid, language: subjectLanguage, name: newListName.trim(), list_type: newListType,
     }).select().single()
     if (data) {
       setWordLists(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
       setWordCounts(prev => ({ ...prev, [data.id]: 0 }))
     }
-    setNewListName(''); setNewListType('vocabulary'); setShowNewListForm(false)
+    setNewListName(''); setNewListType('vocabulaire'); setShowNewListForm(false)
   }
 
   const handleSaveListRename = async (list: WordListItem) => {
@@ -150,9 +156,9 @@ export default function SubjectWordlists({ userId, subjectId }: SubjectWordlists
           <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1rem', maxWidth: '420px' }}>
             <input type="text" placeholder="Nom de la liste" value={newListName} onChange={e => setNewListName(e.target.value)} style={inputStyle} />
             <select value={newListType} onChange={e => setNewListType(e.target.value)} style={inputStyle}>
-              <option value="vocabulary">Vocabulaire</option>
-              <option value="conjugation">Conjugaison</option>
-              <option value="dictation">Dictée</option>
+              <option value="vocabulaire">Vocabulaire</option>
+              <option value="conjugaison">Conjugaison</option>
+              <option value="dictée">Dictée</option>
             </select>
             <button onClick={handleCreateList} style={{ width: '100%', padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}>Créer</button>
           </div>

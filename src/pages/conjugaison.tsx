@@ -144,7 +144,7 @@ export default function Conjugaison() {
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).eq('list_type', 'conjugaison').order('name')
+    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).eq('list_type', 'conjugaison').eq('language', 'Français').order('name')
     if (data) setLists(data)
     setLoadingLists(false)
   }

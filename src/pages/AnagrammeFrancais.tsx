@@ -42,11 +42,11 @@ const shuffleLetters = (word: string): string[] => {
   return shuffled
 }
 
-interface AnagrammeProps {
+interface AnagrammeFrancaisProps {
   userId?: string
 }
 
-export default function Anagramme({ userId }: AnagrammeProps) {
+export default function AnagrammeFrancais({ userId }: AnagrammeFrancaisProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedListId, setSelectedListId] = useState('')
@@ -77,7 +77,7 @@ export default function Anagramme({ userId }: AnagrammeProps) {
       .select('id, name, list_type, language')
       .eq('user_id', targetId)
       .eq('list_type', 'vocabulaire')
-      .neq('language', 'Français')
+      .eq('language', 'Français')
       .order('name')
     setLists(data || [])
   }
@@ -133,7 +133,7 @@ export default function Anagramme({ userId }: AnagrammeProps) {
       action_type: 'exercise_completed',
       questions_total: TOTAL_WORDS,
       questions_correct: totalCorrect,
-      metadata: { exercise: 'anagramme', listId: selectedListId },
+      metadata: { exercise: 'anagramme-francais', listId: selectedListId },
     })
     const earned = await addDigoos(totalPoints, 'exercise')
     setEarnedDigoos(earned)
@@ -290,14 +290,14 @@ export default function Anagramme({ userId }: AnagrammeProps) {
   if (gameState === 'select') {
     return (
       <div>
-        <h2 style={{ color: PRIMARY, marginBottom: '0.5rem' }}>🔤 Anagramme</h2>
+        <h2 style={{ color: PRIMARY, marginBottom: '0.5rem' }}>🔤 Anagramme — Français</h2>
         <p style={{ color: '#888', marginBottom: '1.5rem' }}>Remets les lettres dans le bon ordre !</p>
 
         {lists.length === 0 ? (
           <EmptyState
             emoji="📋"
             title="Aucune liste disponible"
-            subtitle="Crée une liste de vocabulaire en langue étrangère pour jouer à cet exercice."
+            subtitle="Crée une liste de vocabulaire en Français pour jouer à cet exercice."
           />
         ) : (
           <div style={{ maxWidth: '420px' }}>
@@ -366,7 +366,6 @@ export default function Anagramme({ userId }: AnagrammeProps) {
 
   return (
     <div style={{ maxWidth: '500px', margin: '0 auto' }}>
-      {/* Progression */}
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
           <span style={{ color: '#888', fontSize: '0.9rem' }}>Mot {currentIndex + 1} / {TOTAL_WORDS}</span>
@@ -376,10 +375,7 @@ export default function Anagramme({ userId }: AnagrammeProps) {
           </span>
         </div>
         <div style={{ height: '6px', background: '#e0f0ee', borderRadius: '3px' }}>
-          <div style={{
-            height: '100%', background: PRIMARY, borderRadius: '3px',
-            width: `${progress}%`, transition: 'width 0.3s ease',
-          }} />
+          <div style={{ height: '100%', background: PRIMARY, borderRadius: '3px', width: `${progress}%`, transition: 'width 0.3s ease' }} />
         </div>
       </div>
 
@@ -419,13 +415,7 @@ export default function Anagramme({ userId }: AnagrammeProps) {
               ) : (
                 <div
                   key={i}
-                  style={{
-                    width: '44px', height: '4px',
-                    background: '#ccc',
-                    borderRadius: '2px',
-                    alignSelf: 'flex-end',
-                    marginBottom: '4px',
-                  }}
+                  style={{ width: '44px', height: '4px', background: '#ccc', borderRadius: '2px', alignSelf: 'flex-end', marginBottom: '4px' }}
                 />
               )
             ))}
@@ -439,10 +429,7 @@ export default function Anagramme({ userId }: AnagrammeProps) {
           )}
 
           {/* Banque de lettres */}
-          <div style={{
-            display: 'flex', gap: '6px', flexWrap: 'wrap',
-            justifyContent: 'center', marginBottom: '1.5rem',
-          }}>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '1.5rem' }}>
             {bank.map(item => (
               <div
                 key={item.id}
@@ -473,12 +460,7 @@ export default function Anagramme({ userId }: AnagrammeProps) {
             <button
               onClick={reshuffleBank}
               disabled={feedback !== null}
-              style={{
-                padding: '0.4rem 0.9rem',
-                background: 'white', color: PRIMARY,
-                border: `1px solid ${PRIMARY}`, borderRadius: '0.5rem',
-                cursor: feedback !== null ? 'default' : 'pointer', fontSize: '0.85rem',
-              }}
+              style={{ padding: '0.4rem 0.9rem', background: 'white', color: PRIMARY, border: `1px solid ${PRIMARY}`, borderRadius: '0.5rem', cursor: feedback !== null ? 'default' : 'pointer', fontSize: '0.85rem' }}
             >
               🔀 Mélanger
             </button>
@@ -486,12 +468,7 @@ export default function Anagramme({ userId }: AnagrammeProps) {
               <button
                 onClick={applyHintFirst}
                 disabled={feedback !== null}
-                style={{
-                  padding: '0.4rem 0.9rem',
-                  background: 'white', color: '#e76f51',
-                  border: '1px solid #e76f51', borderRadius: '0.5rem',
-                  cursor: feedback !== null ? 'default' : 'pointer', fontSize: '0.85rem',
-                }}
+                style={{ padding: '0.4rem 0.9rem', background: 'white', color: '#e76f51', border: '1px solid #e76f51', borderRadius: '0.5rem', cursor: feedback !== null ? 'default' : 'pointer', fontSize: '0.85rem' }}
               >
                 💡 1ère lettre
               </button>
@@ -501,8 +478,7 @@ export default function Anagramme({ userId }: AnagrammeProps) {
                 onClick={() => setHintTranslation(true)}
                 disabled={feedback !== null || hintTranslation}
                 style={{
-                  padding: '0.4rem 0.9rem',
-                  background: 'white', color: '#e76f51',
+                  padding: '0.4rem 0.9rem', background: 'white', color: '#e76f51',
                   border: '1px solid #e76f51', borderRadius: '0.5rem',
                   cursor: feedback !== null || hintTranslation ? 'default' : 'pointer',
                   fontSize: '0.85rem',
@@ -515,12 +491,7 @@ export default function Anagramme({ userId }: AnagrammeProps) {
             <button
               onClick={skipWord}
               disabled={feedback !== null}
-              style={{
-                padding: '0.4rem 0.9rem',
-                background: 'white', color: '#888',
-                border: '1px solid #ccc', borderRadius: '0.5rem',
-                cursor: feedback !== null ? 'default' : 'pointer', fontSize: '0.85rem',
-              }}
+              style={{ padding: '0.4rem 0.9rem', background: 'white', color: '#888', border: '1px solid #ccc', borderRadius: '0.5rem', cursor: feedback !== null ? 'default' : 'pointer', fontSize: '0.85rem' }}
             >
               Passer →
             </button>

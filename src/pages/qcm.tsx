@@ -12,6 +12,8 @@ interface WordItem {
 interface WordList {
   id: string
   name: string
+  language: string
+  list_type: string
 }
 
 type GameState = 'select' | 'playing' | 'result'
@@ -24,10 +26,15 @@ const MODE_CONFIG = {
   expert: { choices: 8, basePoints: 20, bonusSpeed: 10, label: 'Expert', emoji: '💎' },
 }
 
-const speak = (text: string) => {
+const LANG_VOICE_MAP: Record<string, string> = {
+  'Anglais': 'en-GB', 'Allemand': 'de-DE', 'Grec': 'el-GR',
+  'Arabe': 'ar-DZ', 'Italien': 'it-IT', 'Espagnol': 'es-ES', 'Français': 'fr-FR',
+}
+
+const speak = (text: string, lang = 'fr-FR') => {
   speechSynthesis.cancel()
   const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = /[Ͱ-Ͽ]/.test(text) ? 'el-GR' : 'en-GB'
+  utterance.lang = lang
   speechSynthesis.speak(utterance)
 }
 
@@ -60,12 +67,14 @@ export default function QCM() {
   const [highScores, setHighScores] = useState<{ score: number; date: string; mode: string }[]>([])
   const [fireMode, setFireMode] = useState<null | 'small' | 'big'>(null)
 
+  const [listLanguage, setListLanguage] = useState('')
+
   useEffect(() => { fetchLists() }, [])
 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).order('name')
+    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', user.id).eq('list_type', 'vocabulaire').order('name')
     if (data) setLists(data)
   }
 
@@ -214,9 +223,9 @@ export default function QCM() {
 
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Liste</label>
-            <select value={selectedList} onChange={e => { setSelectedList(e.target.value); loadHighScores(e.target.value, mode) }} style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}>
+            <select value={selectedList} onChange={e => { setSelectedList(e.target.value); loadHighScores(e.target.value, mode); const l = lists.find(x => x.id === e.target.value); if (l) setListLanguage(l.language) }} style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}>
               <option value="">-- Sélectionner --</option>
-              {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              {lists.map(l => <option key={l.id} value={l.id}>{l.name} — {l.language} ({l.list_type})</option>)}
             </select>
           </div>
 
@@ -328,7 +337,7 @@ export default function QCM() {
         }}>
           {displayWord}
           {direction === 'french' && !feedback && (
-            <button onClick={() => speak(displayWord)} style={audioButtonStyle}>
+            <button onClick={() => speak(displayWord, LANG_VOICE_MAP[listLanguage] || 'en-GB')} style={audioButtonStyle}>
               🔊 Écouter
             </button>
           )}
@@ -369,7 +378,7 @@ export default function QCM() {
                 {choice}
               </button>
               {direction === 'foreign' && !feedback && (
-                <button onClick={() => speak(choice)} style={audioButtonStyle}>
+                <button onClick={() => speak(choice, 'fr-FR')} style={audioButtonStyle}>
                   🔊 Écouter
                 </button>
               )}

@@ -14,21 +14,16 @@ interface WordItem {
 interface WordList {
   id: string
   name: string
+  language: string
+  list_type: string
 }
 
 type GameState = 'select' | 'playing' | 'result'
 
-const LANG_CODES: Record<string, string> = {
-  'Anglais':   'en-GB',
-  'Allemand':  'de-DE',
-  'Espagnol':  'es-ES',
-  'Grec':      'el-GR',
-  'Arabe':     'ar-SA',
-  'Italien':   'it-IT',
-  'Français':  'fr-FR',
+const LANG_VOICE_MAP: Record<string, string> = {
+  'Anglais': 'en-GB', 'Allemand': 'de-DE', 'Grec': 'el-GR',
+  'Arabe': 'ar-DZ', 'Italien': 'it-IT', 'Espagnol': 'es-ES', 'Français': 'fr-FR',
 }
-
-const SUBJECTS = Object.keys(LANG_CODES).filter(s => s !== 'Français')
 
 // --- Sons Web Audio ---
 const playSuccessSound = () => {
@@ -69,7 +64,7 @@ export default function Flashcards() {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
-  const [subject, setSubject] = useState('Anglais')
+  const [listLanguage, setListLanguage] = useState('')
   const [direction, setDirection] = useState<'foreign' | 'french'>('foreign')
   const [words, setWords] = useState<WordItem[]>([])
 
@@ -87,9 +82,8 @@ export default function Flashcards() {
 
   const touchStartX = useRef<number | null>(null)
 
-  // Langue recto et verso selon direction
-  const frontLang = direction === 'foreign' ? (LANG_CODES[subject] || 'en-GB') : 'fr-FR'
-  const backLang  = direction === 'foreign' ? 'fr-FR' : (LANG_CODES[subject] || 'en-GB')
+  const frontLang = direction === 'foreign' ? (LANG_VOICE_MAP[listLanguage] || 'en-GB') : 'fr-FR'
+  const backLang  = direction === 'foreign' ? 'fr-FR' : (LANG_VOICE_MAP[listLanguage] || 'en-GB')
 
   useEffect(() => { fetchLists() }, [])
 
@@ -120,7 +114,7 @@ export default function Flashcards() {
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).order('name')
+    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', user.id).eq('list_type', 'vocabulaire').order('name')
     if (data) setLists(data)
   }
 
@@ -264,32 +258,12 @@ export default function Flashcards() {
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Liste</label>
             <select
               value={selectedList}
-              onChange={e => { setSelectedList(e.target.value); loadHighScores(e.target.value) }}
+              onChange={e => { setSelectedList(e.target.value); loadHighScores(e.target.value); const l = lists.find(x => x.id === e.target.value); if (l) setListLanguage(l.language) }}
               style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
             >
               <option value="">-- Sélectionner --</option>
-              {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              {lists.map(l => <option key={l.id} value={l.id}>{l.name} — {l.language} ({l.list_type})</option>)}
             </select>
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Langue de la liste</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-              {SUBJECTS.map(s => (
-                <button
-                  key={s}
-                  onClick={() => setSubject(s)}
-                  style={{
-                    padding: '0.4rem 0.8rem',
-                    background: subject === s ? '#2a9d8f' : 'var(--color-border)',
-                    color: subject === s ? 'white' : '#2a9d8f',
-                    border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem'
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
@@ -299,13 +273,13 @@ export default function Flashcards() {
                 onClick={() => setDirection('foreign')}
                 style={{ flex: 1, padding: '0.6rem', background: direction === 'foreign' ? '#2a9d8f' : 'var(--color-border)', color: direction === 'foreign' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
-                {subject} → Français
+                {listLanguage || 'Langue'} → Français
               </button>
               <button
                 onClick={() => setDirection('french')}
                 style={{ flex: 1, padding: '0.6rem', background: direction === 'french' ? '#2a9d8f' : 'var(--color-border)', color: direction === 'french' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
-                Français → {subject}
+                Français → {listLanguage || 'Langue'}
               </button>
             </div>
           </div>

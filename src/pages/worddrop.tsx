@@ -12,6 +12,8 @@ interface WordItem {
 interface WordList {
   id: string
   name: string
+  language: string
+  list_type: string
 }
 
 type GameState = 'select' | 'playing' | 'result'
@@ -56,7 +58,7 @@ export default function WordDrop() {
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).order('name')
+    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', user.id).eq('list_type', 'vocabulaire').order('name')
     if (data) setLists(data)
   }
 
@@ -283,7 +285,7 @@ export default function WordDrop() {
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Choisir une liste</label>
             <select value={selectedList} onChange={e => { setSelectedList(e.target.value); loadHighScores(e.target.value) }} style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}>
               <option value="">-- Sélectionner --</option>
-              {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              {lists.map(l => <option key={l.id} value={l.id}>{l.name} — {l.language} ({l.list_type})</option>)}
             </select>
           </div>
 
