@@ -32,10 +32,30 @@ const DEFAULT_CONFIG = { tenses: ['Présent', 'Passé', 'Futur'], pronouns: true
 
 const NB_QUESTIONS = [5, 8, 10, 15]
 
-const norm = (s: string) => s.trim().toLowerCase()
+const PRONOUNS = ['he ', 'she ', 'it ', 'they ', 'we ', 'you ', 'i ']
 
-const validerSimple = (input: string, q: Question): boolean =>
-  q.reponses.some(r => norm(input) === norm(r))
+const normalizeAnswer = (answer: string): string =>
+  answer.trim().toLowerCase().replace(/\s+/g, ' ')
+
+const checkAnswer = (userAnswer: string, q: Question): boolean => {
+  const normalUser = normalizeAnswer(userAnswer)
+  for (const r of q.reponses) {
+    const normalExpected = normalizeAnswer(r)
+    if (normalUser === normalExpected) return true
+    if (normalExpected.includes('/')) {
+      const variants = normalExpected.split('/').map(v => normalizeAnswer(v))
+      if (variants.includes(normalUser)) return true
+      const formsWithoutPronouns = variants.map(v => {
+        for (const p of PRONOUNS) {
+          if (v.startsWith(p)) return v.slice(p.length)
+        }
+        return v
+      })
+      if (formsWithoutPronouns.includes(normalUser)) return true
+    }
+  }
+  return false
+}
 
 export default function ConjugaisonEtrangere() {
   const [gameState, setGameState] = useState<GameState>('select')
@@ -52,10 +72,18 @@ export default function ConjugaisonEtrangere() {
   const [streak, setStreak] = useState(0)
   const [score, setScore] = useState(0)
   const [digoosEarned, setDigoosEarned] = useState(0)
+  const [selectedTenses, setSelectedTenses] = useState<string[]>([])
   const [error, setError] = useState('')
   const [highScores, setHighScores] = useState<{ score: number; date: string }[]>([])
 
   useEffect(() => { fetchLists() }, [])
+
+  useEffect(() => {
+    if (listLanguage) {
+      const config = CONJUGAISON_CONFIG[listLanguage] || DEFAULT_CONFIG
+      setSelectedTenses(config.tenses)
+    }
+  }, [listLanguage])
 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -85,7 +113,7 @@ export default function ConjugaisonEtrangere() {
     }
 
     const config = CONJUGAISON_CONFIG[listLanguage] || DEFAULT_CONFIG
-    const tensesStr = config.tenses.join(', ')
+    const tensesStr = selectedTenses.join(', ')
     const pronounInfo = config.pronouns
       ? 'Inclure le pronom sujet dans les "reponses" (ex: ["I go", "he goes"] pour anglais, inclure toutes les personnes).'
       : 'Ne pas inclure de pronom dans "reponses", seulement la forme conjuguée.'
@@ -142,7 +170,7 @@ Réponds UNIQUEMENT en JSON valide :
   const valider = useCallback(() => {
     if (!reponse.trim() || feedback) return
     const q = questions[current]
-    const correct = validerSimple(reponse, q)
+    const correct = checkAnswer(reponse, q)
     const newStreak = correct ? streak + 1 : 0
     const points = correct ? 10 + (newStreak >= 3 ? 5 : 0) : 0
     setStreak(newStreak)
@@ -226,8 +254,31 @@ Réponds UNIQUEMENT en JSON valide :
           </div>
 
           {listLanguage && (
-            <div style={{ marginBottom: '1rem', padding: '0.5rem 0.75rem', background: 'var(--color-background)', borderRadius: '0.5rem', fontSize: '0.85rem', color: '#555' }}>
-              Temps : {(CONJUGAISON_CONFIG[listLanguage] || DEFAULT_CONFIG).tenses.join(', ')}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ fontSize: '0.85rem', color: '#888' }}>Temps à pratiquer :</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.4rem' }}>
+                {(CONJUGAISON_CONFIG[listLanguage] || DEFAULT_CONFIG).tenses.map(tense => (
+                  <button key={tense}
+                    onClick={() => setSelectedTenses(prev =>
+                      prev.includes(tense) ? prev.filter(t => t !== tense) : [...prev, tense]
+                    )}
+                    style={{
+                      padding: '0.3rem 0.75rem', borderRadius: '1rem',
+                      border: '1px solid #2a9d8f',
+                      background: selectedTenses.includes(tense) ? '#2a9d8f' : 'white',
+                      color: selectedTenses.includes(tense) ? 'white' : '#2a9d8f',
+                      cursor: 'pointer', fontSize: '0.8rem',
+                    }}
+                  >
+                    {tense}
+                  </button>
+                ))}
+              </div>
+              {selectedTenses.length === 0 && (
+                <div style={{ color: '#e63946', fontSize: '0.8rem', marginTop: '0.3rem' }}>
+                  Sélectionne au moins un temps
+                </div>
+              )}
             </div>
           )}
 
@@ -244,8 +295,8 @@ Réponds UNIQUEMENT en JSON valide :
 
           {error && <p style={{ color: '#e63946', fontSize: '0.85rem', marginBottom: '1rem' }}>{error}</p>}
 
-          <button onClick={genererQuestions} disabled={!selectedList || gameState === 'loading'}
-            style={{ width: '100%', padding: '0.75rem', background: selectedList ? '#2a9d8f' : '#ccc', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: selectedList ? 'pointer' : 'default', fontSize: '1rem', fontWeight: 'bold' }}
+          <button onClick={genererQuestions} disabled={!selectedList || selectedTenses.length === 0 || gameState === 'loading'}
+            style={{ width: '100%', padding: '0.75rem', background: (selectedList && selectedTenses.length > 0) ? '#2a9d8f' : '#ccc', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: (selectedList && selectedTenses.length > 0) ? 'pointer' : 'default', fontSize: '1rem', fontWeight: 'bold' }}
           >
             {gameState === 'loading' ? '⏳ Génération des questions...' : '🚀 Jouer'}
           </button>
