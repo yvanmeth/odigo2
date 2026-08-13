@@ -259,12 +259,26 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
   const fetchMissions = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('missions')
-      .select('*, profiles!child_id(first_name)')
+      .select('id, parent_id, child_id, name, description, deadline, reward_type, reward_amount, reward_irl_id, status, claimed_at, completed_at')
       .eq('parent_id', user.id)
       .order('deadline', { ascending: true })
-    setMissions((data as Mission[]) || [])
+    console.log('missions data:', data, 'error:', error)
+    if (error) { console.error('fetchMissions RLS/error:', error.message, error.details); return }
+    if (!data || data.length === 0) { setMissions([]); return }
+    // Enrichir avec le prénom de l'enfant séparément pour éviter les problèmes de FK join
+    const childIds = [...new Set(data.map((m: any) => m.child_id))]
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, first_name')
+      .in('id', childIds)
+    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.first_name]))
+    const enriched = data.map((m: any) => ({
+      ...m,
+      profiles: { first_name: profileMap.get(m.child_id) || null },
+    }))
+    setMissions(enriched as Mission[])
   }
 
   const fetchIrlRewardsList = async () => {
