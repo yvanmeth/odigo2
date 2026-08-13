@@ -337,23 +337,14 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
       .eq('id', mission.id)
 
     if (mission.reward_type === 'digoos' && mission.reward_amount) {
-      const { data: childProgress } = await supabase
-        .from('progress')
-        .select('digoos, digoos_this_week')
-        .eq('user_id', mission.child_id)
-        .single()
-
-      if (childProgress) {
-        await supabase.from('progress').update({
-          digoos: (childProgress.digoos || 0) + mission.reward_amount,
-          digoos_this_week: (childProgress.digoos_this_week || 0) + mission.reward_amount,
-        }).eq('user_id', mission.child_id)
-      } else {
-        await supabase.from('progress').insert({
-          user_id: mission.child_id,
-          digoos: mission.reward_amount,
-          digoos_this_week: mission.reward_amount,
-        })
+      const { error: digoosError } = await supabase.rpc('add_digoos_to_user', {
+        target_user_id: mission.child_id,
+        amount: mission.reward_amount,
+      })
+      if (digoosError) {
+        console.error('Erreur credit digoos:', digoosError)
+        showToast('Erreur lors du crédit des Digoos', 'error')
+        return
       }
     } else if (mission.reward_type === 'irl_reward' && mission.reward_irl_id) {
       const { data: reward } = await supabase
