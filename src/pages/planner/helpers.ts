@@ -7,6 +7,7 @@ export interface PlannerMission {
   deadline: string
   reward_type: 'digoos' | 'irl_reward'
   reward_amount: number | null
+  status: 'pending' | 'claimed' | 'completed'
 }
 
 export const formatDate = (d: string): string => {

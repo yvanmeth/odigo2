@@ -55,7 +55,8 @@ interface Mission {
   reward_type: 'digoos' | 'irl_reward'
   reward_amount: number | null
   reward_irl_id: string | null
-  status: 'pending' | 'completed'
+  status: 'pending' | 'claimed' | 'completed'
+  claimed_at: string | null
   completed_at: string | null
   profiles?: { first_name: string | null } | null
 }
@@ -94,6 +95,8 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
   const [rewardIrlId, setRewardIrlId] = useState('')
   const [missionTargetMode, setMissionTargetMode] = useState<'all' | 'specific'>('all')
   const [missionTargetChildren, setMissionTargetChildren] = useState<string[]>([])
+
+  const [showCompleted, setShowCompleted] = useState(false)
 
   // Récompenses en attente
   const [pendingPurchases, setPendingPurchases] = useState<PendingPurchase[]>([])
@@ -358,6 +361,12 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
 
     showToast('Mission validée et récompense distribuée !')
     fetchMissions()
+  }
+
+  const handleRefuseMission = async (missionId: string) => {
+    await supabase.from('missions').update({ status: 'pending', claimed_at: null }).eq('id', missionId)
+    fetchMissions()
+    showToast('Mission renvoyée en cours')
   }
 
   const handleDeleteMission = async (id: string) => {
@@ -796,67 +805,131 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
           </div>
         )}
 
-        {missions.length === 0 ? (
-          <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucune mission créée.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {missions.map(m => {
-              const isExpired = m.status === 'pending' && new Date(m.deadline) < new Date()
-              const childName = m.profiles?.first_name || 'Enfant'
-              const irlName = irlRewardsList.find(r => r.id === m.reward_irl_id)?.name
-              return (
-                <div key={m.id} style={{ background: '#f8fffe', border: '1px solid var(--color-border)', borderRadius: '0.75rem', padding: '1rem 1.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '0.15rem' }}>
-                        {m.name} <span style={{ fontWeight: 'normal', color: '#888', fontSize: '0.85rem' }}>— {childName}</span>
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.4rem' }}>{m.description}</div>
-                      <div style={{ fontSize: '0.82rem', color: '#888' }}>⏱ Jusqu'au {formatDateTime(m.deadline)}</div>
-                      <div style={{ fontSize: '0.82rem', marginTop: '0.2rem' }}>
-                        {m.reward_type === 'digoos'
-                          ? <span style={{ color: '#b8860b', fontWeight: 'bold' }}>💰 {m.reward_amount} Δ</span>
-                          : <span style={{ color: '#2a9d8f', fontWeight: 'bold' }}>🎁 {irlName || 'Récompense IRL'}</span>
-                        }
-                      </div>
+        {(() => {
+          const claimedMissions = missions.filter(m => m.status === 'claimed')
+          const pendingMissions = missions.filter(m => m.status === 'pending')
+          const completedMissions = missions.filter(m => m.status === 'completed')
+
+          const sectionLabel = (label: string, count: number) => (
+            <div style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.6rem', marginTop: '0.25rem' }}>
+              {label} <span style={{ fontWeight: 'normal', color: '#aaa' }}>({count})</span>
+            </div>
+          )
+
+          const missionCard = (m: Mission, variant: 'claimed' | 'pending' | 'completed') => {
+            const isExpired = variant === 'pending' && new Date(m.deadline) < new Date()
+            const childName = m.profiles?.first_name || 'Enfant'
+            const irlRewardName = irlRewardsList.find(r => r.id === m.reward_irl_id)?.name
+            return (
+              <div key={m.id} style={{
+                background: variant === 'claimed' ? '#fff8f0' : 'white',
+                border: variant === 'claimed' ? '2px solid #e9c46a' : '1px solid var(--color-border)',
+                borderRadius: '0.75rem', padding: '1rem 1.25rem', marginBottom: '0.6rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '0.15rem' }}>
+                      {m.name} <span style={{ fontWeight: 'normal', color: '#888', fontSize: '0.85rem' }}>— {childName}</span>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
-                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        {m.status === 'completed' ? (
-                          <span style={{ background: 'var(--color-border)', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.78rem', fontWeight: 'bold' }}>✓ Accomplie</span>
-                        ) : (
-                          <span style={{ background: '#fff8e0', color: '#b8860b', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.78rem', fontWeight: 'bold' }}>En attente</span>
-                        )}
-                        {isExpired && (
-                          <span style={{ background: '#ffeaea', color: '#e63946', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.78rem', fontWeight: 'bold' }}>⏰ Expirée</span>
-                        )}
+                    <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.4rem' }}>{m.description}</div>
+                    {variant !== 'completed' && (
+                      <div style={{ fontSize: '0.82rem', color: isExpired ? '#e63946' : '#888' }}>
+                        ⏱ {isExpired ? '⏰ Expirée — deadline : ' : 'Jusqu\'au '}{formatDateTime(m.deadline)}
                       </div>
-                      {m.status === 'completed' && m.completed_at && (
-                        <div style={{ fontSize: '0.78rem', color: '#888' }}>Accomplie le {formatDate(m.completed_at)}</div>
-                      )}
-                      <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        {m.status === 'pending' && (
-                          <button
-                            onClick={() => handleCompleteMission(m)}
-                            style={{ padding: '0.35rem 0.7rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}
-                          >
-                            ✓ Mission accomplie
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteMission(m.id)}
+                    )}
+                    {variant === 'completed' && m.completed_at && (
+                      <div style={{ fontSize: '0.82rem', color: '#888' }}>Accomplie le {formatDate(m.completed_at)}</div>
+                    )}
+                    {variant === 'claimed' && m.claimed_at && (
+                      <div style={{ fontSize: '0.8rem', color: '#b8860b', marginTop: '0.2rem' }}>Signalée le {formatDate(m.claimed_at)}</div>
+                    )}
+                    <div style={{ fontSize: '0.82rem', marginTop: '0.3rem' }}>
+                      {m.reward_type === 'digoos'
+                        ? <span style={{ color: '#b8860b', fontWeight: 'bold' }}>💰 {m.reward_amount} Δ</span>
+                        : <span style={{ color: '#2a9d8f', fontWeight: 'bold' }}>🎁 {irlRewardName || 'Récompense IRL'}</span>
+                      }
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                    {variant === 'claimed' && (
+                      <>
+                        <button onClick={() => handleCompleteMission(m)}
+                          style={{ padding: '0.45rem 0.9rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                        >
+                          ✓ Accorder la récompense
+                        </button>
+                        <button onClick={() => handleRefuseMission(m.id)}
+                          style={{ padding: '0.35rem 0.7rem', background: 'none', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                        >
+                          ✗ Refuser
+                        </button>
+                      </>
+                    )}
+                    {variant === 'pending' && (
+                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <button onClick={() => handleCompleteMission(m)}
+                          style={{ padding: '0.35rem 0.7rem', background: 'var(--color-border)', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                        >
+                          ✓ Valider quand même
+                        </button>
+                        <button onClick={() => handleDeleteMission(m.id)}
                           style={{ padding: '0.35rem 0.6rem', background: 'none', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center' }}
                         >
                           <Trash2 size={13} />
                         </button>
                       </div>
-                    </div>
+                    )}
+                    {variant === 'completed' && (
+                      <button onClick={() => handleDeleteMission(m.id)}
+                        style={{ padding: '0.35rem 0.6rem', background: 'none', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center' }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        )}
+              </div>
+            )
+          }
+
+          if (missions.length === 0) {
+            return <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucune mission créée.</p>
+          }
+
+          return (
+            <div>
+              {/* À valider */}
+              {sectionLabel('⏳ À valider', claimedMissions.length)}
+              {claimedMissions.length === 0
+                ? <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '1rem' }}>Aucune mission dans cette catégorie.</p>
+                : claimedMissions.map(m => missionCard(m, 'claimed'))
+              }
+
+              {/* En cours */}
+              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
+                {sectionLabel('🎯 En cours', pendingMissions.length)}
+                {pendingMissions.length === 0
+                  ? <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '1rem' }}>Aucune mission dans cette catégorie.</p>
+                  : pendingMissions.map(m => missionCard(m, 'pending'))
+                }
+              </div>
+
+              {/* Accomplies — repliées par défaut */}
+              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
+                <button onClick={() => setShowCompleted(p => !p)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: '0.85rem', padding: '0', marginBottom: '0.5rem' }}
+                >
+                  {showCompleted ? '▾' : '▸'} Voir les missions accomplies ({completedMissions.length})
+                </button>
+                {showCompleted && (
+                  completedMissions.length === 0
+                    ? <p style={{ color: '#aaa', fontSize: '0.85rem' }}>Aucune mission accomplie.</p>
+                    : completedMissions.map(m => missionCard(m, 'completed'))
+                )}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
     </div>

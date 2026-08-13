@@ -33,7 +33,7 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
       supabase.from('subjects').select('*').order('name'),
       supabase.from('reminders').select('*').eq('user_id', targetId).order('deadline_date'),
       supabase.from('user_subjects').select('*').eq('user_id', targetId),
-      supabase.from('missions').select('id, name, description, deadline, reward_type, reward_amount').eq('child_id', targetId).eq('status', 'pending').order('deadline'),
+      supabase.from('missions').select('id, name, description, deadline, reward_type, reward_amount, status').eq('child_id', targetId).in('status', ['pending', 'claimed', 'completed']).order('deadline'),
     ])
     if (evalsRes.data) setEvaluations(evalsRes.data)
     if (revsRes.data) setRevisions(revsRes.data)

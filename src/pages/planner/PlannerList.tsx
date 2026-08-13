@@ -42,6 +42,12 @@ const modalChoiceBtnStyle: React.CSSProperties = {
 export default function PlannerList({ evaluations, revisions, events, reminders, subjects, missions, onRefresh, onDelete, onDeleteEvent, pendingEditItem, onPendingEditConsumed }: Props) {
   const { showToast } = useToast()
   const [activeTab, setActiveTab] = useState<Tab>('evaluations')
+
+  const handleClaimMission = async (missionId: string) => {
+    await supabase.from('missions').update({ status: 'claimed', claimed_at: new Date().toISOString() }).eq('id', missionId)
+    onRefresh()
+    showToast('Mission signalée comme accomplie !')
+  }
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -589,6 +595,21 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
               {m.reward_type === 'irl_reward' && (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: 'var(--color-background)', color: '#2a9d8f', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
                   🎁 Récompense IRL
+                </div>
+              )}
+              {m.status === 'pending' && (
+                <button onClick={() => handleClaimMission(m.id)} style={{ marginTop: '0.5rem', padding: '0.4rem 1rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', width: '100%' }}>
+                  ✅ Mission accomplie !
+                </button>
+              )}
+              {m.status === 'claimed' && (
+                <div style={{ marginTop: '0.5rem', padding: '0.3rem 0.75rem', background: '#fff8e0', color: '#b8860b', borderRadius: '0.5rem', fontSize: '0.82rem', fontWeight: 'bold', display: 'inline-block' }}>
+                  ⏳ En attente de validation
+                </div>
+              )}
+              {m.status === 'completed' && (
+                <div style={{ marginTop: '0.5rem', padding: '0.3rem 0.75rem', background: '#e8f5e9', color: '#2e7d32', borderRadius: '0.5rem', fontSize: '0.82rem', fontWeight: 'bold', display: 'inline-block' }}>
+                  ✓ Accomplie
                 </div>
               )}
             </div>

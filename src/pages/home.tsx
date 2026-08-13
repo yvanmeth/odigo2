@@ -6,6 +6,7 @@ import { generateGreeting } from '../lib/greeting'
 import type { Evaluation, Revision } from '../type/index'
 import type { Event as AppEvent } from '../type/index'
 import { logActivity } from '../services/activity'
+import { useToast } from '../components/Toast'
 import { addPlannerDigoos } from '../services/digoos'
 import { parseLocalDate } from '../lib/dates'
 import ProgressCircle from './rewards/ProgressCircle'
@@ -19,6 +20,7 @@ interface Mission {
   deadline: string
   reward_type: 'digoos' | 'irl_reward'
   reward_amount: number | null
+  status: 'pending' | 'claimed'
 }
 
 interface Reminder {
@@ -127,6 +129,7 @@ function isPastInFilter(dateStr: string, filter: PastFilter, todayStr: string): 
 // ==================== MAIN COMPONENT ====================
 
 export default function Home({ userId }: { userId?: string }) {
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [greeting, setGreeting] = useState<string>('')
   const [progressData, setProgressData] = useState<ProgressData | null>(null)
@@ -143,6 +146,24 @@ export default function Home({ userId }: { userId?: string }) {
   const [pastFilter, setPastFilter] = useState<PastFilter>('30days')
 
   useEffect(() => { fetchAll() }, [userId])
+
+  const fetchMissions = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    const targetId = userId || user?.id
+    if (!targetId) return
+    const { data } = await supabase.from('missions')
+      .select('id, name, description, deadline, reward_type, reward_amount, status')
+      .eq('child_id', targetId)
+      .in('status', ['pending', 'claimed'])
+      .order('deadline')
+    if (data) setMissions(data as Mission[])
+  }
+
+  const handleClaimMission = async (missionId: string) => {
+    await supabase.from('missions').update({ status: 'claimed', claimed_at: new Date().toISOString() }).eq('id', missionId)
+    fetchMissions()
+    showToast('Mission signalée comme accomplie !')
+  }
 
   const fetchAll = async () => {
     setLoading(true)
@@ -163,7 +184,7 @@ export default function Home({ userId }: { userId?: string }) {
         supabase.from('subjects').select('id, name').order('name'),
         supabase.from('user_subjects').select('id, subject_id, custom_name, custom_emoji, hidden').eq('user_id', targetId),
         supabase.from('profiles').select('first_name, birth_date, last_seen_at').eq('id', targetId).single(),
-        supabase.from('missions').select('id, name, description, deadline, reward_type, reward_amount').eq('child_id', targetId).eq('status', 'pending').order('deadline'),
+        supabase.from('missions').select('id, name, description, deadline, reward_type, reward_amount, status').eq('child_id', targetId).in('status', ['pending', 'claimed']).order('deadline'),
       ])
 
     if (progressRes.data) setProgressData(progressRes.data as ProgressData)
@@ -698,6 +719,15 @@ export default function Home({ userId }: { userId?: string }) {
               {m.reward_type === 'irl_reward' && (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: 'var(--color-background)', color: '#2a9d8f', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
                   🎁 Récompense IRL
+                </div>
+              )}
+              {m.status === 'pending' ? (
+                <button onClick={() => handleClaimMission(m.id)} style={{ marginTop: '0.5rem', padding: '0.4rem 1rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', width: '100%' }}>
+                  ✅ Mission accomplie !
+                </button>
+              ) : (
+                <div style={{ marginTop: '0.5rem', padding: '0.3rem 0.75rem', background: '#fff8e0', color: '#b8860b', borderRadius: '0.5rem', fontSize: '0.82rem', fontWeight: 'bold', display: 'inline-block' }}>
+                  ⏳ En attente de validation parent
                 </div>
               )}
             </div>
