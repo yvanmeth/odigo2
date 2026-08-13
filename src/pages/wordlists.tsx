@@ -179,7 +179,6 @@ export default function WordLists({ userId }: { userId?: string }) {
       .from('word_lists')
       .insert({
         user_id: tid,
-        subject_id: null,
         name: sourceList.name + ' (partagée)',
         list_type: sourceList.list_type,
         language: sourceList.language,
