@@ -778,13 +778,20 @@ export default function WordLists({ userId }: { userId?: string }) {
                   <span style={{ fontSize: '0.8rem', color: '#aaa', fontWeight: 'normal' }}>— {grouped[lang].length} liste{grouped[lang].length > 1 ? 's' : ''}</span>
                 </h3>
                 <div style={{ background: 'white', borderRadius: '0.75rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: '40%' }} />
+                      <col style={{ width: '15%' }} />
+                      <col style={{ width: '10%' }} />
+                      <col style={{ width: '18%' }} />
+                      <col style={{ width: '17%' }} />
+                    </colgroup>
                     <thead>
                       <tr style={{ background: 'var(--color-background)' }}>
                         <th style={thStyle}>Nom</th>
-                        <th style={thStyle}>Créé le</th>
+                        <th style={{ ...thStyle, textAlign: 'center' }}>Créé le</th>
                         <th style={{ ...thStyle, textAlign: 'center' }}>Mots</th>
-                        <th style={thStyle}>Type</th>
+                        <th style={{ ...thStyle, textAlign: 'center' }}>Type</th>
                         <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
                       </tr>
                     </thead>
@@ -794,19 +801,21 @@ export default function WordLists({ userId }: { userId?: string }) {
                         const typeLabel = LIST_TYPE_LABELS[list.list_type] || list.list_type
                         return (
                           <tr key={list.id} style={{ background: idx % 2 === 0 ? 'white' : '#fafafa', borderBottom: '1px solid #f5f5f5' }}>
-                            <td style={{ padding: '0.75rem 1rem' }}>
-                              <span onClick={() => handleSelectList(list)} style={{ fontWeight: 'bold', color: '#333', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#cce9e5' }}>
-                                {list.name}
-                              </span>
+                            <td
+                              onClick={() => handleSelectList(list)}
+                              title={list.name}
+                              style={{ padding: '0.75rem 1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 0, fontWeight: 'bold', color: '#333', cursor: 'pointer' }}
+                            >
+                              {list.name}
                             </td>
-                            <td style={{ padding: '0.75rem 1rem', color: '#666', fontSize: '0.88rem' }}>{fmtDate(list.created_at)}</td>
-                            <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#555', fontWeight: 'bold' }}>{wordCounts[list.id] ?? 0}</td>
-                            <td style={{ padding: '0.75rem 1rem' }}>
+                            <td style={{ padding: '0.6rem', textAlign: 'center', color: '#666', fontSize: '0.85rem' }}>{fmtDate(list.created_at)}</td>
+                            <td style={{ padding: '0.6rem', textAlign: 'center', color: '#555', fontWeight: 'bold' }}>{wordCounts[list.id] ?? 0}</td>
+                            <td style={{ padding: '0.6rem', textAlign: 'center' }}>
                               <span style={{ padding: '0.15rem 0.5rem', borderRadius: '1rem', background: typeBg, color: typeBg === '#e9c46a' ? '#555' : 'white', fontSize: '0.78rem', fontWeight: 'bold' }}>
                                 {typeLabel}
                               </span>
                             </td>
-                            <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                            <td style={{ padding: '0.6rem', textAlign: 'center' }}>
                               <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
                                 <button onClick={() => openEditList(list)} style={actionBtnStyle}><Pencil size={14} /></button>
                                 <button onClick={() => handleDeleteList(list.id)} style={{ ...actionBtnStyle, background: '#e63946' }}><Trash2 size={14} /></button>

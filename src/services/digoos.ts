@@ -77,7 +77,6 @@ export const deductDigoos = async (amount: number) => {
 
   await supabase.from('progress').update({
     digoos: Math.max(0, (data.digoos || 0) - amount),
-    digoos_this_week: Math.max(0, (data.digoos_this_week || 0) - amount),
     updated_at: new Date().toISOString(),
   }).eq('user_id', user.id)
 }
