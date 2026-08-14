@@ -20,12 +20,28 @@ export default function LoginPage() {
   const [gender, setGender] = useState<'M' | 'F' | 'X'>('X')
   const [selectedRole, setSelectedRole] = useState<'student' | 'parent'>('student')
 
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotSent, setForgotSent] = useState(false)
+  const [forgotLoading, setForgotLoading] = useState(false)
+
   const isSignupStep = step === 'signup-1' || step === 'signup-2' || step === 'signup-3'
   const stepNum = step === 'signup-1' ? 1 : step === 'signup-2' ? 2 : step === 'signup-3' ? 3 : 0
   const progressWidth = stepNum === 1 ? '33%' : stepNum === 2 ? '66%' : '100%'
 
   const step1Valid = email.trim() !== '' && password.length >= 6 && password === confirmPassword
   const step2Valid = firstName.trim() !== '' && birthDate !== ''
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.trim()) return
+    setForgotLoading(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    if (error) console.error('Reset password error:', error)
+    setForgotSent(true)
+    setForgotLoading(false)
+  }
 
   const handleLogin = async () => {
     setLoading(true)
@@ -141,14 +157,71 @@ export default function LoginPage() {
             onKeyDown={e => { if (e.key === 'Enter') handleLogin() }}
             style={inputStyle}
           />
-          {error && <p style={{ color: '#e63946', fontSize: '0.85rem', marginBottom: '0.75rem' }}>{error}</p>}
-          <button onClick={handleLogin} disabled={loading} style={{ ...btnPrimary, width: '100%' }}>
+          <button
+            onClick={() => { setForgotEmail(email); setShowForgotPassword(true) }}
+            style={{ background: 'none', border: 'none', color: '#2a9d8f', cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline', padding: 0, marginTop: '0.25rem', display: 'block', textAlign: 'right', width: '100%' }}
+          >
+            Mot de passe oublié ?
+          </button>
+          {error && <p style={{ color: '#e63946', fontSize: '0.85rem', marginBottom: '0.75rem', marginTop: '0.75rem' }}>{error}</p>}
+          <button onClick={handleLogin} disabled={loading} style={{ ...btnPrimary, width: '100%', marginTop: '1rem' }}>
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
           <p onClick={() => goTo('signup-1')} style={linkStyle}>
             Pas de compte ? S'inscrire
           </p>
         </div>
+
+        {/* Modal mot de passe oublié */}
+        {showForgotPassword && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: 'white', borderRadius: '1rem', padding: '2rem', maxWidth: '400px', width: '90%' }}>
+              {forgotSent ? (
+                <>
+                  <p style={{ fontSize: '1.1rem', color: '#2a9d8f', fontWeight: 'bold', marginBottom: '0.75rem' }}>✅ Email envoyé !</p>
+                  <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                    Vérifie ta boîte mail (et tes spams si besoin).
+                  </p>
+                  <button
+                    onClick={() => { setShowForgotPassword(false); setForgotSent(false) }}
+                    style={{ ...btnPrimary, width: '100%' }}
+                  >
+                    Fermer
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#333', marginBottom: '0.5rem' }}>Réinitialiser le mot de passe</p>
+                  <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                    Saisis ton adresse email. Tu recevras un lien pour choisir un nouveau mot de passe.
+                  </p>
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={forgotEmail}
+                    onChange={e => setForgotEmail(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleForgotPassword() }}
+                    style={{ ...inputStyle, marginBottom: '1rem' }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleForgotPassword}
+                    disabled={forgotLoading || !forgotEmail.trim()}
+                    style={{ ...btnPrimary, width: '100%', marginBottom: '0.5rem', opacity: forgotEmail.trim() ? 1 : 0.5 }}
+                  >
+                    {forgotLoading ? 'Envoi...' : 'Envoyer le lien'}
+                  </button>
+                  <button
+                    onClick={() => setShowForgotPassword(false)}
+                    style={{ width: '100%', padding: '0.75rem', background: 'none', border: '1px solid #ddd', borderRadius: '0.5rem', cursor: 'pointer', color: '#888', fontSize: '0.95rem' }}
+                  >
+                    Annuler
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     )
   }

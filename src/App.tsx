@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import type { Session } from '@supabase/supabase-js'
 import LoginPage from './pages/loginpage'
 import Dashboard from './pages/dashboard/index'
+import ResetPassword from './pages/ResetPassword'
 import { ToastProvider } from './components/Toast'
 
 function App() {
@@ -23,6 +24,10 @@ function App() {
   }, [])
 
   if (loading) return <div style={{ padding: '2rem' }}>Chargement...</div>
+
+  if (window.location.pathname === '/reset-password') {
+    return <ResetPassword />
+  }
 
   return (
     <ToastProvider>
