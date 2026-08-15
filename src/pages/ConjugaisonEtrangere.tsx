@@ -146,7 +146,9 @@ export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLang
     setError('')
     setGameState('loading')
 
-    const { data } = await supabase.from('word_items').select('source_word').eq('list_id', selectedList)
+    console.log('Loading guest list:', selectedList)
+    const { data, error: wordError } = await supabase.from('word_items').select('source_word').eq('list_id', selectedList)
+    console.log('Guest words result:', data?.length, 'error:', wordError)
     const verbes = (data || []).map((w: any) => w.source_word?.trim()).filter(Boolean)
 
     if (verbes.length === 0) {

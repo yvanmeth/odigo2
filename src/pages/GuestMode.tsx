@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 import { GUEST_EXERCISES, GUEST_MAX_FREE, GUEST_MAX_TOTAL, GUEST_LIST_IDS } from '../config/guestConfig'
 import { exerciseCards } from './dashboard/types'
 import QCM from './qcm'
@@ -14,6 +15,33 @@ interface GuestModeProps {
 const VOCAB_LANGUAGES = ['Anglais', 'Allemand']
 
 export default function GuestMode({ onExit }: GuestModeProps) {
+  const [guestReady, setGuestReady] = useState(false)
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (session) {
+          console.log('Guest session ready:', session.user.id)
+          setGuestReady(true)
+        }
+      }
+    )
+
+    const signIn = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        console.log('Existing session:', session.user.id)
+        setGuestReady(true)
+      } else {
+        await supabase.auth.signInAnonymously()
+        // guestReady sera mis à true par onAuthStateChange
+      }
+    }
+    signIn()
+
+    return () => subscription.unsubscribe()
+  }, [])
+
   const [partiesPlayed, setPartiesPlayed] = useState(
     parseInt(localStorage.getItem('odigo_guest_parties') || '0')
   )
@@ -61,6 +89,20 @@ export default function GuestMode({ onExit }: GuestModeProps) {
         return <Maths initialExercise="calcul" guestMode onGameEnd={handleGameEnd} />
       default: return null
     }
+  }
+
+  if (!guestReady) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        justifyContent: 'center', height: '100vh',
+        flexDirection: 'column', gap: '1rem',
+        background: 'var(--color-background)',
+      }}>
+        <img src="/logo-icon.svg" style={{ width: 64 }} />
+        <div style={{ color: '#2a9d8f', fontSize: '1rem' }}>Chargement...</div>
+      </div>
+    )
   }
 
   if (activeExercise) {

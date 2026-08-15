@@ -79,7 +79,9 @@ export default function WordDrop({ guestMode, guestListId, onGameEnd }: GuestPro
   }
 
   const fetchWords = async (listId: string) => {
-    const { data } = await supabase.from('word_items').select('*').eq('list_id', listId)
+    console.log('Loading guest list:', listId)
+    const { data, error } = await supabase.from('word_items').select('*').eq('list_id', listId)
+    console.log('Guest words result:', data?.length, 'error:', error)
     if (data) setWords(data.filter(w => w.source_word && w.target_word))
   }
 

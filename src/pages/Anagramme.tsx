@@ -114,10 +114,12 @@ export default function Anagramme({ userId, guestMode, guestListId, onGameEnd }:
     if (!selectedListId || loading) return
     setLoading(true)
 
-    const { data: rawItems } = await supabase
+    console.log('Loading guest list:', selectedListId)
+    const { data: rawItems, error: wordError } = await supabase
       .from('word_items')
       .select('source_word, target_word')
       .eq('list_id', selectedListId)
+    console.log('Guest words result:', rawItems?.length, 'error:', wordError)
 
     setLoading(false)
 
