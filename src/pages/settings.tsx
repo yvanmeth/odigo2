@@ -553,14 +553,28 @@ export default function Settings() {
               }
 
               // Créer le lien
-              await supabase.from('parent_child').insert({
+              const { error: linkError } = await supabase.from('parent_child').insert({
                 parent_id: invite.parent_id,
                 child_id: user.id,
                 relationship: 'parent',
               })
 
+              if (linkError) {
+                console.error('Erreur création lien parent_child:', linkError)
+                if (linkError.code === '23505') {
+                  alert('Ce compte parent est déjà lié.')
+                } else {
+                  alert('Erreur lors de la liaison des comptes. Réessaie ou contacte le support. (' + linkError.message + ')')
+                }
+                return
+              }
+
               // Marquer le code comme utilisé
-              await supabase.from('invite_codes').update({ used: true }).eq('id', invite.id)
+              const { error: codeError } = await supabase.from('invite_codes').update({ used: true }).eq('id', invite.id)
+              if (codeError) {
+                console.error('Erreur marquage code utilisé:', codeError)
+                // Non bloquant : le lien est créé, on continue
+              }
 
               // Mettre à jour le profil enfant
               await supabase.from('profiles').upsert({ id: user.id, role: 'child' })
