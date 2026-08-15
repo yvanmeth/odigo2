@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '../lib/supabase'
+import GuestMode from './GuestMode'
 
 type AuthStep = 'login' | 'signup-1' | 'signup-2' | 'signup-3' | 'confirm'
 
 export default function LoginPage() {
+  const [guestMode, setGuestMode] = useState(false)
   const [step, setStep] = useState<AuthStep>('login')
 
   // Champs communs
@@ -77,6 +79,8 @@ export default function LoginPage() {
   }
 
   const goTo = (s: AuthStep) => { setError(''); setStep(s) }
+
+  if (guestMode) return <GuestMode onExit={() => setGuestMode(false)} />
 
   // ==================== STYLES ====================
 
@@ -170,6 +174,22 @@ export default function LoginPage() {
           <p onClick={() => goTo('signup-1')} style={linkStyle}>
             Pas de compte ? S'inscrire
           </p>
+
+          <div style={{ textAlign: 'center', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--color-border)' }}>
+            <button
+              onClick={() => setGuestMode(true)}
+              style={{
+                background: 'none', border: '2px solid #2a9d8f', color: '#2a9d8f',
+                borderRadius: '0.75rem', padding: '0.75rem 1.5rem',
+                cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', width: '100%',
+              }}
+            >
+              🔍 Découvrir sans compte
+            </button>
+            <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.5rem', lineHeight: 1.4 }}>
+              En tant qu'invité·e, tu auras accès à quelques exercices pour découvrir ODIGO. Aucune inscription requise.
+            </p>
+          </div>
         </div>
 
         {/* Modal mot de passe oublié */}

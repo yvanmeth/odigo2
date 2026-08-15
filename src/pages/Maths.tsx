@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Delta } from '../components/Delta'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
@@ -97,9 +97,11 @@ const DIFFICULTIES: { id: Difficulty; label: string; icon: string }[] = [
 interface MathsProps {
   initialExercise?: MathExercise
   onBack?: () => void
+  guestMode?: boolean
+  onGameEnd?: () => void
 }
 
-export default function Maths({ initialExercise, onBack }: MathsProps) {
+export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }: MathsProps) {
   const [gameState, setGameState] = useState<GameState>(initialExercise ? 'select' : 'menu')
   const [selectedExercise, setSelectedExercise] = useState<MathExercise | null>(initialExercise ?? null)
   const [difficulty, setDifficulty] = useState<Difficulty>('moyen')
@@ -126,7 +128,14 @@ export default function Maths({ initialExercise, onBack }: MathsProps) {
     setGameState('playing')
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+  useEffect(() => { if (guestMode && initialExercise) startGame() }, [])
+
   const finaliser = async (finalResults: boolean[], finalStreak: number) => {
+    if (guestMode) {
+      onGameEnd?.()
+      return
+    }
     const totalCorrect = finalResults.filter(Boolean).length
     await logActivity({
       action_type: 'exercise_completed',
@@ -228,7 +237,7 @@ export default function Maths({ initialExercise, onBack }: MathsProps) {
   }
 
   // ── SÉLECTION ─────────────────────────────────────────────────────────
-  if (gameState === 'select' && selectedExercise) {
+  if (gameState === 'select' && selectedExercise && !guestMode) {
     const info = EXERCISE_INFO[selectedExercise]
     return (
       <div style={{ maxWidth: '480px', margin: '0 auto' }}>

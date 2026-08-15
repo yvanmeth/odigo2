@@ -4,6 +4,7 @@ import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { Delta } from '../components/Delta'
 import { EmptyState } from '../components/EmptyState'
+import HighscoreModal from '../components/HighscoreModal'
 
 type GameState = 'select' | 'playing' | 'result'
 
@@ -44,9 +45,13 @@ const shuffleLetters = (word: string): string[] => {
 
 interface AnagrammeProps {
   userId?: string
+  guestMode?: boolean
+  guestListId?: string
+  guestLanguage?: string
+  onGameEnd?: () => void
 }
 
-export default function Anagramme({ userId }: AnagrammeProps) {
+export default function Anagramme({ userId, guestMode, guestListId, onGameEnd }: AnagrammeProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedListId, setSelectedListId] = useState('')
@@ -63,10 +68,18 @@ export default function Anagramme({ userId }: AnagrammeProps) {
   const [points, setPoints] = useState(0)
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
   const [earnedDigoos, setEarnedDigoos] = useState(0)
+  const [showHighscore, setShowHighscore] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
 
   const validatingRef = useRef(false)
 
-  useEffect(() => { fetchLists() }, [])
+  useEffect(() => {
+    if (guestMode && guestListId) {
+      setSelectedListId(guestListId)
+    } else {
+      fetchLists()
+    }
+  }, [])
 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -81,6 +94,11 @@ export default function Anagramme({ userId }: AnagrammeProps) {
       .order('name')
     setLists(data || [])
   }
+
+  useEffect(() => {
+    if (guestMode && selectedListId) startGame()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedListId])
 
   const initWord = (word: AnagramWord) => {
     setBank(word.shuffled.map((letter, i) => ({ letter, id: `${i}-${letter}`, used: false })))
@@ -128,7 +146,23 @@ export default function Anagramme({ userId }: AnagrammeProps) {
     setGameState('playing')
   }
 
+  const checkHighscore = async (finalScore: number): Promise<boolean> => {
+    if (localStorage.getItem('odigo_highscores') === 'off') return false
+    if (!selectedListId) return false
+    const { data } = await supabase
+      .from('highscores').select('score')
+      .eq('exercise', 'anagramme').eq('list_id', selectedListId)
+      .order('score', { ascending: false }).limit(5)
+    if (!data) return false
+    if (data.length < 5) return true
+    return finalScore > data[data.length - 1].score
+  }
+
   const finaliser = async (totalPoints: number, totalCorrect: number) => {
+    if (guestMode) {
+      onGameEnd?.()
+      return
+    }
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: TOTAL_WORDS,
@@ -137,7 +171,9 @@ export default function Anagramme({ userId }: AnagrammeProps) {
     })
     const earned = await addDigoos(totalPoints, 'exercise')
     setEarnedDigoos(earned)
-    setGameState('result')
+    const isTop = await checkHighscore(totalPoints)
+    if (isTop) setShowHighscore(true)
+    else setGameState('result')
   }
 
   const validateWord = (currentPlaced: PlacedItem[]) => {
@@ -288,6 +324,7 @@ export default function Anagramme({ userId }: AnagrammeProps) {
   const progress = (currentIndex / TOTAL_WORDS) * 100
 
   if (gameState === 'select') {
+    if (guestMode) return <div style={{ textAlign: 'center', padding: '3rem', color: '#888' }}>Chargement...</div>
     return (
       <div>
         <h2 style={{ color: PRIMARY, marginBottom: '0.5rem' }}>🔤 Anagramme</h2>
@@ -325,13 +362,31 @@ export default function Anagramme({ userId }: AnagrammeProps) {
             >
               {loading ? 'Chargement...' : '🚀 Commencer'}
             </button>
+            {selectedListId && localStorage.getItem('odigo_highscores') !== 'off' && (
+              <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                🏆 Voir le classement
+              </button>
+            )}
           </div>
+        )}
+        {showLeaderboard && (
+          <HighscoreModal
+            exercise="anagramme"
+            listId={selectedListId}
+            listName={lists.find(l => l.id === selectedListId)?.name ?? ''}
+            score={0}
+            initialPhase="leaderboard"
+            onClose={() => setShowLeaderboard(false)}
+            onDisable={() => setShowLeaderboard(false)}
+            onReplay={() => { setShowLeaderboard(false); startGame() }}
+            onQuit={() => setShowLeaderboard(false)}
+          />
         )}
       </div>
     )
   }
 
-  if (gameState === 'result') {
+  if (gameState === 'result' && !guestMode) {
     const totalCorrect = results.filter(Boolean).length
     return (
       <div style={{ textAlign: 'center', padding: '2rem 0' }}>
@@ -364,7 +419,22 @@ export default function Anagramme({ userId }: AnagrammeProps) {
     )
   }
 
+  const listName = lists.find(l => l.id === selectedListId)?.name ?? ''
+
   return (
+    <>
+    {showHighscore && (
+      <HighscoreModal
+        exercise="anagramme"
+        listId={selectedListId}
+        listName={listName}
+        score={points}
+        onClose={() => { setShowHighscore(false); setGameState('result') }}
+        onDisable={() => { setShowHighscore(false); setGameState('result') }}
+        onReplay={() => { setShowHighscore(false); startGame() }}
+        onQuit={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
+      />
+    )}
     <div style={{ maxWidth: '500px', margin: '0 auto' }}>
       {/* Progression */}
       <div style={{ marginBottom: '1.5rem' }}>
@@ -534,5 +604,6 @@ export default function Anagramme({ userId }: AnagrammeProps) {
         </>
       )}
     </div>
+    </>
   )
 }

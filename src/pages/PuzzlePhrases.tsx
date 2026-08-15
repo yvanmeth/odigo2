@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { useToast } from '../components/Toast'
+import HighscoreModal from '../components/HighscoreModal'
 
 type GameState = 'select' | 'loading' | 'playing' | 'result'
 type Mode = 'facile' | 'moyen' | 'difficile'
@@ -160,6 +161,9 @@ export default function PuzzlePhrases() {
   const [points, setPoints] = useState(0)
   const [earnedDigoos, setEarnedDigoos] = useState(0)
   const [totalCorrect, setTotalCorrect] = useState(0)
+
+  const [showHighscore, setShowHighscore] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
 
   const resultsRef = useRef<boolean[]>([])
   const pointsRef = useRef(0)
@@ -326,6 +330,18 @@ export default function PuzzlePhrases() {
     setFeedback('none')
   }
 
+  const checkHighscore = async (finalScore: number): Promise<boolean> => {
+    if (localStorage.getItem('odigo_highscores') === 'off') return false
+    if (!selectedListId) return false
+    const { data } = await supabase
+      .from('highscores').select('score')
+      .eq('exercise', 'puzzlephrases').eq('list_id', selectedListId)
+      .order('score', { ascending: false }).limit(5)
+    if (!data) return false
+    if (data.length < 5) return true
+    return finalScore > data[data.length - 1].score
+  }
+
   const finaliser = async () => {
     const correctCount = resultsRef.current.filter(Boolean).length
     await logActivity({
@@ -337,7 +353,9 @@ export default function PuzzlePhrases() {
     const earned = await addDigoos(pointsRef.current, 'exercise')
     setEarnedDigoos(earned)
     setTotalCorrect(correctCount)
-    setGameState('result')
+    const isTop = await checkHighscore(pointsRef.current)
+    if (isTop) setShowHighscore(true)
+    else setGameState('result')
   }
 
   const handlePlaceFixed = (bankId: string) => {
@@ -451,7 +469,25 @@ export default function PuzzlePhrases() {
             >
               {gameState === 'loading' ? '⏳ Génération des phrases...' : '🚀 Commencer'}
             </button>
+            {selectedListId && localStorage.getItem('odigo_highscores') !== 'off' && (
+              <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                🏆 Voir le classement
+              </button>
+            )}
           </div>
+        )}
+        {showLeaderboard && (
+          <HighscoreModal
+            exercise="puzzlephrases"
+            listId={selectedListId}
+            listName={lists.find(l => l.id === selectedListId)?.name ?? ''}
+            score={0}
+            initialPhase="leaderboard"
+            onClose={() => setShowLeaderboard(false)}
+            onDisable={() => setShowLeaderboard(false)}
+            onReplay={() => { setShowLeaderboard(false); fetchSentences() }}
+            onQuit={() => setShowLeaderboard(false)}
+          />
         )}
       </div>
     )
@@ -482,7 +518,22 @@ export default function PuzzlePhrases() {
     ? userInputs.every((v, i) => slots[i]?.status === 'correct' || v.trim() !== '')
     : slots.every((s, i) => s.status === 'correct' || bankItems.some(b => b.placedInSlot === i))
 
+  const listName = lists.find(l => l.id === selectedListId)?.name ?? ''
+
   return (
+    <>
+    {showHighscore && (
+      <HighscoreModal
+        exercise="puzzlephrases"
+        listId={selectedListId}
+        listName={listName}
+        score={pointsRef.current}
+        onClose={() => { setShowHighscore(false); setGameState('result') }}
+        onDisable={() => { setShowHighscore(false); setGameState('result') }}
+        onReplay={() => { setShowHighscore(false); fetchSentences() }}
+        onQuit={() => { setShowHighscore(false); setGameState('select') }}
+      />
+    )}
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
         <div style={{ fontSize: '0.9rem', color: '#888' }}>
@@ -619,5 +670,6 @@ export default function PuzzlePhrases() {
         </div>
       )}
     </div>
+    </>
   )
 }

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { speak } from '../lib/speech'
+import HighscoreModal from '../components/HighscoreModal'
 
 interface WordItem {
   id: string
@@ -78,7 +79,8 @@ export default function Flashcards() {
   const [cardAttempts, setCardAttempts] = useState(0)
   const [digoosEarned, setDigoosEarned] = useState(0)
   const [swipeAnim, setSwipeAnim] = useState<'left' | 'right' | null>(null)
-  const [highScores, setHighScores] = useState<{ known: number; passes: number; date: string }[]>([])
+  const [showHighscore, setShowHighscore] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
 
   const touchStartX = useRef<number | null>(null)
 
@@ -201,9 +203,20 @@ export default function Flashcards() {
   useEffect(() => {
     if (gameState === 'playing' && !currentCard && knownCount > 0) {
       saveScore()
-      setGameState('result')
     }
   }, [currentCard, gameState, knownCount])
+
+  const checkHighscore = async (finalScore: number): Promise<boolean> => {
+    if (localStorage.getItem('odigo_highscores') === 'off') return false
+    if (!selectedList) return false
+    const { data } = await supabase
+      .from('highscores').select('score')
+      .eq('exercise', 'flashcards').eq('list_id', selectedList)
+      .order('score', { ascending: false }).limit(5)
+    if (!data) return false
+    if (data.length < 5) return true
+    return finalScore > data[data.length - 1].score
+  }
 
   const saveScore = async () => {
     await addDigoos(digoosEarned)
@@ -213,18 +226,9 @@ export default function Flashcards() {
       questions_correct: knownCount,
       metadata: { exercise: 'flashcards' },
     })
-    const key = `flashcards_scores_${selectedList}`
-    const existing = JSON.parse(localStorage.getItem(key) || '[]')
-    const newEntry = { known: knownCount, passes: passCount, date: new Date().toLocaleDateString('fr-CH') }
-    const updated = [...existing, newEntry].sort((a, b) => b.known - a.known).slice(0, 10)
-    localStorage.setItem(key, JSON.stringify(updated))
-    setHighScores(updated)
-  }
-
-  const loadHighScores = (listId: string) => {
-    const key = `flashcards_scores_${listId}`
-    const existing = JSON.parse(localStorage.getItem(key) || '[]')
-    setHighScores(existing)
+    const isTop = await checkHighscore(knownCount)
+    if (isTop) setShowHighscore(true)
+    else setGameState('result')
   }
 
   // Touch / swipe
@@ -258,7 +262,7 @@ export default function Flashcards() {
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Liste</label>
             <select
               value={selectedList}
-              onChange={e => { setSelectedList(e.target.value); loadHighScores(e.target.value); const l = lists.find(x => x.id === e.target.value); if (l) setListLanguage(l.language) }}
+              onChange={e => { setSelectedList(e.target.value); const l = lists.find(x => x.id === e.target.value); if (l) setListLanguage(l.language) }}
               style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
             >
               <option value="">-- Sélectionner --</option>
@@ -292,24 +296,17 @@ export default function Flashcards() {
             🚀 Jouer
           </button>
 
+          {selectedList && localStorage.getItem('odigo_highscores') !== 'off' && (
+            <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              🏆 Voir le classement
+            </button>
+          )}
+
           <div style={{ marginTop: '1rem', background: 'var(--color-background)', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.82rem', color: '#555', lineHeight: '1.6' }}>
             <strong style={{ color: '#2a9d8f' }}>Raccourcis clavier</strong><br />
             <span>Espace → retourner la carte</span><br />
             <span>→ su · ← pas su</span>
           </div>
-
-          {highScores.length > 0 && (
-            <div style={{ marginTop: '1.5rem' }}>
-              <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.5rem' }}>🏆 Meilleurs scores</h3>
-              {highScores.map((s, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem' }}>
-                  <span style={{ color: i === 0 ? '#e9c46a' : '#555' }}>#{i + 1} {i === 0 ? '🥇' : ''}</span>
-                  <span style={{ fontWeight: 'bold', color: '#333' }}>{s.known} cartes sues</span>
-                  <span style={{ color: '#aaa' }}>{s.date}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     )
@@ -323,19 +320,6 @@ export default function Flashcards() {
         <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2a9d8f', marginBottom: '0.25rem' }}>{knownCount} / {totalCards}</div>
         <div style={{ color: '#888', marginBottom: '0.5rem' }}>{passCount} passages au total</div>
         <div style={{ color: '#e9c46a', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '2rem' }}>+{digoosEarned} <Delta size={20} /> gagnés</div>
-
-        {highScores.length > 0 && (
-          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', maxWidth: '300px', margin: '0 auto 1.5rem' }}>
-            <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.5rem' }}>🏆 Meilleurs scores</h3>
-            {highScores.map((s, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem' }}>
-                <span style={{ color: i === 0 ? '#e9c46a' : '#555' }}>#{i + 1} {i === 0 ? '🥇' : ''}</span>
-                <span style={{ fontWeight: 'bold', color: '#333' }}>{s.known} cartes sues</span>
-                <span style={{ color: '#aaa' }}>{s.date}</span>
-              </div>
-            ))}
-          </div>
-        )}
 
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
           <button
@@ -367,8 +351,35 @@ export default function Flashcards() {
 
   // ---- ÉCRAN JEU ----
   const remaining = deck.length + (currentCard ? 1 : 0)
+  const listName = lists.find(l => l.id === selectedList)?.name ?? ''
 
   return (
+    <>
+    {showHighscore && (
+      <HighscoreModal
+        exercise="flashcards"
+        listId={selectedList}
+        listName={listName}
+        score={knownCount}
+        onClose={() => { setShowHighscore(false); setGameState('result') }}
+        onDisable={() => { setShowHighscore(false); setGameState('result') }}
+        onReplay={() => { setShowHighscore(false); setGameState('select'); startGame() }}
+        onQuit={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
+      />
+    )}
+    {showLeaderboard && (
+      <HighscoreModal
+        exercise="flashcards"
+        listId={selectedList}
+        listName={listName}
+        score={0}
+        initialPhase="leaderboard"
+        onClose={() => setShowLeaderboard(false)}
+        onDisable={() => setShowLeaderboard(false)}
+        onReplay={() => { setShowLeaderboard(false); startGame() }}
+        onQuit={() => setShowLeaderboard(false)}
+      />
+    )}
     <div style={{ maxWidth: '480px', margin: '0 auto', userSelect: 'none' }}>
 
       {/* HUD */}
@@ -488,5 +499,6 @@ export default function Flashcards() {
         ← Pas su &nbsp;·&nbsp; Espace Retourner &nbsp;·&nbsp; → Su
       </div>
     </div>
+    </>
   )
 }

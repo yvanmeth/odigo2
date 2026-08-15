@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { EmptyState } from '../components/EmptyState'
+import HighscoreModal from '../components/HighscoreModal'
 
 interface WordList {
   id: string
@@ -57,7 +58,14 @@ const checkAnswer = (userAnswer: string, q: Question): boolean => {
   return false
 }
 
-export default function ConjugaisonEtrangere() {
+interface GuestProps {
+  guestMode?: boolean
+  guestListId?: string
+  guestLanguage?: string
+  onGameEnd?: () => void
+}
+
+export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLanguage: initialLanguage, onGameEnd }: GuestProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [loadingLists, setLoadingLists] = useState(true)
@@ -74,9 +82,18 @@ export default function ConjugaisonEtrangere() {
   const [digoosEarned, setDigoosEarned] = useState(0)
   const [selectedTenses, setSelectedTenses] = useState<string[]>([])
   const [error, setError] = useState('')
-  const [highScores, setHighScores] = useState<{ score: number; date: string }[]>([])
+  const [showHighscore, setShowHighscore] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
 
-  useEffect(() => { fetchLists() }, [])
+  useEffect(() => {
+    if (guestMode && guestListId) {
+      setSelectedList(guestListId)
+      if (initialLanguage) setListLanguage(initialLanguage)
+      setLoadingLists(false)
+    } else {
+      fetchLists()
+    }
+  }, [])
 
   useEffect(() => {
     if (listLanguage) {
@@ -84,6 +101,13 @@ export default function ConjugaisonEtrangere() {
       setSelectedTenses(config.tenses)
     }
   }, [listLanguage])
+
+  useEffect(() => {
+    if (guestMode && selectedList && selectedTenses.length > 0 && gameState === 'select') {
+      genererQuestions()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTenses])
 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -93,9 +117,16 @@ export default function ConjugaisonEtrangere() {
     setLoadingLists(false)
   }
 
-  const loadHighScores = (listId: string) => {
-    const key = `conjugaison_etrangere_scores_${listId}`
-    setHighScores(JSON.parse(localStorage.getItem(key) || '[]'))
+  const checkHighscore = async (finalScore: number): Promise<boolean> => {
+    if (localStorage.getItem('odigo_highscores') === 'off') return false
+    if (!selectedList) return false
+    const { data } = await supabase
+      .from('highscores').select('score')
+      .eq('exercise', 'conjugaison-etrangere').eq('list_id', selectedList)
+      .order('score', { ascending: false }).limit(5)
+    if (!data) return false
+    if (data.length < 5) return true
+    return finalScore > data[data.length - 1].score
   }
 
   const genererQuestions = async () => {
@@ -192,6 +223,10 @@ Réponds UNIQUEMENT en JSON valide :
   }, [current, questions.length])
 
   const finaliser = async () => {
+    if (guestMode) {
+      onGameEnd?.()
+      return
+    }
     await addDigoos(digoosEarned)
     await logActivity({
       action_type: 'exercise_completed',
@@ -199,12 +234,9 @@ Réponds UNIQUEMENT en JSON valide :
       questions_correct: resultats.filter(r => r.correct).length,
       metadata: { exercise: 'conjugaison-etrangere', language: listLanguage },
     })
-    const key = `conjugaison_etrangere_scores_${selectedList}`
-    const existing = JSON.parse(localStorage.getItem(key) || '[]')
-    const updated = [...existing, { score, date: new Date().toLocaleDateString('fr-CH') }].sort((a: any, b: any) => b.score - a.score).slice(0, 10)
-    localStorage.setItem(key, JSON.stringify(updated))
-    setHighScores(updated)
-    setGameState('result')
+    const isTop = await checkHighscore(score)
+    if (isTop) setShowHighscore(true)
+    else setGameState('result')
   }
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -218,6 +250,9 @@ Réponds UNIQUEMENT en JSON valide :
   const correctCount = resultats.filter(r => r.correct).length
 
   if (gameState === 'select' || gameState === 'loading') {
+    if (guestMode) {
+      return <div style={{ textAlign: 'center', padding: '3rem', color: '#888' }}>Génération des questions...</div>
+    }
     if (!loadingLists && lists.length === 0) {
       return (
         <div>
@@ -242,7 +277,6 @@ Réponds UNIQUEMENT en JSON valide :
               value={selectedList}
               onChange={e => {
                 setSelectedList(e.target.value)
-                loadHighScores(e.target.value)
                 const l = lists.find(x => x.id === e.target.value)
                 if (l) setListLanguage(l.language)
               }}
@@ -301,24 +335,30 @@ Réponds UNIQUEMENT en JSON valide :
             {gameState === 'loading' ? '⏳ Génération des questions...' : '🚀 Jouer'}
           </button>
 
-          {highScores.length > 0 && (
-            <div style={{ marginTop: '1.5rem' }}>
-              <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.5rem' }}>🏆 Meilleurs scores</h3>
-              {highScores.map((s, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem' }}>
-                  <span style={{ color: i === 0 ? '#e9c46a' : '#555' }}>#{i + 1} {i === 0 ? '🥇' : ''}</span>
-                  <span style={{ fontWeight: 'bold', color: '#333' }}>{s.score} pts</span>
-                  <span style={{ color: '#aaa' }}>{s.date}</span>
-                </div>
-              ))}
-            </div>
+          {selectedList && localStorage.getItem('odigo_highscores') !== 'off' && (
+            <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              🏆 Voir le classement
+            </button>
           )}
         </div>
+        {showLeaderboard && (
+          <HighscoreModal
+            exercise="conjugaison-etrangere"
+            listId={selectedList}
+            listName={lists.find(l => l.id === selectedList)?.name ?? ''}
+            score={0}
+            initialPhase="leaderboard"
+            onClose={() => setShowLeaderboard(false)}
+            onDisable={() => setShowLeaderboard(false)}
+            onReplay={() => { setShowLeaderboard(false); genererQuestions() }}
+            onQuit={() => setShowLeaderboard(false)}
+          />
+        )}
       </div>
     )
   }
 
-  if (gameState === 'result') {
+  if (gameState === 'result' && !guestMode) {
     const pct = Math.round((correctCount / questions.length) * 100)
     return (
       <div style={{ maxWidth: '560px' }}>
@@ -354,7 +394,22 @@ Réponds UNIQUEMENT en JSON valide :
     )
   }
 
+  const listName = lists.find(l => l.id === selectedList)?.name ?? ''
+
   return (
+    <>
+    {showHighscore && (
+      <HighscoreModal
+        exercise="conjugaison-etrangere"
+        listId={selectedList}
+        listName={listName}
+        score={score}
+        onClose={() => { setShowHighscore(false); setGameState('result') }}
+        onDisable={() => { setShowHighscore(false); setGameState('result') }}
+        onReplay={() => { setShowHighscore(false); genererQuestions() }}
+        onQuit={() => { setShowHighscore(false); setGameState('select'); setQuestions([]) }}
+      />
+    )}
     <div style={{ maxWidth: '520px', margin: '0 auto' }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -437,5 +492,6 @@ Réponds UNIQUEMENT en JSON valide :
         Entrée pour valider · Entrée pour passer
       </div>
     </div>
+    </>
   )
 }

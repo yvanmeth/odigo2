@@ -4,6 +4,7 @@ import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { Delta } from '../components/Delta'
 import { EmptyState } from '../components/EmptyState'
+import HighscoreModal from '../components/HighscoreModal'
 
 type GameState = 'select' | 'playing' | 'result'
 
@@ -63,6 +64,8 @@ export default function AnagrammeFrancais({ userId }: AnagrammeFrancaisProps) {
   const [points, setPoints] = useState(0)
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
   const [earnedDigoos, setEarnedDigoos] = useState(0)
+  const [showHighscore, setShowHighscore] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
 
   const validatingRef = useRef(false)
 
@@ -128,6 +131,18 @@ export default function AnagrammeFrancais({ userId }: AnagrammeFrancaisProps) {
     setGameState('playing')
   }
 
+  const checkHighscore = async (finalScore: number): Promise<boolean> => {
+    if (localStorage.getItem('odigo_highscores') === 'off') return false
+    if (!selectedListId) return false
+    const { data } = await supabase
+      .from('highscores').select('score')
+      .eq('exercise', 'anagramme-francais').eq('list_id', selectedListId)
+      .order('score', { ascending: false }).limit(5)
+    if (!data) return false
+    if (data.length < 5) return true
+    return finalScore > data[data.length - 1].score
+  }
+
   const finaliser = async (totalPoints: number, totalCorrect: number) => {
     await logActivity({
       action_type: 'exercise_completed',
@@ -137,7 +152,9 @@ export default function AnagrammeFrancais({ userId }: AnagrammeFrancaisProps) {
     })
     const earned = await addDigoos(totalPoints, 'exercise')
     setEarnedDigoos(earned)
-    setGameState('result')
+    const isTop = await checkHighscore(totalPoints)
+    if (isTop) setShowHighscore(true)
+    else setGameState('result')
   }
 
   const validateWord = (currentPlaced: PlacedItem[]) => {
@@ -325,7 +342,25 @@ export default function AnagrammeFrancais({ userId }: AnagrammeFrancaisProps) {
             >
               {loading ? 'Chargement...' : '🚀 Commencer'}
             </button>
+            {selectedListId && localStorage.getItem('odigo_highscores') !== 'off' && (
+              <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                🏆 Voir le classement
+              </button>
+            )}
           </div>
+        )}
+        {showLeaderboard && (
+          <HighscoreModal
+            exercise="anagramme-francais"
+            listId={selectedListId}
+            listName={lists.find(l => l.id === selectedListId)?.name ?? ''}
+            score={0}
+            initialPhase="leaderboard"
+            onClose={() => setShowLeaderboard(false)}
+            onDisable={() => setShowLeaderboard(false)}
+            onReplay={() => { setShowLeaderboard(false); startGame() }}
+            onQuit={() => setShowLeaderboard(false)}
+          />
         )}
       </div>
     )
@@ -364,7 +399,22 @@ export default function AnagrammeFrancais({ userId }: AnagrammeFrancaisProps) {
     )
   }
 
+  const listName = lists.find(l => l.id === selectedListId)?.name ?? ''
+
   return (
+    <>
+    {showHighscore && (
+      <HighscoreModal
+        exercise="anagramme-francais"
+        listId={selectedListId}
+        listName={listName}
+        score={points}
+        onClose={() => { setShowHighscore(false); setGameState('result') }}
+        onDisable={() => { setShowHighscore(false); setGameState('result') }}
+        onReplay={() => { setShowHighscore(false); startGame() }}
+        onQuit={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
+      />
+    )}
     <div style={{ maxWidth: '500px', margin: '0 auto' }}>
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
@@ -505,5 +555,6 @@ export default function AnagrammeFrancais({ userId }: AnagrammeFrancaisProps) {
         </>
       )}
     </div>
+    </>
   )
 }

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { speak as speakWithLang } from '../lib/speech'
+import HighscoreModal from '../components/HighscoreModal'
 
 interface WordItem {
   id: string
@@ -45,7 +46,8 @@ export default function Spelling() {
   const [wordsCompleted, setWordsCompleted] = useState(0)
   const [totalWords, setTotalWords] = useState(0)
   const [isReviewPhase, setIsReviewPhase] = useState(false)
-  const [highScores, setHighScores] = useState<{ score: number; date: string }[]>([])
+  const [showHighscore, setShowHighscore] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
 
   const [usedListen, setUsedListen] = useState(false)
   const [usedLetterCount, setUsedLetterCount] = useState(false)
@@ -112,7 +114,6 @@ export default function Spelling() {
         setFailedWords([])
         return
       }
-      setGameState('result')
       saveScore()
       return
     }
@@ -247,12 +248,19 @@ export default function Spelling() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [handleValidate, gameState, feedback])
 
+  const checkHighscore = async (finalScore: number): Promise<boolean> => {
+    if (localStorage.getItem('odigo_highscores') === 'off') return false
+    if (!selectedList) return false
+    const { data } = await supabase
+      .from('highscores').select('score')
+      .eq('exercise', 'spelling').eq('list_id', selectedList)
+      .order('score', { ascending: false }).limit(5)
+    if (!data) return false
+    if (data.length < 5) return true
+    return finalScore > data[data.length - 1].score
+  }
+
   const saveScore = async () => {
-    const key = `spelling_scores_${selectedList}`
-    const existing = JSON.parse(localStorage.getItem(key) || '[]')
-    const newScore = { score, date: new Date().toLocaleDateString('fr-CH') }
-    const updated = [...existing, newScore].sort((a, b) => b.score - a.score).slice(0, 10)
-    localStorage.setItem(key, JSON.stringify(updated))
     await addDigoos(5 + Math.floor(score / 10))
     await logActivity({
       action_type: 'exercise_completed',
@@ -260,13 +268,9 @@ export default function Spelling() {
       questions_correct: wordsCompleted - failedWords.length,
       metadata: { exercise: 'spelling' },
     })
-    setHighScores(updated)
-  }
-
-  const loadHighScores = (listId: string) => {
-    const key = `spelling_scores_${listId}`
-    const existing = JSON.parse(localStorage.getItem(key) || '[]')
-    setHighScores(existing)
+    const isTop = await checkHighscore(score)
+    if (isTop) setShowHighscore(true)
+    else setGameState('result')
   }
 
   const getFireEmoji = () => {
@@ -289,7 +293,6 @@ export default function Spelling() {
               value={selectedList}
               onChange={e => {
                 setSelectedList(e.target.value)
-                loadHighScores(e.target.value)
                 const l = lists.find(x => x.id === e.target.value)
                 if (l) setListLanguage(l.language)
               }}
@@ -316,17 +319,10 @@ export default function Spelling() {
             🚀 Jouer
           </button>
 
-          {highScores.length > 0 && (
-            <div style={{ marginTop: '1.5rem' }}>
-              <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.5rem' }}>🏆 Meilleurs scores</h3>
-              {highScores.map((s, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem' }}>
-                  <span style={{ color: i === 0 ? '#e9c46a' : '#555' }}>#{i + 1} {i === 0 ? '🥇' : ''}</span>
-                  <span style={{ fontWeight: 'bold', color: '#333' }}>{s.score} pts</span>
-                  <span style={{ color: '#aaa' }}>{s.date}</span>
-                </div>
-              ))}
-            </div>
+          {selectedList && localStorage.getItem('odigo_highscores') !== 'off' && (
+            <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              🏆 Voir le classement
+            </button>
           )}
         </div>
       </div>
@@ -339,26 +335,14 @@ export default function Spelling() {
         <h2 style={{ color: '#2a9d8f', fontSize: '2rem', marginBottom: '0.5rem' }}>Partie terminée !</h2>
         <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2a9d8f', marginBottom: '0.25rem' }}>{score} pts</div>
         <div style={{ color: '#888', marginBottom: '2rem' }}>{wordsCompleted} mots traités</div>
-
-        {highScores.length > 0 && (
-          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', maxWidth: '300px', margin: '0 auto 1.5rem' }}>
-            <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.5rem' }}>🏆 Meilleurs scores</h3>
-            {highScores.map((s, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem' }}>
-                <span style={{ color: i === 0 ? '#e9c46a' : '#555' }}>#{i + 1} {i === 0 ? '🥇' : ''}</span>
-                <span style={{ fontWeight: 'bold', color: '#333' }}>{s.score} pts</span>
-                <span style={{ color: '#aaa' }}>{s.date}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
         <button onClick={() => { setGameState('select'); setWords([]) }} style={{ padding: '0.75rem 2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}>
-          Rejouer
+          Retour
         </button>
       </div>
     )
   }
+
+  const listName = lists.find(l => l.id === selectedList)?.name || ''
 
   return (
     <div style={{ maxWidth: '500px', margin: '0 auto' }}>
@@ -450,6 +434,25 @@ export default function Spelling() {
             </div>
           )}
         </div>
+      )}
+
+      {showHighscore && (
+        <HighscoreModal
+          exercise="spelling" listId={selectedList} listName={listName} score={score}
+          onClose={() => { setShowHighscore(false); setGameState('result') }}
+          onDisable={() => { localStorage.setItem('odigo_highscores', 'off'); setShowHighscore(false); setGameState('result') }}
+          onReplay={() => { setShowHighscore(false); setGameState('select'); startGame() }}
+          onQuit={() => { setShowHighscore(false); setGameState('select') }}
+        />
+      )}
+      {showLeaderboard && (
+        <HighscoreModal
+          exercise="spelling" listId={selectedList} listName={listName} score={0} initialPhase="leaderboard"
+          onClose={() => setShowLeaderboard(false)}
+          onDisable={() => { localStorage.setItem('odigo_highscores', 'off'); setShowLeaderboard(false) }}
+          onReplay={() => { setShowLeaderboard(false); startGame() }}
+          onQuit={() => setShowLeaderboard(false)}
+        />
       )}
     </div>
   )

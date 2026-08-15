@@ -39,6 +39,9 @@ export default function Settings() {
   const [feedbackText, setFeedbackText] = useState('')
   const [feedbackSent, setFeedbackSent] = useState(false)
   const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [highscoresEnabled, setHighscoresEnabled] = useState(
+    localStorage.getItem('odigo_highscores') !== 'off'
+  )
 
   useEffect(() => {
     fetchProfile()
@@ -439,6 +442,28 @@ export default function Settings() {
         <p style={{ color: '#aaa', fontSize: '0.8rem', marginTop: '0.5rem' }}>
           Le mode nuit sera disponible prochainement.
         </p>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderTop: '1px solid var(--color-border)', marginTop: '0.75rem' }}>
+          <div>
+            <div style={{ fontWeight: 'bold' }}>🏆 Highscores</div>
+            <div style={{ fontSize: '0.8rem', color: '#888' }}>Afficher le classement à la fin des exercices</div>
+          </div>
+          <button
+            onClick={() => {
+              const newValue = !highscoresEnabled
+              setHighscoresEnabled(newValue)
+              localStorage.setItem('odigo_highscores', newValue ? 'on' : 'off')
+            }}
+            style={{
+              background: highscoresEnabled ? '#2a9d8f' : '#ddd',
+              color: highscoresEnabled ? 'white' : '#666',
+              border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem',
+              cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', transition: 'all 0.2s',
+            }}
+          >
+            {highscoresEnabled ? 'Activé' : 'Désactivé'}
+          </button>
+        </div>
         {avatarCardId && (
           <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f0f0f0' }}>
             <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.5rem' }}>Avatar carte actif</div>

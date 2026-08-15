@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
+import HighscoreModal from '../components/HighscoreModal'
 
 interface WordItem {
   id: string
@@ -44,7 +45,14 @@ const audioButtonStyle: React.CSSProperties = {
   padding: '0.1rem 0.5rem',
 }
 
-export default function QCM() {
+interface GuestProps {
+  guestMode?: boolean
+  guestListId?: string
+  guestLanguage?: string
+  onGameEnd?: () => void
+}
+
+export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }: GuestProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
@@ -64,12 +72,21 @@ export default function QCM() {
   const [totalWords, setTotalWords] = useState(0)
   const [isReviewPhase, setIsReviewPhase] = useState(false)
   const [startTime, setStartTime] = useState(0)
-  const [highScores, setHighScores] = useState<{ score: number; date: string; mode: string }[]>([])
+  const [showHighscore, setShowHighscore] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [fireMode, setFireMode] = useState<null | 'small' | 'big'>(null)
 
   const [listLanguage, setListLanguage] = useState('')
 
-  useEffect(() => { fetchLists() }, [])
+  useEffect(() => {
+    if (guestMode && guestListId) {
+      setSelectedList(guestListId)
+      if (guestLanguage) setListLanguage(guestLanguage)
+      fetchWords(guestListId)
+    } else {
+      fetchLists()
+    }
+  }, [])
 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -135,7 +152,6 @@ export default function QCM() {
         setFailedWords([])
         return
       }
-      setGameState('result')
       saveScore()
       return
     }
@@ -183,12 +199,23 @@ export default function QCM() {
     }, 1000)
   }, [currentWord, feedback, mode, direction, streak, startTime])
 
+  const checkHighscore = async (finalScore: number): Promise<boolean> => {
+    if (localStorage.getItem('odigo_highscores') === 'off') return false
+    if (!selectedList) return false
+    const { data } = await supabase
+      .from('highscores').select('score')
+      .eq('exercise', 'qcm').eq('list_id', selectedList)
+      .order('score', { ascending: false }).limit(5)
+    if (!data) return false
+    if (data.length < 5) return true
+    return finalScore > data[data.length - 1].score
+  }
+
   const saveScore = async () => {
-    const key = `qcm_scores_${selectedList}_${mode}`
-    const existing = JSON.parse(localStorage.getItem(key) || '[]')
-    const newScore = { score, date: new Date().toLocaleDateString('fr-CH'), mode: MODE_CONFIG[mode].label }
-    const updated = [...existing, newScore].sort((a, b) => b.score - a.score).slice(0, 10)
-    localStorage.setItem(key, JSON.stringify(updated))
+    if (guestMode) {
+      onGameEnd?.()
+      return
+    }
     await addDigoos(5 + Math.floor(score / 10))
     await logActivity({
       action_type: 'exercise_completed',
@@ -196,13 +223,9 @@ export default function QCM() {
       questions_correct: wordsCompleted - failedWords.length,
       metadata: { exercise: 'qcm', mode },
     })
-    setHighScores(updated)
-  }
-
-  const loadHighScores = (listId: string, m: Mode) => {
-    const key = `qcm_scores_${listId}_${m}`
-    const existing = JSON.parse(localStorage.getItem(key) || '[]')
-    setHighScores(existing)
+    const isTop = await checkHighscore(score)
+    if (isTop) setShowHighscore(true)
+    else setGameState('result')
   }
 
   const displayWord = currentWord
@@ -216,6 +239,7 @@ export default function QCM() {
   }
 
   if (gameState === 'select') {
+    if (guestMode) return <div style={{ textAlign: 'center', padding: '3rem', color: '#888' }}>Chargement...</div>
     return (
       <div>
         <h2 style={{ color: '#2a9d8f', marginBottom: '1.5rem' }}>🧠 QCM</h2>
@@ -223,7 +247,7 @@ export default function QCM() {
 
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Liste</label>
-            <select value={selectedList} onChange={e => { setSelectedList(e.target.value); loadHighScores(e.target.value, mode); const l = lists.find(x => x.id === e.target.value); if (l) setListLanguage(l.language) }} style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}>
+            <select value={selectedList} onChange={e => { setSelectedList(e.target.value); const l = lists.find(x => x.id === e.target.value); if (l) setListLanguage(l.language) }} style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}>
               <option value="">-- Sélectionner --</option>
               {lists.map(l => <option key={l.id} value={l.id}>{l.name} — {l.language} ({l.list_type})</option>)}
             </select>
@@ -233,7 +257,7 @@ export default function QCM() {
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Mode</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               {(Object.keys(MODE_CONFIG) as Mode[]).map(m => (
-                <button key={m} onClick={() => { setMode(m); loadHighScores(selectedList, m) }} style={{ flex: 1, padding: '0.6rem', background: mode === m ? '#2a9d8f' : 'var(--color-border)', color: mode === m ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: '0.6rem', background: mode === m ? '#2a9d8f' : 'var(--color-border)', color: mode === m ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                   {MODE_CONFIG[m].emoji} {MODE_CONFIG[m].label}
                 </button>
               ))}
@@ -256,49 +280,30 @@ export default function QCM() {
             🚀 Jouer
           </button>
 
-          {highScores.length > 0 && (
-            <div style={{ marginTop: '1.5rem' }}>
-              <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.5rem' }}>🏆 Meilleurs scores — {MODE_CONFIG[mode].label}</h3>
-              {highScores.map((s, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem' }}>
-                  <span style={{ color: i === 0 ? '#e9c46a' : '#555' }}>#{i + 1} {i === 0 ? '🥇' : ''}</span>
-                  <span style={{ fontWeight: 'bold', color: '#333' }}>{s.score} pts</span>
-                  <span style={{ color: '#aaa' }}>{s.date}</span>
-                </div>
-              ))}
-            </div>
+          {selectedList && localStorage.getItem('odigo_highscores') !== 'off' && (
+            <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              🏆 Voir le classement
+            </button>
           )}
         </div>
       </div>
     )
   }
 
-  if (gameState === 'result') {
+  if (gameState === 'result' && !guestMode) {
     return (
       <div style={{ textAlign: 'center' }}>
         <h2 style={{ color: '#2a9d8f', fontSize: '2rem', marginBottom: '0.5rem' }}>Partie terminée !</h2>
         <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2a9d8f', marginBottom: '0.25rem' }}>{score} pts</div>
         <div style={{ color: '#888', marginBottom: '2rem' }}>{wordsCompleted} mots traités · Mode {MODE_CONFIG[mode].label}</div>
-
-        {highScores.length > 0 && (
-          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', maxWidth: '300px', margin: '0 auto 1.5rem' }}>
-            <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.5rem' }}>🏆 Meilleurs scores</h3>
-            {highScores.map((s, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem' }}>
-                <span style={{ color: i === 0 ? '#e9c46a' : '#555' }}>#{i + 1} {i === 0 ? '🥇' : ''}</span>
-                <span style={{ fontWeight: 'bold', color: '#333' }}>{s.score} pts</span>
-                <span style={{ color: '#aaa' }}>{s.date}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
         <button onClick={() => { setGameState('select'); setWords([]) }} style={{ padding: '0.75rem 2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}>
-          Rejouer
+          Retour
         </button>
       </div>
     )
   }
+
+  const listName = lists.find(l => l.id === selectedList)?.name || ''
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
@@ -392,6 +397,25 @@ export default function QCM() {
         <div style={{ textAlign: 'center', marginTop: '1rem', fontSize: '1.1rem', fontWeight: 'bold', color: feedback.correct ? '#2a9d8f' : '#e63946' }}>
           {feedback.correct ? `✓ Correct ! ${getFireEmoji()}` : `✗ Réponse : ${feedback.answer}`}
         </div>
+      )}
+
+      {showHighscore && (
+        <HighscoreModal
+          exercise="qcm" listId={selectedList} listName={listName} score={score}
+          onClose={() => { setShowHighscore(false); setGameState('result') }}
+          onDisable={() => { localStorage.setItem('odigo_highscores', 'off'); setShowHighscore(false); setGameState('result') }}
+          onReplay={() => { setShowHighscore(false); setGameState('select'); startGame() }}
+          onQuit={() => { setShowHighscore(false); setGameState('select') }}
+        />
+      )}
+      {showLeaderboard && (
+        <HighscoreModal
+          exercise="qcm" listId={selectedList} listName={listName} score={0} initialPhase="leaderboard"
+          onClose={() => setShowLeaderboard(false)}
+          onDisable={() => { localStorage.setItem('odigo_highscores', 'off'); setShowLeaderboard(false) }}
+          onReplay={() => { setShowLeaderboard(false); startGame() }}
+          onQuit={() => setShowLeaderboard(false)}
+        />
       )}
     </div>
   )
