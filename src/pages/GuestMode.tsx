@@ -11,7 +11,7 @@ interface GuestModeProps {
   onExit: () => void
 }
 
-const VOCAB_LANGUAGES = ['Anglais', 'Allemand', 'Grec', 'Arabe']
+const VOCAB_LANGUAGES = ['Anglais', 'Allemand']
 
 export default function GuestMode({ onExit }: GuestModeProps) {
   const [partiesPlayed, setPartiesPlayed] = useState(
@@ -46,14 +46,19 @@ export default function GuestMode({ onExit }: GuestModeProps) {
   }
 
   const renderExercise = () => {
-    const listId = GUEST_LIST_IDS[guestLanguage]
-    const guestProps = { guestMode: true as const, guestListId: listId, guestLanguage, onGameEnd: handleGameEnd }
+    const vocabListId = GUEST_LIST_IDS[guestLanguage]
+    const conjugListId = GUEST_LIST_IDS[`${guestLanguage}-conjugaison`]
     switch (activeExercise) {
-      case 'qcm': return <QCM {...guestProps} />
-      case 'worddrop': return <WordDrop {...guestProps} />
-      case 'anagramme': return <Anagramme {...guestProps} />
-      case 'conjugaison-etrangere': return <ConjugaisonEtrangere {...guestProps} />
-      case 'maths-calcul': return <Maths initialExercise="calcul" guestMode onGameEnd={handleGameEnd} />
+      case 'qcm':
+        return <QCM guestMode guestListId={vocabListId} guestLanguage={guestLanguage} onGameEnd={handleGameEnd} />
+      case 'worddrop':
+        return <WordDrop guestMode guestListId={vocabListId} guestLanguage={guestLanguage} onGameEnd={handleGameEnd} />
+      case 'anagramme':
+        return <Anagramme guestMode guestListId={vocabListId} guestLanguage={guestLanguage} onGameEnd={handleGameEnd} />
+      case 'conjugaison-etrangere':
+        return <ConjugaisonEtrangere guestMode guestListId={conjugListId} guestLanguage={guestLanguage} onGameEnd={handleGameEnd} />
+      case 'maths-calcul':
+        return <Maths initialExercise="calcul" guestMode onGameEnd={handleGameEnd} />
       default: return null
     }
   }

@@ -33,29 +33,41 @@ const DEFAULT_CONFIG = { tenses: ['Présent', 'Passé', 'Futur'], pronouns: true
 
 const NB_QUESTIONS = [5, 8, 10, 15]
 
-const PRONOUNS = ['he ', 'she ', 'it ', 'they ', 'we ', 'you ', 'i ']
+const PRONOUNS = [
+  'i ', 'you ', 'he ', 'she ', 'it ', 'we ', 'they ',
+  'ich ', 'du ', 'er ', 'sie ', 'es ', 'wir ', 'ihr ',
+]
 
 const normalizeAnswer = (answer: string): string =>
   answer.trim().toLowerCase().replace(/\s+/g, ' ')
 
-const checkAnswer = (userAnswer: string, q: Question): boolean => {
-  const normalUser = normalizeAnswer(userAnswer)
-  for (const r of q.reponses) {
-    const normalExpected = normalizeAnswer(r)
-    if (normalUser === normalExpected) return true
-    if (normalExpected.includes('/')) {
-      const variants = normalExpected.split('/').map(v => normalizeAnswer(v))
-      if (variants.includes(normalUser)) return true
-      const formsWithoutPronouns = variants.map(v => {
-        for (const p of PRONOUNS) {
-          if (v.startsWith(p)) return v.slice(p.length)
-        }
-        return v
-      })
-      if (formsWithoutPronouns.includes(normalUser)) return true
+const matchesExpected = (normalUser: string, normalExpected: string): boolean => {
+  if (normalUser === normalExpected) return true
+
+  if (normalExpected.includes('/')) {
+    const variants = normalExpected.split('/').map(v => normalizeAnswer(v))
+    if (variants.includes(normalUser)) return true
+    const formsWithoutPronouns = variants.map(v => {
+      for (const p of PRONOUNS) {
+        if (v.startsWith(p)) return v.slice(p.length).trim()
+      }
+      return v
+    })
+    if (formsWithoutPronouns.includes(normalUser)) return true
+  }
+
+  for (const p of PRONOUNS) {
+    if (normalExpected.startsWith(p)) {
+      if (normalUser === normalExpected.slice(p.length).trim()) return true
     }
   }
+
   return false
+}
+
+const checkAnswer = (userAnswer: string, q: Question): boolean => {
+  const normalUser = normalizeAnswer(userAnswer)
+  return q.reponses.some(r => matchesExpected(normalUser, normalizeAnswer(r)))
 }
 
 interface GuestProps {
