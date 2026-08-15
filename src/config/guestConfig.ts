@@ -1,4 +1,12 @@
-export const GUEST_EXERCISES = ['qcm', 'worddrop', 'anagramme', 'conjugaison-etrangere', 'maths-calcul']
+export const GUEST_EXERCISES = [
+  'qcm',
+  'worddrop',
+  'anagramme',
+  'conjugaison-etrangere',
+  'maths-calcul',
+  'vocabulaire',
+]
+
 export const GUEST_MAX_FREE = 3
 export const GUEST_MAX_TOTAL = 10
 
@@ -10,3 +18,35 @@ export const GUEST_LIST_IDS: Record<string, string> = {
   'Français-conjugaison': '9da5be1c-c0bc-4405-8870-78ab58620d41',
   'Français-dictée': '4dd5cae8-47b6-45e0-b81a-a2d74e51df5f',
 }
+
+export const GUEST_CATEGORIES: {
+  id: string
+  label: string
+  language: string | null
+  exercises: string[]
+}[] = [
+  {
+    id: 'allemand',
+    label: '🇩🇪 Allemand',
+    language: 'Allemand',
+    exercises: ['worddrop', 'qcm', 'anagramme', 'conjugaison-etrangere'],
+  },
+  {
+    id: 'anglais',
+    label: '🇬🇧 Anglais',
+    language: 'Anglais',
+    exercises: ['worddrop', 'qcm', 'anagramme', 'conjugaison-etrangere'],
+  },
+  {
+    id: 'francais',
+    label: '🇫🇷 Français',
+    language: 'Français',
+    exercises: ['vocabulaire'],
+  },
+  {
+    id: 'maths',
+    label: '🔢 Maths',
+    language: null,
+    exercises: ['maths-calcul'],
+  },
+]

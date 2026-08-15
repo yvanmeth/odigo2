@@ -6,6 +6,12 @@ import { logActivity } from '../services/activity'
 import { speak } from '../lib/speech'
 import HighscoreModal from '../components/HighscoreModal'
 
+interface GuestProps {
+  guestMode?: boolean
+  guestListId?: string
+  onGameEnd?: () => void
+}
+
 interface WordList {
   id: string
   name: string
@@ -36,7 +42,7 @@ const renderPhrase = (phrase: string, mot?: string, correct?: boolean) => {
   )
 }
 
-export default function Vocabulaire() {
+export default function Vocabulaire({ guestMode, guestListId, onGameEnd }: GuestProps = {}) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
@@ -60,7 +66,13 @@ export default function Vocabulaire() {
   const [showHighscore, setShowHighscore] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
 
-  useEffect(() => { fetchLists() }, [])
+  useEffect(() => {
+    if (guestMode && guestListId) {
+      setSelectedList(guestListId)
+    } else {
+      fetchLists()
+    }
+  }, [])
 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -158,6 +170,11 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+  useEffect(() => {
+    if (guestMode && selectedList && gameState === 'select') genererQuestions()
+  }, [selectedList])
+
   const valider = useCallback(() => {
     if (!reponse.trim() || feedback) return
     const q = queue[0]
@@ -201,6 +218,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
   }, [queue, feedback])
 
   const finaliser = async () => {
+    if (guestMode) { onGameEnd?.(); return }
     await addDigoos(digoosEarned)
     await logActivity({
       action_type: 'exercise_completed',
@@ -230,6 +248,14 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
   const isLastRound = queue.length === 1 && feedback?.correct === true
 
   // ---- ÉCRAN SÉLECTION ----
+  if ((gameState === 'select' || gameState === 'loading') && guestMode) {
+    return (
+      <div style={{ textAlign: 'center', padding: '2rem', color: '#888', fontSize: '1rem' }}>
+        ⏳ Génération des questions...
+      </div>
+    )
+  }
+
   if (gameState === 'select' || gameState === 'loading') {
     return (
       <div>

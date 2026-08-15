@@ -1,34 +1,34 @@
 import { useState } from 'react'
-import { GUEST_EXERCISES, GUEST_MAX_FREE, GUEST_MAX_TOTAL, GUEST_LIST_IDS } from '../config/guestConfig'
+import { GUEST_MAX_FREE, GUEST_MAX_TOTAL, GUEST_LIST_IDS, GUEST_CATEGORIES } from '../config/guestConfig'
 import { exerciseCards } from './dashboard/types'
 import QCM from './qcm'
 import WordDrop from './worddrop'
 import Anagramme from './Anagramme'
 import ConjugaisonEtrangere from './ConjugaisonEtrangere'
 import Maths from './Maths'
+import Vocabulaire from './vocabulaire'
 
 interface GuestModeProps {
   onExit: () => void
 }
-
-const VOCAB_LANGUAGES = ['Anglais', 'Allemand']
 
 export default function GuestMode({ onExit }: GuestModeProps) {
   const [partiesPlayed, setPartiesPlayed] = useState(
     parseInt(localStorage.getItem('odigo_guest_parties') || '0')
   )
   const [activeExercise, setActiveExercise] = useState<string | null>(null)
+  const [activeLanguage, setActiveLanguage] = useState<string | null>(null)
   const [showLimitModal, setShowLimitModal] = useState(false)
   const [hardLimit, setHardLimit] = useState(false)
-  const [guestLanguage, setGuestLanguage] = useState('Anglais')
 
-  const handleExerciseClick = (exerciseId: string) => {
+  const handleExerciseClick = (exerciseId: string, language: string | null) => {
     if (partiesPlayed >= GUEST_MAX_TOTAL) {
       setHardLimit(true)
       setShowLimitModal(true)
       return
     }
     setActiveExercise(exerciseId)
+    setActiveLanguage(language)
   }
 
   const handleGameEnd = () => {
@@ -36,6 +36,7 @@ export default function GuestMode({ onExit }: GuestModeProps) {
     setPartiesPlayed(newCount)
     localStorage.setItem('odigo_guest_parties', String(newCount))
     setActiveExercise(null)
+    setActiveLanguage(null)
     if (newCount >= GUEST_MAX_FREE && newCount < GUEST_MAX_TOTAL) {
       setHardLimit(false)
       setShowLimitModal(true)
@@ -46,19 +47,23 @@ export default function GuestMode({ onExit }: GuestModeProps) {
   }
 
   const renderExercise = () => {
-    const vocabListId = GUEST_LIST_IDS[guestLanguage]
-    const conjugListId = GUEST_LIST_IDS[`${guestLanguage}-conjugaison`]
+    const lang = activeLanguage ?? 'Anglais'
+    const vocabListId = GUEST_LIST_IDS[lang]
+    const conjugListId = GUEST_LIST_IDS[`${lang}-conjugaison`]
+    const francaisListId = GUEST_LIST_IDS['Français-dictée']
     switch (activeExercise) {
       case 'qcm':
-        return <QCM guestMode guestListId={vocabListId} guestLanguage={guestLanguage} onGameEnd={handleGameEnd} />
+        return <QCM guestMode guestListId={vocabListId} guestLanguage={lang} onGameEnd={handleGameEnd} />
       case 'worddrop':
-        return <WordDrop guestMode guestListId={vocabListId} guestLanguage={guestLanguage} onGameEnd={handleGameEnd} />
+        return <WordDrop guestMode guestListId={vocabListId} guestLanguage={lang} onGameEnd={handleGameEnd} />
       case 'anagramme':
-        return <Anagramme guestMode guestListId={vocabListId} guestLanguage={guestLanguage} onGameEnd={handleGameEnd} />
+        return <Anagramme guestMode guestListId={vocabListId} guestLanguage={lang} onGameEnd={handleGameEnd} />
       case 'conjugaison-etrangere':
-        return <ConjugaisonEtrangere guestMode guestListId={conjugListId} guestLanguage={guestLanguage} onGameEnd={handleGameEnd} />
+        return <ConjugaisonEtrangere guestMode guestListId={conjugListId} guestLanguage={lang} onGameEnd={handleGameEnd} />
       case 'maths-calcul':
         return <Maths initialExercise="calcul" guestMode onGameEnd={handleGameEnd} />
+      case 'vocabulaire':
+        return <Vocabulaire guestMode guestListId={francaisListId} onGameEnd={handleGameEnd} />
       default: return null
     }
   }
@@ -72,7 +77,7 @@ export default function GuestMode({ onExit }: GuestModeProps) {
           background: 'white', borderBottom: '1px solid var(--color-border)',
         }}>
           <button
-            onClick={() => setActiveExercise(null)}
+            onClick={() => { setActiveExercise(null); setActiveLanguage(null) }}
             style={{ background: 'var(--color-border)', border: 'none', color: '#555', borderRadius: '0.5rem', padding: '0.4rem 0.8rem', cursor: 'pointer', fontSize: '0.85rem' }}
           >
             ← Retour
@@ -114,83 +119,66 @@ export default function GuestMode({ onExit }: GuestModeProps) {
       </div>
 
       <div style={{ maxWidth: '860px', margin: '0 auto', padding: '1.5rem 1rem' }}>
-        <h2 style={{ textAlign: 'center', color: '#333', marginBottom: '1.5rem', fontSize: '1.4rem' }}>
+        <h2 style={{ textAlign: 'center', color: '#333', marginBottom: '2rem', fontSize: '1.4rem' }}>
           🎯 Essaie nos exercices !
         </h2>
 
-        {/* Language selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.9rem', color: '#555', fontWeight: 'bold' }}>Langue :</span>
-          {VOCAB_LANGUAGES.map(lang => (
-            <button
-              key={lang}
-              onClick={() => setGuestLanguage(lang)}
-              style={{
-                padding: '0.35rem 0.85rem', borderRadius: '1rem',
-                border: '1.5px solid #2a9d8f',
-                background: guestLanguage === lang ? '#2a9d8f' : 'white',
-                color: guestLanguage === lang ? 'white' : '#2a9d8f',
-                cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold',
-              }}
-            >
-              {lang}
-            </button>
-          ))}
-        </div>
-
-        {/* Exercise grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-          {exerciseCards.map(ex => {
-            const accessible = GUEST_EXERCISES.includes(ex.id)
-            return (
-              <div
-                key={ex.id}
-                onClick={() => accessible ? handleExerciseClick(ex.id) : undefined}
-                style={{
-                  background: 'white',
-                  borderRadius: '1rem',
-                  padding: '1.25rem',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                  borderTop: `4px solid ${accessible ? ex.color : '#ccc'}`,
-                  cursor: accessible ? 'pointer' : 'not-allowed',
-                  opacity: accessible ? 1 : 0.4,
-                  position: 'relative',
-                  transition: accessible ? 'transform 0.15s, box-shadow 0.15s' : 'none',
-                  userSelect: 'none',
-                }}
-                onMouseEnter={e => {
-                  if (accessible) {
-                    e.currentTarget.style.transform = 'translateY(-3px)'
-                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'
-                  }
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = 'translateY(0)'
-                  e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)'
-                }}
-              >
-                {!accessible && (
-                  <div style={{
-                    position: 'absolute', top: '0.5rem', right: '0.5rem',
-                    fontSize: '0.65rem', background: '#888', color: 'white',
-                    borderRadius: '0.5rem', padding: '0.15rem 0.4rem',
-                  }}>
-                    🔒 Compte requis
+        {GUEST_CATEGORIES.map(category => {
+          const cards = exerciseCards.filter(ex => category.exercises.includes(ex.id))
+          return (
+            <div key={category.id} style={{ marginBottom: '2rem' }}>
+              <h3 style={{
+                fontSize: '1rem', fontWeight: 'bold',
+                color: 'var(--color-primary)',
+                marginBottom: '0.75rem',
+                paddingBottom: '0.4rem',
+                borderBottom: '2px solid var(--color-border)',
+              }}>
+                {category.label}
+              </h3>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                gap: '0.75rem',
+              }}>
+                {cards.map(ex => (
+                  <div
+                    key={ex.id}
+                    onClick={() => handleExerciseClick(ex.id, category.language)}
+                    style={{
+                      background: 'white',
+                      borderRadius: '1rem',
+                      padding: '1rem',
+                      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                      borderTop: `4px solid ${ex.color}`,
+                      cursor: 'pointer',
+                      transition: 'transform 0.15s, box-shadow 0.15s',
+                      userSelect: 'none',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'translateY(-3px)'
+                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = 'translateY(0)'
+                      e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)'
+                    }}
+                  >
+                    <div style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>{ex.icon}</div>
+                    <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.88rem', marginBottom: '0.2rem' }}>
+                      {ex.label}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#888', lineHeight: 1.4 }}>{ex.description}</div>
                   </div>
-                )}
-                <div style={{ fontSize: '1.75rem', marginBottom: '0.4rem' }}>{ex.icon}</div>
-                <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem', marginBottom: '0.25rem' }}>
-                  {ex.label}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: '#888', lineHeight: 1.4 }}>{ex.description}</div>
+                ))}
               </div>
-            )
-          })}
-        </div>
+            </div>
+          )
+        })}
 
         {/* CTA section */}
         <div style={{
-          marginTop: '2rem', textAlign: 'center',
+          marginTop: '1rem', textAlign: 'center',
           padding: '1.5rem', background: 'white',
           borderRadius: '1rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         }}>
@@ -230,7 +218,7 @@ export default function GuestMode({ onExit }: GuestModeProps) {
                   Tu as utilisé toutes tes parties découverte. Crée un compte gratuit pour continuer à apprendre !
                 </p>
                 <button
-                  onClick={() => { window.location.href = '/' }}
+                  onClick={onExit}
                   style={{
                     width: '100%', padding: '0.85rem',
                     background: '#2a9d8f', color: 'white', border: 'none',
@@ -250,7 +238,7 @@ export default function GuestMode({ onExit }: GuestModeProps) {
                   Crée un compte gratuit pour débloquer tout ODIGO, sauvegarder ta progression et gagner des Δ !
                 </p>
                 <button
-                  onClick={() => { window.location.href = '/' }}
+                  onClick={onExit}
                   style={{
                     width: '100%', padding: '0.85rem', marginBottom: '0.75rem',
                     background: '#2a9d8f', color: 'white', border: 'none',
