@@ -79,7 +79,7 @@ export default function AnagrammeFrancais({ userId }: AnagrammeFrancaisProps) {
       .from('word_lists')
       .select('id, name, list_type, language')
       .eq('user_id', targetId)
-      .eq('list_type', 'vocabulaire')
+      .eq('list_type', 'dictée')
       .eq('language', 'Français')
       .order('name')
     setLists(data || [])
@@ -314,7 +314,7 @@ export default function AnagrammeFrancais({ userId }: AnagrammeFrancaisProps) {
           <EmptyState
             emoji="📋"
             title="Aucune liste disponible"
-            subtitle="Crée une liste de vocabulaire en Français pour jouer à cet exercice."
+            subtitle="Crée une liste de type Dictée en français pour jouer à cet exercice."
           />
         ) : (
           <div style={{ maxWidth: '420px' }}>

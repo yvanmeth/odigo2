@@ -61,7 +61,6 @@ export default function Anagramme({ userId, guestMode, guestListId, onGameEnd }:
   const [bank, setBank] = useState<BankItem[]>([])
   const [placed, setPlaced] = useState<PlacedItem[]>([])
   const [hintFirst, setHintFirst] = useState(false)
-  const [hintTranslation, setHintTranslation] = useState(false)
   const [attempts, setAttempts] = useState(0)
   const [results, setResults] = useState<boolean[]>([])
   const [streak, setStreak] = useState(0)
@@ -104,7 +103,6 @@ export default function Anagramme({ userId, guestMode, guestListId, onGameEnd }:
     setBank(word.shuffled.map((letter, i) => ({ letter, id: `${i}-${letter}`, used: false })))
     setPlaced(new Array(word.target.length).fill(null))
     setHintFirst(false)
-    setHintTranslation(false)
     setAttempts(0)
     setFeedback(null)
     validatingRef.current = false
@@ -503,10 +501,16 @@ export default function Anagramme({ userId, guestMode, guestListId, onGameEnd }:
             ))}
           </div>
 
-          {/* Indice traduction */}
-          {hintTranslation && (
-            <div style={{ background: '#f0faf8', borderRadius: '0.5rem', padding: '0.5rem 1rem', marginTop: '0.75rem', marginBottom: '1rem', fontSize: '0.9rem', color: '#2a9d8f', fontStyle: 'italic', textAlign: 'center' }}>
-              Traduction : {currentWord.translation}
+          {/* Traduction toujours visible */}
+          {currentWord?.translation && (
+            <div style={{
+              textAlign: 'center',
+              marginTop: '0.75rem',
+              fontSize: '0.9rem',
+              color: '#888',
+              fontStyle: 'italic',
+            }}>
+              Traduction : <strong style={{ color: '#2a9d8f' }}>{currentWord.translation}</strong>
             </div>
           )}
 
@@ -566,22 +570,6 @@ export default function Anagramme({ userId, guestMode, guestListId, onGameEnd }:
                 }}
               >
                 💡 1ère lettre
-              </button>
-            )}
-            {currentWord.translation && (
-              <button
-                onClick={() => setHintTranslation(true)}
-                disabled={feedback !== null || hintTranslation}
-                style={{
-                  padding: '0.4rem 0.9rem',
-                  background: 'white', color: '#e76f51',
-                  border: '1px solid #e76f51', borderRadius: '0.5rem',
-                  cursor: feedback !== null || hintTranslation ? 'default' : 'pointer',
-                  fontSize: '0.85rem',
-                  opacity: hintTranslation ? 0.5 : 1,
-                }}
-              >
-                🌍 Traduction
               </button>
             )}
             <button
