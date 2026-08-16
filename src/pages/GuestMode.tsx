@@ -119,12 +119,21 @@ export default function GuestMode({ onExit }: GuestModeProps) {
       </div>
 
       <div style={{ maxWidth: '860px', margin: '0 auto', padding: '1.5rem 1rem' }}>
-        <h2 style={{ textAlign: 'center', color: '#333', marginBottom: '2rem', fontSize: '1.4rem' }}>
-          🎯 Essaie nos exercices !
+        <h2 style={{ textAlign: 'center', color: '#333', marginBottom: '0.75rem', fontSize: '1.4rem' }}>
+          🎯 Essaie les exercices !
         </h2>
+        <p style={{
+          fontSize: '0.9rem', color: '#666',
+          textAlign: 'center', maxWidth: '500px',
+          margin: '0 auto 2rem', lineHeight: 1.6,
+        }}>
+          Le mode invité utilise des listes de mots prédéfinies.
+          En créant ton compte, tu pourras créer tes propres listes pour t'entraîner
+          sur le vocabulaire de ton choix et utiliser les points gagnés pour obtenir des récompenses !
+        </p>
 
         {GUEST_CATEGORIES.map(category => {
-          const cards = exerciseCards.filter(ex => category.exercises.includes(ex.id))
+          const cards = exerciseCards.filter(ex => ex.category === category.exerciseCategory)
           return (
             <div key={category.id} style={{ marginBottom: '2rem' }}>
               <h3 style={{
@@ -141,36 +150,53 @@ export default function GuestMode({ onExit }: GuestModeProps) {
                 gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
                 gap: '0.75rem',
               }}>
-                {cards.map(ex => (
-                  <div
-                    key={ex.id}
-                    onClick={() => handleExerciseClick(ex.id, category.language)}
-                    style={{
-                      background: 'white',
-                      borderRadius: '1rem',
-                      padding: '1rem',
-                      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                      borderTop: `4px solid ${ex.color}`,
-                      cursor: 'pointer',
-                      transition: 'transform 0.15s, box-shadow 0.15s',
-                      userSelect: 'none',
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.transform = 'translateY(-3px)'
-                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)'
-                    }}
-                  >
-                    <div style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>{ex.icon}</div>
-                    <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.88rem', marginBottom: '0.2rem' }}>
-                      {ex.label}
+                {cards.map(ex => {
+                  const accessible = category.unlockedExercises.includes(ex.id)
+                  return (
+                    <div
+                      key={`${category.id}-${ex.id}`}
+                      onClick={() => accessible ? handleExerciseClick(ex.id, category.language) : undefined}
+                      style={{
+                        background: 'white',
+                        borderRadius: '1rem',
+                        padding: '1rem',
+                        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                        borderTop: `4px solid ${accessible ? ex.color : '#ccc'}`,
+                        cursor: accessible ? 'pointer' : 'not-allowed',
+                        opacity: accessible ? 1 : 0.4,
+                        position: 'relative',
+                        transition: accessible ? 'transform 0.15s, box-shadow 0.15s' : 'none',
+                        userSelect: 'none',
+                      }}
+                      onMouseEnter={e => {
+                        if (accessible) {
+                          e.currentTarget.style.transform = 'translateY(-3px)'
+                          e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)'
+                      }}
+                    >
+                      {!accessible && (
+                        <div style={{
+                          position: 'absolute', top: '0.5rem', right: '0.5rem',
+                          background: 'rgba(0,0,0,0.5)', color: 'white',
+                          borderRadius: '0.5rem', padding: '0.2rem 0.5rem',
+                          fontSize: '0.75rem',
+                        }}>
+                          🔒 Compte requis
+                        </div>
+                      )}
+                      <div style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>{ex.icon}</div>
+                      <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.88rem', marginBottom: '0.2rem' }}>
+                        {ex.label}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#888', lineHeight: 1.4 }}>{ex.description}</div>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#888', lineHeight: 1.4 }}>{ex.description}</div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )

@@ -23,30 +23,35 @@ export const GUEST_CATEGORIES: {
   id: string
   label: string
   language: string | null
-  exercises: string[]
+  exerciseCategory: 'langues' | 'francais' | 'maths'
+  unlockedExercises: string[]
 }[] = [
   {
     id: 'allemand',
-    label: '🇩🇪 Allemand',
+    label: 'Allemand',
     language: 'Allemand',
-    exercises: ['worddrop', 'qcm', 'anagramme', 'conjugaison-etrangere'],
+    exerciseCategory: 'langues',
+    unlockedExercises: ['worddrop', 'qcm', 'anagramme', 'conjugaison-etrangere'],
   },
   {
     id: 'anglais',
-    label: '🇬🇧 Anglais',
+    label: 'Anglais',
     language: 'Anglais',
-    exercises: ['worddrop', 'qcm', 'anagramme', 'conjugaison-etrangere'],
+    exerciseCategory: 'langues',
+    unlockedExercises: ['worddrop', 'qcm', 'anagramme', 'conjugaison-etrangere'],
   },
   {
     id: 'francais',
-    label: '🇫🇷 Français',
+    label: 'Français',
     language: 'Français',
-    exercises: ['vocabulaire'],
+    exerciseCategory: 'francais',
+    unlockedExercises: ['vocabulaire'],
   },
   {
     id: 'maths',
-    label: '🔢 Maths',
+    label: 'Maths',
     language: null,
-    exercises: ['maths-calcul'],
+    exerciseCategory: 'maths',
+    unlockedExercises: ['maths-calcul'],
   },
 ]

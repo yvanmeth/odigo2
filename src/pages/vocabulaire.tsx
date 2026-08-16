@@ -113,22 +113,22 @@ export default function Vocabulaire({ guestMode, guestListId, onGameEnd }: Guest
       return
     }
 
-    const prompt = `Tu es un générateur d'exercices de phrases à trou pour Neyla, 10 ans, élève en 7P à Genève.
+    const intro = guestMode
+      ? `Tu génères des exercices de vocabulaire français adaptés à des élèves du primaire (8-12 ans). Utilise des exemples simples, universels et engageants. Évite toute référence à des personnes ou contextes spécifiques.`
+      : `Tu es un générateur d'exercices de phrases à trou pour Neyla, 10 ans, élève en 7P à Genève.\n\nContexte pour personnaliser les phrases (utilise ces références comme contexte narratif, jamais comme mot à deviner) :\nfilms de Miyazaki (Mon voisin Totoro, Kiki la petite sorcière…), couture, Bigflo & Oli, son frère Nono, Nintendo Switch, mythologie grecque, Japon, Grèce, Algérie, sa Mamie.`
+
+    const prompt = `${intro}
 
 Génère exactement ${nbQ} phrases à trou à partir de cette liste de mots : ${mots.join(', ')}.
 Si moins de mots que de questions, réutilise certains mots.
-
-Contexte pour personnaliser les phrases (utilise ces références comme contexte narratif, jamais comme mot à deviner) :
-films de Miyazaki (Mon voisin Totoro, Kiki la petite sorcière…), couture, Bigflo & Oli, son frère Nono, Nintendo Switch, mythologie grecque, Japon, Grèce, Algérie, sa Mamie.
 
 Règles STRICTES :
 - Utilise UNIQUEMENT les mots de cette liste exacte, sans en inventer d'autres : ${mots.join(', ')}
 - Le mot dans "mot" doit être copié exactement depuis la liste, sans modification
 - La phrase doit contenir le mot EXACTEMENT tel quel (même forme, même orthographe, singulier ou pluriel exactement comme dans la liste)
 - ___ remplace ce mot exact dans la phrase
-- Les centres d'intérêt de Neyla servent uniquement de contexte narratif, jamais comme mot à deviner
 - La phrase doit rendre le mot devinable grâce au contexte, sans ambiguïté sur la forme exacte du mot
-- La phrase est naturelle, adaptée à une enfant de 10 ans, entre 8 et 20 mots
+- La phrase est naturelle, adaptée à un enfant de 8-12 ans, entre 8 et 20 mots
 
 Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises markdown :
 [{"mot":"le mot exact copié depuis la liste","phrase":"La phrase avec ___ à la place du mot."}]`
