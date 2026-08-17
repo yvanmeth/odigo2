@@ -25,7 +25,7 @@ const STEPS: StepContent[] = [
   {
     icon: <Calendar size={48} color="#2a9d8f" />,
     title: '📅 Le Planificateur',
-    text: <>Note tes évaluations, planifie tes révisions et ajoute des rappels importants. C'est ton agenda scolaire — et chaque action te rapporte des <Delta size={14} /> !</>,
+    text: <>Organise ici ton travail. Note tes évaluations, planifie tes révisions et ajoute des rappels importants, comme dans un agenda, et chaque action te rapporte des <Delta size={14} /> !</>,
     details: <>Le Planificateur propose une vue liste et une vue calendrier (jour, semaine, mois). Ajouter une évaluation rapporte 2 <Delta size={12} />, cocher une révision comme faite rapporte 2 <Delta size={12} />, et ajouter un événement ou un rappel rapporte 1 <Delta size={12} />.</>,
   },
   {
@@ -52,8 +52,9 @@ const STEPS: StepContent[] = [
         <OdigoAvatar direction="up" size={56} />
       </div>
     ),
-    title: '🤖 Odi, le chatbot',
-    text: "ODIGO intègre un chatbot assistant appelé Odi. Il peut aider à comprendre une notion, préparer une évaluation ou s'organiser. Il peut se tromper — vérifie les choses importantes avec un adulte ou ton enseignant. Il est accessible en bas à droite de l'écran à tout moment.",
+    title: '🤖 Odi, ton assistant',
+    text: "Odi est un assistant intégré à ODIGO qui peut t'aider à mieux comprendre les fonctionnalités de la plateforme. Tu le trouveras en bas à droite de l'écran à tout moment.",
+    details: "Odi fonctionne uniquement avec des commandes. Il ne répond pas aux questions libres et n'est pas relié à une intelligence artificielle. Tape / dans le chat pour voir toutes les commandes disponibles.",
   },
 ]
 
@@ -67,7 +68,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
   }
 
   const current = STEPS[step - 1]
-  const hasDetails = step >= 2 && step <= 5
+  const hasDetails = step >= 2 && step <= 6
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

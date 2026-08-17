@@ -14,6 +14,7 @@ import Rewards from '../rewards'
 import Settings from '../settings'
 import ParentDashboard from '../parent'
 import Companion from '../../components/Companion'
+import { useToast } from '../../components/Toast'
 import { DigoosAnimation } from '../../components/DigoosAnimation'
 import Flashcards from '../flashcards'
 import Conjugaison from '../conjugaison'
@@ -46,6 +47,7 @@ const getTitleName = (item: { type: string; name: string; name_masculine?: strin
 }
 
 export default function Dashboard({ session }: Props) {
+  const { showToast } = useToast()
   const [collapsed, setCollapsed] = useState(false)
   const [activePage, setActivePage] = useState('dashboard')
   const [activeExercise, setActiveExercise] = useState<string | null>(null)
@@ -60,6 +62,9 @@ export default function Dashboard({ session }: Props) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const digoosAnimRef = useRef<((amount: number) => void) | null>(null)
+  const [pendingInvite] = useState(localStorage.getItem('odigo_pending_invite') || '')
+  const [showInviteModal, setShowInviteModal] = useState(!!localStorage.getItem('odigo_pending_invite'))
+  const [inviteParentName, setInviteParentName] = useState('')
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
@@ -83,6 +88,41 @@ export default function Dashboard({ session }: Props) {
     (window as any).triggerDigoosAnimation =
       (amount: number) => digoosAnimRef.current?.(amount)
   }, [])
+
+  useEffect(() => {
+    if (!pendingInvite) return
+    const fetchInviteInfo = async () => {
+      const { data: invite } = await supabase
+        .from('invite_codes')
+        .select('*')
+        .eq('code', pendingInvite)
+        .eq('used', false)
+        .single()
+
+      if (!invite) {
+        localStorage.removeItem('odigo_pending_invite')
+        setShowInviteModal(false)
+        return
+      }
+
+      if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+        localStorage.removeItem('odigo_pending_invite')
+        setShowInviteModal(false)
+        showToast("Le lien d'invitation a expiré.", 'error')
+        return
+      }
+
+      const { data: parentProfile } = await supabase
+        .from('profiles')
+        .select('first_name')
+        .eq('id', invite.parent_id)
+        .single()
+
+      setInviteParentName(parentProfile?.first_name || 'ton parent')
+      setShowInviteModal(true)
+    }
+    fetchInviteInfo()
+  }, [pendingInvite])
 
   const applyPendingProfile = async (userId: string) => {
     const pending = localStorage.getItem('odigo_pending_profile')
@@ -383,7 +423,7 @@ export default function Dashboard({ session }: Props) {
               }}
             />
           )}
-          {activePage === 'settings' && <Settings />}
+          {activePage === 'settings' && <Settings onNavigate={setActivePage} />}
           {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'rewards' && activePage !== 'settings' && activePage !== 'parent' && (
             <p style={{ color: '#aaa' }}>Contenu à venir...</p>
           )}
@@ -393,6 +433,66 @@ export default function Dashboard({ session }: Props) {
       {!isViewingChild && <Companion userId={session.user.id} currentPage={activePage} />}
       {showOnboarding && <OnboardingModal onComplete={handleFinishOnboarding} />}
       <DigoosAnimation onRef={trigger => { digoosAnimRef.current = trigger }} />
+
+      {showInviteModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '2rem', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔗</div>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '0.75rem' }}>Invitation reçue !</h3>
+            <p style={{ color: '#555', marginBottom: '1.5rem' }}>
+              Tu as été invité·e à lier ton compte à celui de{' '}
+              <strong>{inviteParentName}</strong>. Veux-tu accepter ?
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button
+                onClick={async () => {
+                  const { data: invite } = await supabase
+                    .from('invite_codes')
+                    .select('*')
+                    .eq('code', pendingInvite)
+                    .eq('used', false)
+                    .single()
+
+                  if (!invite) {
+                    showToast('Code introuvable ou déjà utilisé', 'error')
+                    localStorage.removeItem('odigo_pending_invite')
+                    setShowInviteModal(false)
+                    return
+                  }
+
+                  const { error: linkError } = await supabase.from('parent_child').insert({
+                    parent_id: invite.parent_id,
+                    child_id: session.user.id,
+                    relationship: invite.relationship || 'parent',
+                  })
+
+                  if (linkError) {
+                    if (linkError.code === '23505') showToast('Ce compte parent est déjà lié.', 'error')
+                    else showToast('Erreur lors de la liaison des comptes.', 'error')
+                    localStorage.removeItem('odigo_pending_invite')
+                    setShowInviteModal(false)
+                    return
+                  }
+
+                  await supabase.from('invite_codes').update({ used: true }).eq('id', invite.id)
+                  localStorage.removeItem('odigo_pending_invite')
+                  setShowInviteModal(false)
+                  showToast('Compte lié avec succès !')
+                }}
+                style={{ background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', padding: '0.6rem 1.5rem', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                ✓ Accepter
+              </button>
+              <button
+                onClick={() => { localStorage.removeItem('odigo_pending_invite'); setShowInviteModal(false) }}
+                style={{ background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', padding: '0.6rem 1.5rem', cursor: 'pointer' }}
+              >
+                Refuser
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Barre de navigation mobile en bas */}
       {isMobile && (

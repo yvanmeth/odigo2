@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/Toast'
+import HelpBubble from '../components/HelpBubble'
+
+type SettingsTab = 'profil' | 'comptes' | 'preferences' | 'securite' | 'aide'
 
 interface Profile {
   id: string
@@ -12,6 +15,10 @@ interface Profile {
   dark_mode: boolean
 }
 
+interface SettingsProps {
+  onNavigate?: (page: string) => void
+}
+
 const SUGGESTED_INTERESTS = [
   'Musique', 'Sport', 'Jeux vidéo', 'Lecture', 'Cinéma', 'Cuisine',
   'Dessin', 'Voyage', 'Nature', 'Sciences', 'Histoire', 'Manga',
@@ -20,7 +27,16 @@ const SUGGESTED_INTERESTS = [
 
 const LANGUAGES = ['Français', 'Anglais', 'Allemand', 'Espagnol', 'Grec', 'Arabe', 'Italien']
 
-export default function Settings() {
+const TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'profil', label: '👤 Profil' },
+  { id: 'comptes', label: '🔗 Comptes' },
+  { id: 'preferences', label: '⚙️ Préférences' },
+  { id: 'securite', label: '🔒 Sécurité' },
+  { id: 'aide', label: '💬 Aide' },
+]
+
+export default function Settings({ onNavigate }: SettingsProps = {}) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>('profil')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const { showToast } = useToast()
@@ -42,33 +58,59 @@ export default function Settings() {
   const [highscoresEnabled, setHighscoresEnabled] = useState(
     localStorage.getItem('odigo_highscores') !== 'off'
   )
+  const [helpBubbles, setHelpBubbles] = useState(
+    localStorage.getItem('odigo_help_bubbles') !== 'off'
+  )
+  const [linkedChildren, setLinkedChildren] = useState<{ id: string; first_name: string }[]>([])
+  const [loadingChildren, setLoadingChildren] = useState(false)
+  const [linkedParent, setLinkedParent] = useState<{ first_name: string } | null>(null)
+
+  useEffect(() => { fetchProfile() }, [])
 
   useEffect(() => {
-    fetchProfile()
-  }, [])
-
-  useEffect(() => {
-    const fetchRole = async () => {
+    const fetchRoleAndLinks = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.from('profiles')
-        .select('role').eq('id', user.id).single()
-      if (data?.role === 'parent') setRole('parent')
+      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (data?.role === 'parent') {
+        setRole('parent')
+      } else {
+        const { data: links } = await supabase
+          .from('parent_child').select('parent_id').eq('child_id', user.id).limit(1)
+        if (links && links.length > 0) {
+          const { data: parentProfile } = await supabase
+            .from('profiles').select('first_name').eq('id', links[0].parent_id).single()
+          if (parentProfile) setLinkedParent(parentProfile as { first_name: string })
+        }
+      }
     }
-    fetchRole()
+    fetchRoleAndLinks()
   }, [])
+
+  useEffect(() => {
+    if (role !== 'parent' || activeTab !== 'comptes' || linkedChildren.length > 0) return
+    const fetchChildren = async () => {
+      setLoadingChildren(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setLoadingChildren(false); return }
+      const { data: links } = await supabase
+        .from('parent_child').select('child_id').eq('parent_id', user.id)
+      const childIds = ((links || []) as { child_id: string }[]).map(l => l.child_id)
+      if (childIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles').select('id, first_name').in('id', childIds)
+        setLinkedChildren((profiles || []) as { id: string; first_name: string }[])
+      }
+      setLoadingChildren(false)
+    }
+    fetchChildren()
+  }, [role, activeTab, linkedChildren.length])
 
   const fetchProfile = async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
+    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     if (data) {
       setProfile({
         id: user.id,
@@ -81,15 +123,7 @@ export default function Settings() {
       })
       setAvatarCardId(data.avatar_card_id || null)
     } else {
-      setProfile({
-        id: user.id,
-        first_name: '',
-        birth_date: '',
-        interests: [],
-        main_language: 'Français',
-        gender: 'X',
-        dark_mode: false,
-      })
+      setProfile({ id: user.id, first_name: '', birth_date: '', interests: [], main_language: 'Français', gender: 'X', dark_mode: false })
     }
     setLoading(false)
   }
@@ -127,21 +161,11 @@ export default function Settings() {
   }
 
   const handleChangePassword = async () => {
-    if (newPassword !== confirmPassword) {
-      setPasswordMsg('Les mots de passe ne correspondent pas.')
-      return
-    }
-    if (newPassword.length < 6) {
-      setPasswordMsg('Le mot de passe doit faire au moins 6 caractères.')
-      return
-    }
+    if (newPassword !== confirmPassword) { setPasswordMsg('Les mots de passe ne correspondent pas.'); return }
+    if (newPassword.length < 6) { setPasswordMsg('Le mot de passe doit faire au moins 6 caractères.'); return }
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) setPasswordMsg('Erreur : ' + error.message)
-    else {
-      setPasswordMsg('Mot de passe modifié avec succès.')
-      setNewPassword('')
-      setConfirmPassword('')
-    }
+    else { setPasswordMsg('Mot de passe modifié avec succès.'); setNewPassword(''); setConfirmPassword('') }
   }
 
   const handleReset = async () => {
@@ -157,47 +181,22 @@ export default function Settings() {
   }
 
   const handleDeleteAccount = async () => {
-    const confirmed = window.confirm(
-      'Es-tu sûr·e de vouloir supprimer ton compte ? ' +
-      'Cette action est définitive et irréversible. ' +
-      'Toutes tes données seront effacées.'
-    )
+    const confirmed = window.confirm('Es-tu sûr·e de vouloir supprimer ton compte ? Cette action est définitive et irréversible. Toutes tes données seront effacées.')
     if (!confirmed) return
-
-    const secondConfirm = window.confirm(
-      'Dernière confirmation : supprimer définitivement ' +
-      'ton compte ODIGO ?'
-    )
+    const secondConfirm = window.confirm('Dernière confirmation : supprimer définitivement ton compte ODIGO ?')
     if (!secondConfirm) return
-
     try {
       setLoading(true)
       const { data: { session } } = await supabase.auth.getSession()
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session?.access_token}`,
-            'Content-Type': 'application/json',
-          }
-        }
-      )
-
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
+      })
       const result = await response.json()
-
-      if (result.success) {
-        await supabase.auth.signOut()
-        window.location.href = '/'
-      } else {
-        showToast('Erreur lors de la suppression', 'error')
-      }
-    } catch {
-      showToast('Erreur lors de la suppression', 'error')
-    } finally {
-      setLoading(false)
-    }
+      if (result.success) { await supabase.auth.signOut(); window.location.href = '/' }
+      else showToast('Erreur lors de la suppression', 'error')
+    } catch { showToast('Erreur lors de la suppression', 'error') }
+    finally { setLoading(false) }
   }
 
   const handleFeedback = async () => {
@@ -211,46 +210,58 @@ export default function Settings() {
         text: `[${feedbackType.toUpperCase()}] ${feedbackText.trim()}`,
         created_at: new Date().toISOString(),
       })
-      if (!error) {
-        setFeedbackSent(true)
-        setFeedbackText('')
-        setTimeout(() => setFeedbackSent(false), 4000)
-      } else {
-        showToast('Erreur lors de l\'envoi', 'error')
-      }
-    } catch {
-      showToast('Erreur lors de l\'envoi', 'error')
-    } finally {
-      setFeedbackLoading(false)
-    }
+      if (!error) { setFeedbackSent(true); setFeedbackText(''); setTimeout(() => setFeedbackSent(false), 4000) }
+      else showToast("Erreur lors de l'envoi", 'error')
+    } catch { showToast("Erreur lors de l'envoi", 'error') }
+    finally { setFeedbackLoading(false) }
   }
 
   const handleSaveRole = async () => {
     setSavingRole(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      await supabase.from('profiles').update({ role }).eq('id', user.id)
-    }
+    if (user) await supabase.from('profiles').update({ role }).eq('id', user.id)
     showToast('Rôle mis à jour')
     setTimeout(() => window.location.reload(), 1000)
   }
 
+  const handleLinkParent = async () => {
+    if (!parentCode || parentCode.length < 6) { alert('Entre un code valide à 6 caractères.'); return }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: invite } = await supabase.from('invite_codes').select('*').eq('code', parentCode.trim().toUpperCase()).eq('used', false).single()
+    if (!invite) { showToast('Code introuvable ou déjà utilisé', 'error'); return }
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) { showToast('Ce code a expiré. Demande un nouveau code.', 'error'); return }
+    if (invite.parent_id === user.id) { alert('Tu ne peux pas te lier à ton propre compte.'); return }
+    const { data: existing } = await supabase.from('parent_child').select('*').eq('child_id', user.id)
+    if (existing && existing.length >= 2) { alert('Tu as déjà 2 parents liés. Maximum atteint.'); return }
+    const { error: linkError } = await supabase.from('parent_child').insert({ parent_id: invite.parent_id, child_id: user.id, relationship: 'parent' })
+    if (linkError) {
+      if (linkError.code === '23505') alert('Ce compte parent est déjà lié.')
+      else alert('Erreur lors de la liaison des comptes. (' + linkError.message + ')')
+      return
+    }
+    await supabase.from('invite_codes').update({ used: true }).eq('id', invite.id)
+    await supabase.from('profiles').upsert({ id: user.id, role: 'child' })
+    setParentCode('')
+    const { data: parentProfile } = await supabase.from('profiles').select('first_name').eq('id', invite.parent_id).single()
+    if (parentProfile) setLinkedParent(parentProfile as { first_name: string })
+    alert('Compte parent lié avec succès !')
+  }
+
   const inputStyle = {
-    width: '100%',
-    padding: '0.6rem',
-    borderRadius: '0.5rem',
-    border: '1px solid #ddd',
-    fontSize: '0.9rem',
-    boxSizing: 'border-box' as const,
-    marginBottom: '0.75rem',
+    width: '100%', padding: '0.6rem', borderRadius: '0.5rem',
+    border: '1px solid #ddd', fontSize: '0.9rem',
+    boxSizing: 'border-box' as const, marginBottom: '0.75rem',
   }
 
   const sectionStyle = {
-    background: 'white',
-    borderRadius: '1rem',
-    padding: '1.5rem',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-    marginBottom: '1.5rem',
+    background: 'white', borderRadius: '1rem',
+    padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1.5rem',
+  }
+
+  const toggleRowStyle: React.CSSProperties = {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '0.75rem 0', borderBottom: '1px solid var(--color-border)',
   }
 
   if (loading) return <p style={{ color: '#888' }}>Chargement...</p>
@@ -258,506 +269,442 @@ export default function Settings() {
 
   return (
     <div style={{ maxWidth: '600px' }}>
-
-      {/* Compte */}
-      <div style={sectionStyle}>
-        <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>👤 Mon compte</h3>
-
-        <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Prénom</label>
-        <input
-          type="text"
-          value={profile.first_name || ''}
-          onChange={e => setProfile({ ...profile, first_name: e.target.value })}
-          style={inputStyle}
-          placeholder="Ton prénom"
-          autoComplete="off"
-        />
-
-        <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Date de naissance</label>
-        <input
-          type="date"
-          value={profile.birth_date || ''}
-          onChange={e => setProfile({ ...profile, birth_date: e.target.value })}
-          style={inputStyle}
-        />
-
-        <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Langue principale</label>
-        <select
-          value={profile.main_language}
-          onChange={e => setProfile({ ...profile, main_language: e.target.value })}
-          style={inputStyle}
-        >
-          {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
-        </select>
-
-        <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Tu es...</label>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-          {(['M', 'F', 'X'] as const).map((g, i) => (
-            <button
-              key={g}
-              type="button"
-              onClick={() => setProfile({ ...profile, gender: g })}
-              style={{
-                flex: 1, minWidth: '80px', padding: '0.6rem',
-                background: (profile.gender || 'X') === g ? '#2a9d8f' : 'var(--color-border)',
-                color: (profile.gender || 'X') === g ? 'white' : '#2a9d8f',
-                border: 'none', borderRadius: '0.5rem',
-                cursor: 'pointer', fontSize: '0.82rem',
-              }}
-            >
-              {['Garçon', 'Fille', 'Préférer ne pas préciser'][i]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Rôle */}
-      <div style={sectionStyle}>
-        <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🎭 Rôle</h3>
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+      {/* Barre d'onglets */}
+      <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', marginBottom: '1.5rem', paddingBottom: '0.25rem' }}>
+        {TABS.map(tab => (
           <button
-            onClick={() => setRole('student')}
-            style={{ flex: 1, padding: '0.6rem', background: role === 'student' ? '#2a9d8f' : 'var(--color-border)', color: role === 'student' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-          >
-            👦 Élève
-          </button>
-          <button
-            onClick={() => setRole('parent')}
-            style={{ flex: 1, padding: '0.6rem', background: role === 'parent' ? '#2a9d8f' : 'var(--color-border)', color: role === 'parent' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-          >
-            👨‍👧 Parent
-          </button>
-        </div>
-
-        {role === 'parent' && (
-          <p style={{ background: '#fff8e0', border: '1px solid #e9c46a', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.85rem', marginTop: '0.5rem', color: '#555' }}>
-            En mode parent, tu accèdes à l'espace de supervision de tes enfants. Tu peux revenir en mode élève à tout moment.
-          </p>
-        )}
-
-        <button
-          onClick={handleSaveRole}
-          disabled={savingRole}
-          style={{ marginTop: '1rem', padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-        >
-          {savingRole ? 'Enregistrement...' : 'Enregistrer'}
-        </button>
-      </div>
-
-      {/* Centres d'intérêt */}
-      <div style={sectionStyle}>
-        <h3 style={{ color: '#2a9d8f', marginBottom: '0.5rem' }}>🎯 Centres d'intérêt</h3>
-        <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
-          Ces informations permettent de personnaliser tes exercices.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-          {SUGGESTED_INTERESTS.map(interest => (
-            <button
-              key={interest}
-              onClick={() => toggleInterest(interest)}
-              style={{
-                padding: '0.3rem 0.8rem',
-                borderRadius: '2rem',
-                border: `1px solid ${profile.interests?.includes(interest) ? '#2a9d8f' : '#ddd'}`,
-                background: profile.interests?.includes(interest) ? 'var(--color-background)' : 'white',
-                color: profile.interests?.includes(interest) ? '#2a9d8f' : '#555',
-                cursor: 'pointer',
-                fontSize: '0.85rem',
-              }}
-            >
-              {profile.interests?.includes(interest) ? '✓ ' : ''}{interest}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <input
-            type="text"
-            value={newInterest}
-            onChange={e => setNewInterest(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && addCustomInterest()}
-            placeholder="Ajouter un centre d'intérêt..."
-            autoComplete="off"
-            style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
-          />
-          <button
-            onClick={addCustomInterest}
-            style={{ padding: '0.6rem 1rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}
-          >
-            +
-          </button>
-        </div>
-
-        {profile.interests?.filter(i => !SUGGESTED_INTERESTS.includes(i)).length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
-            {profile.interests.filter(i => !SUGGESTED_INTERESTS.includes(i)).map(interest => (
-              <span
-                key={interest}
-                style={{ padding: '0.3rem 0.8rem', borderRadius: '2rem', background: 'var(--color-border)', color: '#2a9d8f', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-              >
-                {interest}
-                <button
-                  onClick={() => toggleInterest(interest)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2a9d8f', padding: 0, fontSize: '0.9rem' }}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Interface */}
-      <div style={sectionStyle}>
-        <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🎨 Interface</h3>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: '#555', fontSize: '0.9rem' }}>Mode nuit</span>
-          <button
-            onClick={() => setProfile({ ...profile, dark_mode: !profile.dark_mode })}
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
             style={{
-              width: '48px',
-              height: '26px',
-              borderRadius: '13px',
-              background: profile.dark_mode ? '#2a9d8f' : '#ddd',
-              border: 'none',
-              cursor: 'pointer',
-              position: 'relative',
-              transition: 'background 0.2s',
+              padding: '0.5rem 1rem', borderRadius: '0.75rem', border: 'none',
+              background: activeTab === tab.id ? 'var(--color-primary)' : '#e0f0ee',
+              color: activeTab === tab.id ? 'white' : 'var(--color-primary)',
+              cursor: 'pointer', fontWeight: activeTab === tab.id ? 'bold' : 'normal',
+              fontSize: '0.85rem', whiteSpace: 'nowrap', flexShrink: 0,
+              transition: 'all 0.15s',
             }}
           >
-            <span style={{
-              position: 'absolute',
-              top: '3px',
-              left: profile.dark_mode ? '25px' : '3px',
-              width: '20px',
-              height: '20px',
-              borderRadius: '50%',
-              background: 'white',
-              transition: 'left 0.2s',
-            }} />
+            {tab.label}
           </button>
-        </div>
-        <p style={{ color: '#aaa', fontSize: '0.8rem', marginTop: '0.5rem' }}>
-          Le mode nuit sera disponible prochainement.
-        </p>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderTop: '1px solid var(--color-border)', marginTop: '0.75rem' }}>
-          <div>
-            <div style={{ fontWeight: 'bold' }}>🏆 Highscores</div>
-            <div style={{ fontSize: '0.8rem', color: '#888' }}>Afficher le classement à la fin des exercices</div>
-          </div>
-          <button
-            onClick={() => {
-              const newValue = !highscoresEnabled
-              setHighscoresEnabled(newValue)
-              localStorage.setItem('odigo_highscores', newValue ? 'on' : 'off')
-            }}
-            style={{
-              background: highscoresEnabled ? '#2a9d8f' : '#ddd',
-              color: highscoresEnabled ? 'white' : '#666',
-              border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem',
-              cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', transition: 'all 0.2s',
-            }}
-          >
-            {highscoresEnabled ? 'Activé' : 'Désactivé'}
-          </button>
-        </div>
-        {avatarCardId && (
-          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f0f0f0' }}>
-            <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.5rem' }}>Avatar carte actif</div>
-            <button
-              onClick={async () => {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) return
-                await supabase.from('profiles').update({ avatar_card_id: null }).eq('id', user.id)
-                setAvatarCardId(null)
-                showToast('Avatar retiré')
-              }}
-              style={{ padding: '0.4rem 1rem', background: 'white', color: '#888', border: '1px solid #ddd', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-            >
-              Retirer l'avatar carte
-            </button>
-          </div>
-        )}
+        ))}
       </div>
 
-      {/* Bouton sauvegarder */}
-      <button
-        onClick={saveProfile}
-        disabled={saving}
-        style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold', marginBottom: '1.5rem' }}
-      >
-        {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-      </button>
+      {/* ═══ ONGLET 1 — PROFIL ═══ */}
+      {activeTab === 'profil' && (
+        <>
+          <div style={sectionStyle}>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>👤 Mon compte</h3>
 
-      {/* Mot de passe */}
-      <div style={sectionStyle}>
-        <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🔒 Modifier le mot de passe</h3>
-        <input
-          type="password"
-          value={newPassword}
-          onChange={e => setNewPassword(e.target.value)}
-          placeholder="Nouveau mot de passe"
-          style={inputStyle}
-        />
-        <input
-          type="password"
-          value={confirmPassword}
-          onChange={e => setConfirmPassword(e.target.value)}
-          placeholder="Confirmer le mot de passe"
-          style={inputStyle}
-        />
-        {passwordMsg && (
-          <p style={{ color: passwordMsg.includes('succès') ? '#2a9d8f' : '#e63946', fontSize: '0.85rem' }}>
-            {passwordMsg}
-          </p>
-        )}
-        <button
-          onClick={handleChangePassword}
-          style={{ padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-        >
-          Modifier
-        </button>
-      </div>
-
-      {/* Compte parent */}
-      <div style={sectionStyle}>
-        <h3 style={{ color: '#2a9d8f', marginBottom: '0.5rem' }}>👨‍👧 Compte parent</h3>
-        <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
-          Entre le code fourni par ton parent pour lier les comptes.
-        </p>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <input
-            type="text"
-            value={parentCode}
-            onChange={e => setParentCode(e.target.value.toUpperCase())}
-            placeholder="Code parent (ex: AB12CD)"
-            autoComplete="off"
-            maxLength={6}
-            style={{ ...inputStyle, marginBottom: 0, flex: 1, letterSpacing: '0.2rem', fontWeight: 'bold' }}
-          />
-          <button
-            onClick={async () => {
-              if (!parentCode || parentCode.length < 6) {
-                alert('Entre un code valide à 6 caractères.')
-                return
-              }
-              const { data: { user } } = await supabase.auth.getUser()
-              if (!user) return
-
-              // Vérifier le code
-              const { data: invite } = await supabase
-                .from('invite_codes')
-                .select('*')
-                .eq('code', parentCode)
-                .eq('used', false)
-                .gte('expires_at', new Date().toISOString())
-                .single()
-
-              if (!invite) {
-                alert('Code invalide ou expiré.')
-                return
-              }
-
-              if (invite.parent_id === user.id) {
-                alert('Tu ne peux pas te lier à ton propre compte.')
-                return
-              }
-
-              // Vérifier max 2 parents
-              const { data: existing } = await supabase
-                .from('parent_child')
-                .select('*')
-                .eq('child_id', user.id)
-
-              if (existing && existing.length >= 2) {
-                alert('Tu as déjà 2 parents liés. Maximum atteint.')
-                return
-              }
-
-              // Créer le lien
-              const { error: linkError } = await supabase.from('parent_child').insert({
-                parent_id: invite.parent_id,
-                child_id: user.id,
-                relationship: 'parent',
-              })
-
-              if (linkError) {
-                console.error('Erreur création lien parent_child:', linkError)
-                if (linkError.code === '23505') {
-                  alert('Ce compte parent est déjà lié.')
-                } else {
-                  alert('Erreur lors de la liaison des comptes. Réessaie ou contacte le support. (' + linkError.message + ')')
-                }
-                return
-              }
-
-              // Marquer le code comme utilisé
-              const { error: codeError } = await supabase.from('invite_codes').update({ used: true }).eq('id', invite.id)
-              if (codeError) {
-                console.error('Erreur marquage code utilisé:', codeError)
-                // Non bloquant : le lien est créé, on continue
-              }
-
-              // Mettre à jour le profil enfant
-              await supabase.from('profiles').upsert({ id: user.id, role: 'child' })
-
-              setParentCode('')
-              alert('Compte parent lié avec succès !')
-            }}
-            style={{ padding: '0.6rem 1rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}
-          >
-            Lier
-          </button>
-        </div>
-      </div>
-
-      {/* Supprimer / Reset */}
-      <div style={{ ...sectionStyle, border: '1px solid #eee' }}>
-        <h3 style={{ color: '#555', marginBottom: '0.5rem' }}>Supprimer le compte ou repartir de zéro</h3>
-        <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
-          Ces actions sont irréversibles. Ton mot de passe sera demandé pour confirmer.
-        </p>
-
-        {!showReset && (
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button
-              onClick={() => setShowReset(true)}
-              style={{ padding: '0.6rem 1.2rem', background: 'white', color: '#e9c46a', border: '1px solid #e9c46a', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-            >
-              Repartir de zéro
-            </button>
-            <button
-              onClick={handleDeleteAccount}
-              style={{ padding: '0.6rem 1.2rem', background: 'white', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-            >
-              Supprimer le compte
-            </button>
-          </div>
-        )}
-
-        {showReset && (
-          <div style={{ background: '#fffbf0', borderRadius: '0.5rem', padding: '1rem' }}>
-            <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
-              <strong>Repartir de zéro</strong> supprime toutes tes données : évaluations, révisions, événements, listes de mots et Digoos. Ton compte reste actif mais vide.
-            </p>
+            <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Prénom</label>
             <input
-              type="password"
-              value={dangerPassword}
-              onChange={e => setDangerPassword(e.target.value)}
-              placeholder="Confirme avec ton mot de passe"
+              type="text"
+              value={profile.first_name || ''}
+              onChange={e => setProfile({ ...profile, first_name: e.target.value })}
+              style={inputStyle}
+              placeholder="Ton prénom"
               autoComplete="off"
+            />
+
+            <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Date de naissance</label>
+            <input
+              type="date"
+              value={profile.birth_date || ''}
+              onChange={e => setProfile({ ...profile, birth_date: e.target.value })}
               style={inputStyle}
             />
+
+            <label style={{ display: 'block', color: '#555', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Tu es...</label>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+              {(['M', 'F', 'X'] as const).map((g, i) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setProfile({ ...profile, gender: g })}
+                  style={{
+                    flex: 1, minWidth: '80px', padding: '0.6rem',
+                    background: (profile.gender || 'X') === g ? '#2a9d8f' : 'var(--color-border)',
+                    color: (profile.gender || 'X') === g ? 'white' : '#2a9d8f',
+                    border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.82rem',
+                  }}
+                >
+                  {['Garçon', 'Fille', 'Préférer ne pas préciser'][i]}
+                </button>
+              ))}
+            </div>
+
+            {avatarCardId && (
+              <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #f0f0f0' }}>
+                <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.5rem' }}>Avatar carte actif</div>
+                <button
+                  onClick={async () => {
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (!user) return
+                    await supabase.from('profiles').update({ avatar_card_id: null }).eq('id', user.id)
+                    setAvatarCardId(null)
+                    showToast('Avatar retiré')
+                  }}
+                  style={{ padding: '0.4rem 1rem', background: 'white', color: '#888', border: '1px solid #ddd', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  Retirer l'avatar carte
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div style={sectionStyle}>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '0.5rem' }}>🎯 Centres d'intérêt</h3>
+            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
+              Ces informations permettent de personnaliser tes exercices.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+              {SUGGESTED_INTERESTS.map(interest => (
+                <button
+                  key={interest}
+                  onClick={() => toggleInterest(interest)}
+                  style={{
+                    padding: '0.3rem 0.8rem', borderRadius: '2rem',
+                    border: `1px solid ${profile.interests?.includes(interest) ? '#2a9d8f' : '#ddd'}`,
+                    background: profile.interests?.includes(interest) ? 'var(--color-background)' : 'white',
+                    color: profile.interests?.includes(interest) ? '#2a9d8f' : '#555',
+                    cursor: 'pointer', fontSize: '0.85rem',
+                  }}
+                >
+                  {profile.interests?.includes(interest) ? '✓ ' : ''}{interest}
+                </button>
+              ))}
+            </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                onClick={async () => {
-                  const { data: { user } } = await supabase.auth.getUser()
-                  const { error } = await supabase.auth.signInWithPassword({
-                    email: user?.email || '',
-                    password: dangerPassword,
-                  })
-                  if (error) {
-                    alert('Mot de passe incorrect.')
-                    return
+              <input
+                type="text"
+                value={newInterest}
+                onChange={e => setNewInterest(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addCustomInterest()}
+                placeholder="Ajouter un centre d'intérêt..."
+                autoComplete="off"
+                style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
+              />
+              <button onClick={addCustomInterest} style={{ padding: '0.6rem 1rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+                +
+              </button>
+            </div>
+            {profile.interests?.filter(i => !SUGGESTED_INTERESTS.includes(i)).length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
+                {profile.interests.filter(i => !SUGGESTED_INTERESTS.includes(i)).map(interest => (
+                  <span key={interest} style={{ padding: '0.3rem 0.8rem', borderRadius: '2rem', background: 'var(--color-border)', color: '#2a9d8f', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    {interest}
+                    <button onClick={() => toggleInterest(interest)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2a9d8f', padding: 0, fontSize: '0.9rem' }}>×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={saveProfile}
+            disabled={saving}
+            style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold', marginBottom: '1.5rem' }}
+          >
+            {saving ? 'Sauvegarde...' : 'Enregistrer'}
+          </button>
+        </>
+      )}
+
+      {/* ═══ ONGLET 2 — COMPTES ═══ */}
+      {activeTab === 'comptes' && (
+        <div style={sectionStyle}>
+          {role === 'student' ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <h3 style={{ color: '#2a9d8f', margin: 0 }}>👨‍👧 Compte parent</h3>
+                <HelpBubble
+                  title="Comment lier ton compte à celui de ton parent ?"
+                  position="bottom"
+                  content={
+                    <div>
+                      <p style={{ margin: '0 0 0.5rem', fontWeight: 'bold' }}>Option 1 — Par code</p>
+                      <ol style={{ margin: '0 0 0.75rem', paddingLeft: '1.25rem' }}>
+                        <li>Demande à ton parent de générer un code depuis son Espace parent</li>
+                        <li>Saisis ce code dans le champ ci-dessous</li>
+                        <li>Clique sur "Lier"</li>
+                      </ol>
+                      <p style={{ margin: '0 0 0.5rem', fontWeight: 'bold' }}>Option 2 — Par lien</p>
+                      <ol style={{ margin: '0 0 0.75rem', paddingLeft: '1.25rem' }}>
+                        <li>Demande à ton parent de générer un lien depuis son Espace parent</li>
+                        <li>Clique sur le lien reçu (SMS, email...)</li>
+                        <li>Confirme la liaison</li>
+                      </ol>
+                      <p style={{ color: '#888', fontSize: '0.8rem', margin: 0 }}>Le code et le lien sont valables 48 heures.</p>
+                    </div>
                   }
-                  await handleReset()
-                  setDangerPassword('')
-                }}
-                style={{ padding: '0.5rem 1rem', background: '#e9c46a', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              {linkedParent ? (
+                <div style={{ background: '#f0faf8', borderRadius: '0.5rem', padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.9rem', color: '#2a9d8f' }}>
+                  ✓ Lié au compte de <strong>{linkedParent.first_name}</strong>
+                </div>
+              ) : (
+                <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                  Entre le code fourni par ton parent pour lier les comptes.
+                </p>
+              )}
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  value={parentCode}
+                  onChange={e => setParentCode(e.target.value.toUpperCase())}
+                  placeholder="Code parent (ex: AB12CD)"
+                  autoComplete="off"
+                  maxLength={6}
+                  style={{ ...inputStyle, marginBottom: 0, flex: 1, letterSpacing: '0.2rem', fontWeight: 'bold' }}
+                />
+                <button onClick={handleLinkParent} style={{ padding: '0.6rem 1rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+                  Lier
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>👨‍👧 Enfants liés</h3>
+              {loadingChildren ? (
+                <p style={{ color: '#888', fontSize: '0.9rem' }}>Chargement...</p>
+              ) : linkedChildren.length === 0 ? (
+                <>
+                  <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                    Aucun enfant lié. Rendez-vous dans l'Espace parent pour générer un code ou un lien d'invitation.
+                  </p>
+                  {onNavigate && (
+                    <button
+                      onClick={() => onNavigate('parent')}
+                      style={{ padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+                    >
+                      Aller à l'Espace parent →
+                    </button>
+                  )}
+                </>
+              ) : (
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  {linkedChildren.map(child => (
+                    <li key={child.id} style={{ padding: '0.6rem 0', borderBottom: '1px solid var(--color-border)', fontSize: '0.9rem', color: '#333' }}>
+                      👧 {child.first_name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ═══ ONGLET 3 — PRÉFÉRENCES ═══ */}
+      {activeTab === 'preferences' && (
+        <>
+          <div style={sectionStyle}>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🎭 Rôle</h3>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+              <button
+                onClick={() => setRole('student')}
+                style={{ flex: 1, padding: '0.6rem', background: role === 'student' ? '#2a9d8f' : 'var(--color-border)', color: role === 'student' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
-                Confirmer la remise à zéro
+                👦 Élève
               </button>
               <button
-                onClick={() => { setShowReset(false); setDangerPassword('') }}
-                style={{ padding: '0.5rem 1rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                onClick={() => setRole('parent')}
+                style={{ flex: 1, padding: '0.6rem', background: role === 'parent' ? '#2a9d8f' : 'var(--color-border)', color: role === 'parent' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
               >
-                Annuler
+                👨‍👧 Parent
+              </button>
+            </div>
+            {role === 'parent' && (
+              <p style={{ background: '#fff8e0', border: '1px solid #e9c46a', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.85rem', marginTop: '0.5rem', color: '#555' }}>
+                En mode parent, tu accèdes à l'espace de supervision de tes enfants. Tu peux revenir en mode élève à tout moment.
+              </p>
+            )}
+            <button
+              onClick={handleSaveRole}
+              disabled={savingRole}
+              style={{ marginTop: '1rem', padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              {savingRole ? 'Enregistrement...' : 'Enregistrer'}
+            </button>
+          </div>
+
+          <div style={sectionStyle}>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🌍 Langue principale</h3>
+            <select
+              value={profile.main_language}
+              onChange={e => setProfile({ ...profile, main_language: e.target.value })}
+              style={inputStyle}
+            >
+              {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+            <button
+              onClick={saveProfile}
+              disabled={saving}
+              style={{ padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              {saving ? 'Sauvegarde...' : 'Enregistrer'}
+            </button>
+          </div>
+
+          <div style={sectionStyle}>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🎨 Interface</h3>
+
+            <div style={toggleRowStyle}>
+              <div>
+                <div style={{ fontWeight: 'bold' }}>🏆 Highscores</div>
+                <div style={{ fontSize: '0.8rem', color: '#888' }}>Afficher le classement à la fin des exercices</div>
+              </div>
+              <button
+                onClick={() => { const v = !highscoresEnabled; setHighscoresEnabled(v); localStorage.setItem('odigo_highscores', v ? 'on' : 'off') }}
+                style={{ background: highscoresEnabled ? '#2a9d8f' : '#ddd', color: highscoresEnabled ? 'white' : '#666', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', transition: 'all 0.2s' }}
+              >
+                {highscoresEnabled ? 'Activé' : 'Désactivé'}
+              </button>
+            </div>
+
+            <div style={toggleRowStyle}>
+              <div>
+                <div style={{ fontWeight: 'bold' }}>💡 Bulles d'aide</div>
+                <div style={{ fontSize: '0.8rem', color: '#888' }}>Afficher les bulles d'aide dans l'interface</div>
+              </div>
+              <button
+                onClick={() => { const v = !helpBubbles; setHelpBubbles(v); localStorage.setItem('odigo_help_bubbles', v ? 'on' : 'off') }}
+                style={{ background: helpBubbles ? '#2a9d8f' : '#ddd', color: helpBubbles ? 'white' : '#666', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', transition: 'all 0.2s' }}
+              >
+                {helpBubbles ? 'Activé' : 'Désactivé'}
+              </button>
+            </div>
+
+            <div style={{ ...toggleRowStyle, borderBottom: 'none' }}>
+              <div>
+                <div style={{ fontWeight: 'bold' }}>🌙 Mode nuit</div>
+                <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Disponible prochainement</div>
+              </div>
+              <button
+                disabled
+                style={{ background: '#ddd', color: '#aaa', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'not-allowed', fontWeight: 'bold', fontSize: '0.85rem' }}
+              >
+                Bientôt
               </button>
             </div>
           </div>
-        )}
+        </>
+      )}
 
-      </div>
-
-      {/* Feedback */}
-      <div style={sectionStyle}>
-        <h3 style={{ color: '#2a9d8f', marginBottom: '0.25rem' }}>💬 Signaler ou suggérer</h3>
-        <p style={{ color: '#aaa', fontSize: '0.82rem', marginBottom: '1rem' }}>
-          Tu as trouvé un bug ou tu as une idée pour améliorer ODIGO ? Dis-le nous !
-        </p>
-
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0' }}>
-          {([
-            { value: 'bug', label: '🐛 Bug' },
-            { value: 'idee', label: '💡 Idée' },
-            { value: 'autre', label: '💬 Autre' },
-          ] as const).map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setFeedbackType(value)}
-              style={{
-                flex: 1, padding: '0.6rem',
-                background: feedbackType === value ? '#2a9d8f' : 'var(--color-border)',
-                color: feedbackType === value ? 'white' : '#2a9d8f',
-                border: 'none', borderRadius: '0.5rem',
-                cursor: 'pointer', fontSize: '0.82rem',
-              }}
-            >
-              {label}
+      {/* ═══ ONGLET 4 — SÉCURITÉ ═══ */}
+      {activeTab === 'securite' && (
+        <>
+          <div style={sectionStyle}>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🔒 Modifier le mot de passe</h3>
+            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Nouveau mot de passe" style={inputStyle} />
+            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirmer le mot de passe" style={inputStyle} />
+            {passwordMsg && (
+              <p style={{ color: passwordMsg.includes('succès') ? '#2a9d8f' : '#e63946', fontSize: '0.85rem' }}>{passwordMsg}</p>
+            )}
+            <button onClick={handleChangePassword} style={{ padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+              Modifier
             </button>
-          ))}
-        </div>
-
-        <textarea
-          value={feedbackText}
-          onChange={e => setFeedbackText(e.target.value)}
-          placeholder={
-            feedbackType === 'bug'
-              ? "Décris le problème : que s'est-il passé ?"
-              : feedbackType === 'idee'
-              ? "Décris ton idée d'amélioration..."
-              : "Ton message..."
-          }
-          style={{
-            width: '100%',
-            minHeight: '100px',
-            padding: '0.75rem',
-            borderRadius: '0.5rem',
-            border: '1px solid var(--color-border)',
-            fontSize: '0.9rem',
-            fontFamily: 'Nunito, sans-serif',
-            resize: 'vertical',
-            marginTop: '0.75rem',
-            boxSizing: 'border-box',
-          }}
-        />
-
-        {feedbackSent ? (
-          <div style={{ color: '#2a9d8f', fontWeight: 'bold', textAlign: 'center', padding: '0.5rem' }}>
-            ✓ Message envoyé, merci !
           </div>
-        ) : (
-          <button
-            onClick={handleFeedback}
-            disabled={!feedbackText.trim() || feedbackLoading}
-            style={{
-              background: feedbackText.trim() ? '#2a9d8f' : 'var(--color-border)',
-              color: feedbackText.trim() ? 'white' : '#aaa',
-              border: 'none', borderRadius: '0.5rem',
-              padding: '0.6rem 1.5rem', cursor: feedbackText.trim() ? 'pointer' : 'default',
-              fontWeight: 'bold', marginTop: '0.75rem',
-              width: '100%', fontSize: '0.9rem',
-            }}
-          >
-            {feedbackLoading ? 'Envoi...' : 'Envoyer'}
-          </button>
-        )}
-      </div>
 
+          <div style={{ ...sectionStyle, border: '1px solid #fce4ec' }}>
+            <h3 style={{ color: '#e9c46a', marginBottom: '0.5rem' }}>🔄 Remettre à zéro</h3>
+            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
+              Supprime toutes tes données (évaluations, révisions, listes de mots, Digoos). Ton compte reste actif mais vide.
+            </p>
+
+            {!showReset ? (
+              <button onClick={() => setShowReset(true)} style={{ padding: '0.6rem 1.2rem', background: 'white', color: '#e9c46a', border: '1px solid #e9c46a', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                Repartir de zéro
+              </button>
+            ) : (
+              <div style={{ background: '#fffbf0', borderRadius: '0.5rem', padding: '1rem' }}>
+                <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+                  Cette action est irréversible. Confirme avec ton mot de passe.
+                </p>
+                <input
+                  type="password"
+                  value={dangerPassword}
+                  onChange={e => setDangerPassword(e.target.value)}
+                  placeholder="Confirme avec ton mot de passe"
+                  autoComplete="off"
+                  style={inputStyle}
+                />
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={async () => {
+                      const { data: { user } } = await supabase.auth.getUser()
+                      const { error } = await supabase.auth.signInWithPassword({ email: user?.email || '', password: dangerPassword })
+                      if (error) { alert('Mot de passe incorrect.'); return }
+                      await handleReset()
+                      setDangerPassword('')
+                    }}
+                    style={{ padding: '0.5rem 1rem', background: '#e9c46a', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                  >
+                    Confirmer la remise à zéro
+                  </button>
+                  <button onClick={() => { setShowReset(false); setDangerPassword('') }} style={{ padding: '0.5rem 1rem', background: '#eee', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ ...sectionStyle, border: '1px solid #fce4ec' }}>
+            <h3 style={{ color: '#e63946', marginBottom: '0.5rem' }}>🗑️ Supprimer le compte</h3>
+            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
+              Action définitive et irréversible. Toutes tes données seront effacées.
+            </p>
+            <button onClick={handleDeleteAccount} style={{ padding: '0.6rem 1.2rem', background: 'white', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+              Supprimer le compte
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ═══ ONGLET 5 — AIDE ═══ */}
+      {activeTab === 'aide' && (
+        <div style={sectionStyle}>
+          <h3 style={{ color: '#2a9d8f', marginBottom: '0.25rem' }}>💬 Signaler ou suggérer</h3>
+          <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: 1.5 }}>
+            Tu as une suggestion ou tu as trouvé un bug ? Dis-le nous, on lit tous les messages !
+          </p>
+
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0' }}>
+            {([{ value: 'bug', label: '🐛 Bug' }, { value: 'idee', label: '💡 Idée' }, { value: 'autre', label: '💬 Autre' }] as const).map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setFeedbackType(value)}
+                style={{ flex: 1, padding: '0.6rem', background: feedbackType === value ? '#2a9d8f' : 'var(--color-border)', color: feedbackType === value ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.82rem' }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <textarea
+            value={feedbackText}
+            onChange={e => setFeedbackText(e.target.value)}
+            placeholder={feedbackType === 'bug' ? "Décris le problème : que s'est-il passé ?" : feedbackType === 'idee' ? "Décris ton idée d'amélioration..." : "Ton message..."}
+            style={{ width: '100%', minHeight: '100px', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--color-border)', fontSize: '0.9rem', fontFamily: 'Nunito, sans-serif', resize: 'vertical', marginTop: '0.75rem', boxSizing: 'border-box' }}
+          />
+
+          {feedbackSent ? (
+            <div style={{ color: '#2a9d8f', fontWeight: 'bold', textAlign: 'center', padding: '0.5rem' }}>✓ Message envoyé, merci !</div>
+          ) : (
+            <button
+              onClick={handleFeedback}
+              disabled={!feedbackText.trim() || feedbackLoading}
+              style={{ background: feedbackText.trim() ? '#2a9d8f' : 'var(--color-border)', color: feedbackText.trim() ? 'white' : '#aaa', border: 'none', borderRadius: '0.5rem', padding: '0.6rem 1.5rem', cursor: feedbackText.trim() ? 'pointer' : 'default', fontWeight: 'bold', marginTop: '0.75rem', width: '100%', fontSize: '0.9rem' }}
+            >
+              {feedbackLoading ? 'Envoi...' : 'Envoyer'}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

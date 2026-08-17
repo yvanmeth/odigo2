@@ -65,6 +65,23 @@ export default function Vocabulaire({ guestMode, guestListId, onGameEnd }: Guest
   const [error, setError] = useState('')
   const [showHighscore, setShowHighscore] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [userInterests, setUserInterests] = useState<string[]>([])
+  const [userFirstName, setUserFirstName] = useState('')
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('interests, first_name')
+        .eq('id', user.id)
+        .single()
+      if (profile && profile.interests?.length > 0) setUserInterests(profile.interests)
+      if (profile?.first_name) setUserFirstName(profile.first_name as string)
+    }
+    if (!guestMode) fetchProfile()
+  }, [guestMode])
 
   useEffect(() => {
     if (guestMode && guestListId) {
@@ -113,9 +130,14 @@ export default function Vocabulaire({ guestMode, guestListId, onGameEnd }: Guest
       return
     }
 
+    const prenom = userFirstName || "l'élève"
+    const interestsSection = userInterests.length > 0
+      ? `Contexte pour personnaliser les phrases (utilise ces références comme contexte narratif, jamais comme mot à deviner) :\n${userInterests.join(', ')}.`
+      : `Utilise des exemples simples et universels, adaptés à des élèves du primaire.`
+
     const intro = guestMode
       ? `Tu génères des exercices de vocabulaire français adaptés à des élèves du primaire (8-12 ans). Utilise des exemples simples, universels et engageants. Évite toute référence à des personnes ou contextes spécifiques.`
-      : `Tu es un générateur d'exercices de phrases à trou pour Neyla, 10 ans, élève en 7P à Genève.\n\nContexte pour personnaliser les phrases (utilise ces références comme contexte narratif, jamais comme mot à deviner) :\nfilms de Miyazaki (Mon voisin Totoro, Kiki la petite sorcière…), couture, Bigflo & Oli, son frère Nono, Nintendo Switch, mythologie grecque, Japon, Grèce, Algérie, sa Mamie.`
+      : `Tu es un générateur d'exercices de phrases à trou pour ${prenom}, élève du primaire.\n\n${interestsSection}`
 
     const prompt = `${intro}
 

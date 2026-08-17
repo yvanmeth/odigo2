@@ -25,7 +25,15 @@ function App() {
 
   if (loading) return <div style={{ padding: '2rem' }}>Chargement...</div>
 
-  if (window.location.pathname === '/reset-password') {
+  const path = window.location.pathname
+  const inviteMatch = path.match(/^\/invite\/([A-Z0-9]+)$/i)
+  if (inviteMatch) {
+    const code = inviteMatch[1].toUpperCase()
+    localStorage.setItem('odigo_pending_invite', code)
+    window.history.replaceState({}, '', '/')
+  }
+
+  if (path === '/reset-password') {
     return <ResetPassword />
   }
 
