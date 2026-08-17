@@ -93,12 +93,16 @@ export default function Dashboard({ session }: Props) {
   useEffect(() => {
     if (!pendingInvite) return
     const fetchInviteInfo = async () => {
-      const { data: invite } = await supabase
+      console.log('Checking pending invite:', pendingInvite)
+
+      const { data: invite, error: inviteError } = await supabase
         .from('invite_codes')
         .select('*')
         .eq('code', pendingInvite)
         .eq('used', false)
         .single()
+
+      console.log('Invite found:', invite, 'error:', inviteError)
 
       if (!invite) {
         localStorage.removeItem('odigo_pending_invite')
@@ -118,6 +122,8 @@ export default function Dashboard({ session }: Props) {
         .select('first_name')
         .eq('id', invite.parent_id)
         .single()
+
+      console.log('Parent profile:', parentProfile)
 
       setInviteParentName(parentProfile?.first_name || 'ton parent')
       setShowInviteModal(true)
