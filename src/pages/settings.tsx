@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../components/Toast'
 import HelpBubble from '../components/HelpBubble'
 
-type SettingsTab = 'profil' | 'comptes' | 'preferences' | 'securite' | 'aide'
+type SettingsTab = 'profil' | 'compte'
 
 interface Profile {
   id: string
@@ -28,11 +28,8 @@ const SUGGESTED_INTERESTS = [
 const LANGUAGES = ['Français', 'Anglais', 'Allemand', 'Espagnol', 'Grec', 'Arabe', 'Italien']
 
 const TABS: { id: SettingsTab; label: string }[] = [
-  { id: 'profil', label: '👤 Profil' },
-  { id: 'comptes', label: '🔗 Comptes' },
-  { id: 'preferences', label: '⚙️ Préférences' },
-  { id: 'securite', label: '🔒 Sécurité' },
-  { id: 'aide', label: '💬 Aide' },
+  { id: 'profil', label: '👤 Mon profil' },
+  { id: 'compte', label: '🔐 Gestion du compte' },
 ]
 
 export default function Settings({ onNavigate }: SettingsProps = {}) {
@@ -51,10 +48,6 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
   const [parentCode, setParentCode] = useState('')
   const [role, setRole] = useState<'student' | 'parent'>('student')
   const [savingRole, setSavingRole] = useState(false)
-  const [feedbackType, setFeedbackType] = useState<'bug' | 'idee' | 'autre'>('idee')
-  const [feedbackText, setFeedbackText] = useState('')
-  const [feedbackSent, setFeedbackSent] = useState(false)
-  const [feedbackLoading, setFeedbackLoading] = useState(false)
   const [highscoresEnabled, setHighscoresEnabled] = useState(
     localStorage.getItem('odigo_highscores') !== 'off'
   )
@@ -88,7 +81,7 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
   }, [])
 
   useEffect(() => {
-    if (role !== 'parent' || activeTab !== 'comptes' || linkedChildren.length > 0) return
+    if (role !== 'parent' || activeTab !== 'compte' || linkedChildren.length > 0) return
     const fetchChildren = async () => {
       setLoadingChildren(true)
       const { data: { user } } = await supabase.auth.getUser()
@@ -199,23 +192,6 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
     finally { setLoading(false) }
   }
 
-  const handleFeedback = async () => {
-    if (!feedbackText.trim()) return
-    setFeedbackLoading(true)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { showToast('Non connecté', 'error'); return }
-      const { error } = await supabase.from('suggestions').insert({
-        user_id: user.id,
-        text: `[${feedbackType.toUpperCase()}] ${feedbackText.trim()}`,
-        created_at: new Date().toISOString(),
-      })
-      if (!error) { setFeedbackSent(true); setFeedbackText(''); setTimeout(() => setFeedbackSent(false), 4000) }
-      else showToast("Erreur lors de l'envoi", 'error')
-    } catch { showToast("Erreur lors de l'envoi", 'error') }
-    finally { setFeedbackLoading(false) }
-  }
-
   const handleSaveRole = async () => {
     setSavingRole(true)
     const { data: { user } } = await supabase.auth.getUser()
@@ -234,7 +210,7 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
     if (invite.parent_id === user.id) { alert('Tu ne peux pas te lier à ton propre compte.'); return }
     const { data: existing } = await supabase.from('parent_child').select('*').eq('child_id', user.id)
     if (existing && existing.length >= 2) { alert('Tu as déjà 2 parents liés. Maximum atteint.'); return }
-    const { error: linkError } = await supabase.from('parent_child').insert({ parent_id: invite.parent_id, child_id: user.id, relationship: 'parent' })
+    const { error: linkError } = await supabase.from('parent_child').insert({ parent_id: invite.parent_id, child_id: user.id, relationship: invite.relationship || 'parent' })
     if (linkError) {
       if (linkError.code === '23505') alert('Ce compte parent est déjà lié.')
       else alert('Erreur lors de la liaison des comptes. (' + linkError.message + ')')
@@ -270,17 +246,17 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
   return (
     <div style={{ maxWidth: '600px' }}>
       {/* Barre d'onglets */}
-      <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', marginBottom: '1.5rem', paddingBottom: '0.25rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
         {TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             style={{
-              padding: '0.5rem 1rem', borderRadius: '0.75rem', border: 'none',
+              padding: '0.5rem 1.25rem', borderRadius: '0.75rem', border: 'none',
               background: activeTab === tab.id ? 'var(--color-primary)' : '#e0f0ee',
               color: activeTab === tab.id ? 'white' : 'var(--color-primary)',
               cursor: 'pointer', fontWeight: activeTab === tab.id ? 'bold' : 'normal',
-              fontSize: '0.85rem', whiteSpace: 'nowrap', flexShrink: 0,
+              fontSize: '0.9rem', whiteSpace: 'nowrap',
               transition: 'all 0.15s',
             }}
           >
@@ -289,9 +265,10 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
         ))}
       </div>
 
-      {/* ═══ ONGLET 1 — PROFIL ═══ */}
+      {/* ═══ ONGLET 1 — MON PROFIL ═══ */}
       {activeTab === 'profil' && (
         <>
+          {/* 1. Mon compte */}
           <div style={sectionStyle}>
             <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>👤 Mon compte</h3>
 
@@ -351,6 +328,59 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
             )}
           </div>
 
+          {/* 2. Rôle */}
+          <div style={sectionStyle}>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🎭 Rôle</h3>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <button
+                onClick={() => setRole('student')}
+                style={{ flex: 1, padding: '0.6rem', background: role === 'student' ? '#2a9d8f' : 'var(--color-border)', color: role === 'student' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                👦 Élève
+              </button>
+              <button
+                onClick={() => setRole('parent')}
+                style={{ flex: 1, padding: '0.6rem', background: role === 'parent' ? '#2a9d8f' : 'var(--color-border)', color: role === 'parent' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                👨‍👧 Parent
+              </button>
+            </div>
+            {role === 'parent' && (
+              <p style={{ background: '#fff8e0', border: '1px solid #e9c46a', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.85rem', color: '#555', marginBottom: '0.5rem' }}>
+                En mode parent, tu accèdes à l'espace de supervision de tes enfants.
+              </p>
+            )}
+            <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.5rem' }}>
+              Pour lier ton compte à un compte parent, rendez-vous dans{' '}
+              <button
+                onClick={() => setActiveTab('compte')}
+                style={{ background: 'none', border: 'none', color: '#2a9d8f', cursor: 'pointer', padding: 0, fontSize: '0.8rem', textDecoration: 'underline' }}
+              >
+                Gestion du compte
+              </button>.
+            </p>
+            <button
+              onClick={handleSaveRole}
+              disabled={savingRole}
+              style={{ marginTop: '0.75rem', padding: '0.5rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+            >
+              {savingRole ? 'Enregistrement...' : 'Enregistrer le rôle'}
+            </button>
+          </div>
+
+          {/* 3. Langue principale */}
+          <div style={sectionStyle}>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🌍 Langue principale</h3>
+            <select
+              value={profile.main_language}
+              onChange={e => setProfile({ ...profile, main_language: e.target.value })}
+              style={inputStyle}
+            >
+              {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+
+          {/* 4. Centres d'intérêt */}
           <div style={sectionStyle}>
             <h3 style={{ color: '#2a9d8f', marginBottom: '0.5rem' }}>🎯 Centres d'intérêt</h3>
             <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
@@ -399,6 +429,48 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
             )}
           </div>
 
+          {/* 5. Préférences */}
+          <div style={sectionStyle}>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>⚙️ Préférences</h3>
+
+            <div style={toggleRowStyle}>
+              <div>
+                <div style={{ fontWeight: 'bold' }}>🏆 Highscores</div>
+                <div style={{ fontSize: '0.8rem', color: '#888' }}>Afficher le classement à la fin des exercices</div>
+              </div>
+              <button
+                onClick={() => { const v = !highscoresEnabled; setHighscoresEnabled(v); localStorage.setItem('odigo_highscores', v ? 'on' : 'off') }}
+                style={{ background: highscoresEnabled ? '#2a9d8f' : '#ddd', color: highscoresEnabled ? 'white' : '#666', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', transition: 'all 0.2s', flexShrink: 0 }}
+              >
+                {highscoresEnabled ? 'Activé' : 'Désactivé'}
+              </button>
+            </div>
+
+            <div style={toggleRowStyle}>
+              <div>
+                <div style={{ fontWeight: 'bold' }}>💡 Bulles d'aide</div>
+                <div style={{ fontSize: '0.8rem', color: '#888' }}>Afficher les bulles d'aide dans l'interface</div>
+              </div>
+              <button
+                onClick={() => { const v = !helpBubbles; setHelpBubbles(v); localStorage.setItem('odigo_help_bubbles', v ? 'on' : 'off') }}
+                style={{ background: helpBubbles ? '#2a9d8f' : '#ddd', color: helpBubbles ? 'white' : '#666', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', transition: 'all 0.2s', flexShrink: 0 }}
+              >
+                {helpBubbles ? 'Activé' : 'Désactivé'}
+              </button>
+            </div>
+
+            <div style={{ ...toggleRowStyle, borderBottom: 'none' }}>
+              <div>
+                <div style={{ fontWeight: 'bold' }}>🌙 Mode nuit</div>
+                <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Disponible prochainement</div>
+              </div>
+              <button disabled style={{ background: '#ddd', color: '#aaa', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'not-allowed', fontWeight: 'bold', fontSize: '0.85rem', flexShrink: 0 }}>
+                Bientôt
+              </button>
+            </div>
+          </div>
+
+          {/* Bouton Enregistrer principal */}
           <button
             onClick={saveProfile}
             disabled={saving}
@@ -409,13 +481,14 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
         </>
       )}
 
-      {/* ═══ ONGLET 2 — COMPTES ═══ */}
-      {activeTab === 'comptes' && (
-        <div style={sectionStyle}>
+      {/* ═══ ONGLET 2 — GESTION DU COMPTE ═══ */}
+      {activeTab === 'compte' && (
+        <>
+          {/* 1. Liaison compte parent / enfants liés */}
           {role === 'student' ? (
-            <>
+            <div style={sectionStyle}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                <h3 style={{ color: '#2a9d8f', margin: 0 }}>👨‍👧 Compte parent</h3>
+                <h3 style={{ color: '#2a9d8f', margin: 0 }}>👨‍👧 Lier au compte parent</h3>
                 <HelpBubble
                   title="Comment lier ton compte à celui de ton parent ?"
                   position="bottom"
@@ -463,9 +536,9 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
                   Lier
                 </button>
               </div>
-            </>
+            </div>
           ) : (
-            <>
+            <div style={sectionStyle}>
               <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>👨‍👧 Enfants liés</h3>
               {loadingChildren ? (
                 <p style={{ color: '#888', fontSize: '0.9rem' }}>Chargement...</p>
@@ -492,112 +565,12 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
                   ))}
                 </ul>
               )}
-            </>
+            </div>
           )}
-        </div>
-      )}
 
-      {/* ═══ ONGLET 3 — PRÉFÉRENCES ═══ */}
-      {activeTab === 'preferences' && (
-        <>
+          {/* 2. Modifier le mot de passe */}
           <div style={sectionStyle}>
-            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🎭 Rôle</h3>
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              <button
-                onClick={() => setRole('student')}
-                style={{ flex: 1, padding: '0.6rem', background: role === 'student' ? '#2a9d8f' : 'var(--color-border)', color: role === 'student' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                👦 Élève
-              </button>
-              <button
-                onClick={() => setRole('parent')}
-                style={{ flex: 1, padding: '0.6rem', background: role === 'parent' ? '#2a9d8f' : 'var(--color-border)', color: role === 'parent' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                👨‍👧 Parent
-              </button>
-            </div>
-            {role === 'parent' && (
-              <p style={{ background: '#fff8e0', border: '1px solid #e9c46a', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.85rem', marginTop: '0.5rem', color: '#555' }}>
-                En mode parent, tu accèdes à l'espace de supervision de tes enfants. Tu peux revenir en mode élève à tout moment.
-              </p>
-            )}
-            <button
-              onClick={handleSaveRole}
-              disabled={savingRole}
-              style={{ marginTop: '1rem', padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-            >
-              {savingRole ? 'Enregistrement...' : 'Enregistrer'}
-            </button>
-          </div>
-
-          <div style={sectionStyle}>
-            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🌍 Langue principale</h3>
-            <select
-              value={profile.main_language}
-              onChange={e => setProfile({ ...profile, main_language: e.target.value })}
-              style={inputStyle}
-            >
-              {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-            <button
-              onClick={saveProfile}
-              disabled={saving}
-              style={{ padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-            >
-              {saving ? 'Sauvegarde...' : 'Enregistrer'}
-            </button>
-          </div>
-
-          <div style={sectionStyle}>
-            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🎨 Interface</h3>
-
-            <div style={toggleRowStyle}>
-              <div>
-                <div style={{ fontWeight: 'bold' }}>🏆 Highscores</div>
-                <div style={{ fontSize: '0.8rem', color: '#888' }}>Afficher le classement à la fin des exercices</div>
-              </div>
-              <button
-                onClick={() => { const v = !highscoresEnabled; setHighscoresEnabled(v); localStorage.setItem('odigo_highscores', v ? 'on' : 'off') }}
-                style={{ background: highscoresEnabled ? '#2a9d8f' : '#ddd', color: highscoresEnabled ? 'white' : '#666', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', transition: 'all 0.2s' }}
-              >
-                {highscoresEnabled ? 'Activé' : 'Désactivé'}
-              </button>
-            </div>
-
-            <div style={toggleRowStyle}>
-              <div>
-                <div style={{ fontWeight: 'bold' }}>💡 Bulles d'aide</div>
-                <div style={{ fontSize: '0.8rem', color: '#888' }}>Afficher les bulles d'aide dans l'interface</div>
-              </div>
-              <button
-                onClick={() => { const v = !helpBubbles; setHelpBubbles(v); localStorage.setItem('odigo_help_bubbles', v ? 'on' : 'off') }}
-                style={{ background: helpBubbles ? '#2a9d8f' : '#ddd', color: helpBubbles ? 'white' : '#666', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', transition: 'all 0.2s' }}
-              >
-                {helpBubbles ? 'Activé' : 'Désactivé'}
-              </button>
-            </div>
-
-            <div style={{ ...toggleRowStyle, borderBottom: 'none' }}>
-              <div>
-                <div style={{ fontWeight: 'bold' }}>🌙 Mode nuit</div>
-                <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Disponible prochainement</div>
-              </div>
-              <button
-                disabled
-                style={{ background: '#ddd', color: '#aaa', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'not-allowed', fontWeight: 'bold', fontSize: '0.85rem' }}
-              >
-                Bientôt
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ═══ ONGLET 4 — SÉCURITÉ ═══ */}
-      {activeTab === 'securite' && (
-        <>
-          <div style={sectionStyle}>
-            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🔒 Modifier le mot de passe</h3>
+            <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>🔒 Modifier mon mot de passe</h3>
             <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Nouveau mot de passe" style={inputStyle} />
             <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirmer le mot de passe" style={inputStyle} />
             {passwordMsg && (
@@ -608,12 +581,12 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
             </button>
           </div>
 
+          {/* 3. Repartir de zéro */}
           <div style={{ ...sectionStyle, border: '1px solid #fce4ec' }}>
-            <h3 style={{ color: '#e9c46a', marginBottom: '0.5rem' }}>🔄 Remettre à zéro</h3>
+            <h3 style={{ color: '#e9c46a', marginBottom: '0.5rem' }}>🔄 Repartir de zéro</h3>
             <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
               Supprime toutes tes données (évaluations, révisions, listes de mots, Digoos). Ton compte reste actif mais vide.
             </p>
-
             {!showReset ? (
               <button onClick={() => setShowReset(true)} style={{ padding: '0.6rem 1.2rem', background: 'white', color: '#e9c46a', border: '1px solid #e9c46a', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
                 Repartir de zéro
@@ -652,58 +625,17 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
             )}
           </div>
 
+          {/* 4. Supprimer le compte */}
           <div style={{ ...sectionStyle, border: '1px solid #fce4ec' }}>
-            <h3 style={{ color: '#e63946', marginBottom: '0.5rem' }}>🗑️ Supprimer le compte</h3>
+            <h3 style={{ color: '#e63946', marginBottom: '0.5rem' }}>🗑️ Supprimer mon compte</h3>
             <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
               Action définitive et irréversible. Toutes tes données seront effacées.
             </p>
             <button onClick={handleDeleteAccount} style={{ padding: '0.6rem 1.2rem', background: 'white', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
-              Supprimer le compte
+              Supprimer mon compte
             </button>
           </div>
         </>
-      )}
-
-      {/* ═══ ONGLET 5 — AIDE ═══ */}
-      {activeTab === 'aide' && (
-        <div style={sectionStyle}>
-          <h3 style={{ color: '#2a9d8f', marginBottom: '0.25rem' }}>💬 Signaler ou suggérer</h3>
-          <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: 1.5 }}>
-            Tu as une suggestion ou tu as trouvé un bug ? Dis-le nous, on lit tous les messages !
-          </p>
-
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0' }}>
-            {([{ value: 'bug', label: '🐛 Bug' }, { value: 'idee', label: '💡 Idée' }, { value: 'autre', label: '💬 Autre' }] as const).map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setFeedbackType(value)}
-                style={{ flex: 1, padding: '0.6rem', background: feedbackType === value ? '#2a9d8f' : 'var(--color-border)', color: feedbackType === value ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.82rem' }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <textarea
-            value={feedbackText}
-            onChange={e => setFeedbackText(e.target.value)}
-            placeholder={feedbackType === 'bug' ? "Décris le problème : que s'est-il passé ?" : feedbackType === 'idee' ? "Décris ton idée d'amélioration..." : "Ton message..."}
-            style={{ width: '100%', minHeight: '100px', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--color-border)', fontSize: '0.9rem', fontFamily: 'Nunito, sans-serif', resize: 'vertical', marginTop: '0.75rem', boxSizing: 'border-box' }}
-          />
-
-          {feedbackSent ? (
-            <div style={{ color: '#2a9d8f', fontWeight: 'bold', textAlign: 'center', padding: '0.5rem' }}>✓ Message envoyé, merci !</div>
-          ) : (
-            <button
-              onClick={handleFeedback}
-              disabled={!feedbackText.trim() || feedbackLoading}
-              style={{ background: feedbackText.trim() ? '#2a9d8f' : 'var(--color-border)', color: feedbackText.trim() ? 'white' : '#aaa', border: 'none', borderRadius: '0.5rem', padding: '0.6rem 1.5rem', cursor: feedbackText.trim() ? 'pointer' : 'default', fontWeight: 'bold', marginTop: '0.75rem', width: '100%', fontSize: '0.9rem' }}
-            >
-              {feedbackLoading ? 'Envoi...' : 'Envoyer'}
-            </button>
-          )}
-        </div>
       )}
     </div>
   )

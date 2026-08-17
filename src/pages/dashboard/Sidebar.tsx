@@ -145,9 +145,12 @@ export default function Sidebar({
           )}
 
           {/* Navigation */}
-          <nav style={{ flex: 1, padding: '0.5rem 0' }}>
+          <nav style={{ flex: 1, padding: '0.5rem 0', display: 'flex', flexDirection: 'column' }}>
             {isParent && !isViewingChild && navButton('parent', <Users size={18} />, 'Espace parent', '#e9c46a', '#e9c46a', '#fff8e0', '#e9c46a')}
-            {navItems.map(item => navButton(item.id, item.icon, item.label))}
+            {navItems.filter(i => i.id !== 'apropos').map(item => navButton(item.id, item.icon, item.label))}
+            <div style={{ borderTop: '1px solid var(--color-border)', marginTop: 'auto', paddingTop: '0.5rem' }}>
+              {navItems.filter(i => i.id === 'apropos').map(item => navButton(item.id, item.icon, item.label))}
+            </div>
           </nav>
 
           {/* Déconnexion */}
@@ -233,16 +236,13 @@ export default function Sidebar({
         <ChildSelector children={children} viewingChildId={viewingChildId} onSelectChild={onSelectChild} />
       )}
 
-      <nav style={{ flex: 1, padding: '0.5rem 0' }}>
+      <nav style={{ flex: 1, padding: '0.5rem 0', display: 'flex', flexDirection: 'column' }}>
         {/* Onglet Parent uniquement visible par les parents */}
         {isParent && !isViewingChild && (
           <button
             onClick={() => onNavigate('parent')}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              width: '100%',
+              display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%',
               padding: '0.75rem 1rem',
               background: activePage === 'parent' ? '#fff8e0' : 'none',
               border: 'none',
@@ -250,9 +250,7 @@ export default function Sidebar({
               cursor: 'pointer',
               color: activePage === 'parent' ? '#e9c46a' : '#555',
               fontWeight: activePage === 'parent' ? 'bold' : 'normal',
-              fontSize: '0.9rem',
-              textAlign: 'left',
-              whiteSpace: 'nowrap'
+              fontSize: '0.9rem', textAlign: 'left', whiteSpace: 'nowrap'
             }}
           >
             <Users size={18} />
@@ -260,15 +258,12 @@ export default function Sidebar({
           </button>
         )}
 
-        {navItems.map(item => (
+        {navItems.filter(i => i.id !== 'apropos').map(item => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              width: '100%',
+              display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%',
               padding: '0.75rem 1rem',
               background: activePage === item.id ? 'var(--color-background)' : 'none',
               border: 'none',
@@ -276,15 +271,37 @@ export default function Sidebar({
               cursor: 'pointer',
               color: activePage === item.id ? PRIMARY : '#555',
               fontWeight: activePage === item.id ? 'bold' : 'normal',
-              fontSize: '0.9rem',
-              textAlign: 'left',
-              whiteSpace: 'nowrap'
+              fontSize: '0.9rem', textAlign: 'left', whiteSpace: 'nowrap'
             }}
           >
             {item.icon}
             {!collapsed && item.label}
           </button>
         ))}
+
+        {/* À propos — séparé en bas */}
+        <div style={{ borderTop: '1px solid var(--color-border)', marginTop: 'auto', paddingTop: '0.5rem' }}>
+          {navItems.filter(i => i.id === 'apropos').map(item => (
+            <button
+              key={item.id}
+              onClick={() => onNavigate(item.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%',
+                padding: '0.75rem 1rem',
+                background: activePage === item.id ? 'var(--color-background)' : 'none',
+                border: 'none',
+                borderLeft: activePage === item.id ? `3px solid ${PRIMARY}` : '3px solid transparent',
+                cursor: 'pointer',
+                color: activePage === item.id ? PRIMARY : '#888',
+                fontWeight: activePage === item.id ? 'bold' : 'normal',
+                fontSize: '0.9rem', textAlign: 'left', whiteSpace: 'nowrap'
+              }}
+            >
+              {item.icon}
+              {!collapsed && item.label}
+            </button>
+          ))}
+        </div>
       </nav>
 
       <div style={{ padding: '1rem', borderTop: '1px solid var(--color-border)' }}>

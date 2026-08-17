@@ -25,6 +25,7 @@ import Allumettes from '../Allumettes'
 import Histoire from '../Histoire'
 import Cartes from '../Cartes'
 import Anagramme from '../Anagramme'
+import APropos from '../APropos'
 import ConjugaisonEtrangere from '../ConjugaisonEtrangere'
 import AnagrammeFrancais from '../AnagrammeFrancais'
 import Sidebar from './Sidebar'
@@ -424,7 +425,8 @@ export default function Dashboard({ session }: Props) {
             />
           )}
           {activePage === 'settings' && <Settings onNavigate={setActivePage} />}
-          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'rewards' && activePage !== 'settings' && activePage !== 'parent' && (
+          {activePage === 'apropos' && <APropos />}
+          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'rewards' && activePage !== 'settings' && activePage !== 'parent' && activePage !== 'apropos' && (
             <p style={{ color: '#aaa' }}>Contenu à venir...</p>
           )}
         </div>

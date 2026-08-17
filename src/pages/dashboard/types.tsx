@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Home as HomeIcon, Calendar, BookOpen, List as ListIcon, Target, Trophy, Settings as SettingsIcon } from 'lucide-react'
+import { Home as HomeIcon, Calendar, BookOpen, List as ListIcon, Target, Trophy, Settings as SettingsIcon, Info as InfoIcon } from 'lucide-react'
 
 const PRIMARY = 'var(--color-primary)'
 
@@ -18,6 +18,7 @@ export const navItems: NavItem[] = [
   { id: 'exercises', label: 'Exercices', icon: <Target size={18} /> },
   { id: 'rewards', label: 'Récompenses', icon: <Trophy size={18} /> },
   { id: 'settings', label: 'Paramètres', icon: <SettingsIcon size={18} /> },
+  { id: 'apropos', label: 'À propos', icon: <InfoIcon size={18} /> },
 ]
 
 export interface ExerciseCard {
