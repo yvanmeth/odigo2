@@ -383,13 +383,20 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
         .single()
 
       if (reward) {
-        await supabase.from('irl_purchases').insert({
-          child_id: mission.child_id,
-          reward_id: mission.reward_irl_id,
-          reward_name: reward.name,
-          cost: 0,
-          status: 'valid',
-        })
+        const { error: rpcError } = await supabase.rpc(
+          'add_irl_purchase_for_child',
+          {
+            target_child_id: mission.child_id,
+            target_reward_id: mission.reward_irl_id,
+            target_reward_name: reward.name,
+            target_cost: reward.cost,
+          }
+        )
+        if (rpcError) {
+          console.error('Erreur coupon IRL:', rpcError)
+          showToast("Erreur lors de l'attribution du coupon", 'error')
+          return
+        }
       }
     }
 

@@ -3,6 +3,7 @@ import type { ChangeEvent, CSSProperties } from 'react'
 import { supabase } from '../lib/supabase'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
+import HelpBubble from '../components/HelpBubble'
 import { EmptyState } from '../components/EmptyState'
 
 interface WordList {
@@ -688,7 +689,29 @@ export default function WordLists({ userId }: { userId?: string }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <h2 style={{ margin: 0, color: '#2a9d8f' }}>Listes de mots</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h2 style={{ margin: 0, color: '#2a9d8f' }}>Listes de mots</h2>
+          <HelpBubble
+            title="Comment utiliser les listes de mots ?"
+            position="bottom"
+            content={
+              <div>
+                <p><strong>Créer une liste</strong></p>
+                <p>Clique sur "+ Nouvelle liste", choisis un nom, un type et une langue, puis ajoute tes mots.</p>
+
+                <p style={{ marginTop: '0.75rem' }}><strong>Types de listes :</strong></p>
+                <ul style={{ paddingLeft: '1.2rem', margin: '0.25rem 0' }}>
+                  <li><strong>Vocabulaire</strong> — pour apprendre du vocabulaire en langue étrangère (anglais, allemand, grec...)</li>
+                  <li><strong>Dictée</strong> — pour travailler l'orthographe en français</li>
+                  <li><strong>Conjugaison</strong> — pour toutes les langues. Indique simplement le verbe à l'infinitif en français (ex : avoir, être, aller...)</li>
+                </ul>
+
+                <p style={{ marginTop: '0.75rem' }}><strong>Partager une liste</strong></p>
+                <p>Chaque liste a un code de partage unique. Tu peux le communiquer à quelqu'un pour qu'il importe ta liste, ou importer la liste d'un autre utilisateur en cliquant sur "Importer une liste" et en saisissant son code.</p>
+              </div>
+            }
+          />
+        </div>
         <button
           onClick={() => { setShowNewList(!showNewList); setShowImportForm(false) }}
           style={{ padding: '0.5rem 1rem', background: showNewList ? 'var(--color-border)' : '#2a9d8f', color: showNewList ? '#2a9d8f' : 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}

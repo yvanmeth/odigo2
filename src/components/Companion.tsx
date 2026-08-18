@@ -6,6 +6,8 @@ import { formatDateDMY } from '../lib/dates'
 interface CompanionProps {
   userId: string
   currentPage?: string
+  hasNotification?: boolean
+  onNotificationRead?: () => void
 }
 
 interface Message {
@@ -37,7 +39,7 @@ const getPageHelp = (page: string): string => {
   return helps[page] || '⚡ Utilise /liste pour voir toutes les commandes disponibles.'
 }
 
-export default function Companion({ userId, currentPage }: CompanionProps) {
+export default function Companion({ userId, currentPage, hasNotification, onNotificationRead }: CompanionProps) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -201,32 +203,49 @@ export default function Companion({ userId, currentPage }: CompanionProps) {
   return (
     <>
       {/* Bulle flottante */}
-      <button
-        onClick={() => setOpen(!open)}
-        style={{
-          position: 'fixed',
-          bottom: '1.5rem',
-          right: '1.5rem',
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
-          background: '#2a9d8f',
-          border: 'none',
-          cursor: 'pointer',
-          boxShadow: '0 4px 16px rgba(42,157,143,0.4)',
-          fontSize: '1.5rem',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'transform 0.2s ease',
-        }}
-        onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
-        onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-        title="Odi — assistant d'apprentissage"
-      >
-        {open ? '✕' : <OdigoAvatar size={32} />}
-      </button>
+      <div style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 1000 }}>
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <button
+            onClick={() => {
+              const opening = !open
+              setOpen(opening)
+              if (opening && hasNotification) onNotificationRead?.()
+            }}
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: '#2a9d8f',
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(42,157,143,0.4)',
+              fontSize: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'transform 0.2s ease',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
+            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+            title="Odi — assistant d'apprentissage"
+          >
+            {open ? '✕' : <OdigoAvatar size={32} />}
+          </button>
+          {hasNotification && !open && (
+            <div style={{
+              position: 'absolute',
+              top: '-2px',
+              right: '-2px',
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              background: '#e63946',
+              border: '2px solid white',
+              zIndex: 1,
+            }} />
+          )}
+        </div>
+      </div>
 
       {/* Fenêtre de chat */}
       {open && (

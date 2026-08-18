@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import HelpBubble from '../components/HelpBubble'
 import { Delta } from '../components/Delta'
 import { EmptyState } from '../components/EmptyState'
 import { supabase } from '../lib/supabase'
@@ -653,7 +654,44 @@ export default function Home({ userId }: { userId?: string }) {
 
       {/* ==================== 1. SÉRIES EN COURS ==================== */}
       <div style={cardStyle}>
-        {sectionHeader('🔥 Séries en cours')}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ color: '#2a9d8f', fontSize: '1rem', fontWeight: 'bold' }}>🔥 Séries en cours</span>
+            <HelpBubble
+              title="Comment gagner des séries ?"
+              position="bottom"
+              content={
+                <div>
+                  <p><strong>📅 Jour actif</strong></p>
+                  <p>Fais au moins 1 exercice dans la journée.
+                  Chaque jour actif réclamé rapporte <strong>+10 Δ</strong>.</p>
+
+                  <p style={{ marginTop: '0.75rem' }}>
+                    <strong>📆 Semaine active</strong>
+                  </p>
+                  <p>Pour qu'une semaine compte, il faut :</p>
+                  <ul style={{ paddingLeft: '1.2rem', margin: '0.25rem 0' }}>
+                    <li>Gagner au moins <strong>300 Δ</strong> dans la semaine</li>
+                    <li>Avoir au moins <strong>3 jours actifs</strong></li>
+                    <li>Faire au moins <strong>1 action dans le planificateur</strong></li>
+                  </ul>
+                  <p>Une semaine active réclamée rapporte <strong>+50 Δ</strong>.</p>
+
+                  <p style={{ marginTop: '0.75rem' }}>
+                    <strong>🗓️ Mois actif</strong>
+                  </p>
+                  <p>Enchaîne des semaines actives sur un mois entier.
+                  Un mois actif réclamé rapporte <strong>+200 Δ</strong>.</p>
+
+                  <p style={{ marginTop: '0.75rem', color: '#888', fontSize: '0.8rem' }}>
+                    Les récompenses se réclament dans
+                    Récompenses → Progression.
+                  </p>
+                </div>
+              }
+            />
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'space-around' }}>
           <div style={{ flex: 1, textAlign: 'center' }}>
             <ProgressCircle

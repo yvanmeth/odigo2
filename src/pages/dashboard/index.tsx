@@ -66,6 +66,7 @@ export default function Dashboard({ session }: Props) {
   const [pendingInvite] = useState(localStorage.getItem('odigo_pending_invite') || '')
   const [showInviteModal, setShowInviteModal] = useState(!!localStorage.getItem('odigo_pending_invite'))
   const [inviteParentName, setInviteParentName] = useState('')
+  const [hasNotification, setHasNotification] = useState(false)
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
@@ -91,18 +92,14 @@ export default function Dashboard({ session }: Props) {
   }, [])
 
   useEffect(() => {
-    if (!pendingInvite) return
+    if (!pendingInvite || !session.user) return
     const fetchInviteInfo = async () => {
-      console.log('Checking pending invite:', pendingInvite)
-
-      const { data: invite, error: inviteError } = await supabase
+      const { data: invite } = await supabase
         .from('invite_codes')
         .select('*')
         .eq('code', pendingInvite)
         .eq('used', false)
         .single()
-
-      console.log('Invite found:', invite, 'error:', inviteError)
 
       if (!invite) {
         localStorage.removeItem('odigo_pending_invite')
@@ -123,13 +120,11 @@ export default function Dashboard({ session }: Props) {
         .eq('id', invite.parent_id)
         .single()
 
-      console.log('Parent profile:', parentProfile)
-
       setInviteParentName(parentProfile?.first_name || 'ton parent')
       setShowInviteModal(true)
     }
     fetchInviteInfo()
-  }, [pendingInvite])
+  }, [pendingInvite, session.user])
 
   const applyPendingProfile = async (userId: string) => {
     const pending = localStorage.getItem('odigo_pending_profile')
@@ -157,11 +152,39 @@ export default function Dashboard({ session }: Props) {
     }
   }
 
+  const checkNotifications = async (userId: string, lastSeen: string) => {
+    let hasNew = false
+
+    const { count: newMissions } = await supabase
+      .from('missions')
+      .select('*', { count: 'exact', head: true })
+      .eq('child_id', userId)
+      .eq('status', 'pending')
+      .gt('created_at', lastSeen)
+    if (newMissions && newMissions > 0) hasNew = true
+
+    const { count: newRewards } = await supabase
+      .from('irl_rewards')
+      .select('*', { count: 'exact', head: true })
+      .gt('created_at', lastSeen)
+    if (newRewards && newRewards > 0) hasNew = true
+
+    const today = new Date().toISOString().split('T')[0]
+    const { count: newCards } = await supabase
+      .from('cards')
+      .select('*', { count: 'exact', head: true })
+      .lte('available_from', today)
+      .gt('available_from', lastSeen.split('T')[0])
+    if (newCards && newCards > 0) hasNew = true
+
+    return hasNew
+  }
+
   const fetchProfile = async () => {
     await applyPendingProfile(session.user.id)
     const { data } = await supabase
       .from('profiles')
-      .select('role, first_name, gender, has_met_odigo')
+      .select('role, first_name, gender, has_met_odigo, last_seen_at')
       .eq('id', session.user.id)
       .single()
 
@@ -170,6 +193,10 @@ export default function Dashboard({ session }: Props) {
       setFirstName(data.first_name || '')
       if (data.role === 'parent') fetchChildren()
       if (data.has_met_odigo === false) setShowOnboarding(true)
+      if (data.role !== 'parent' && data.last_seen_at) {
+        const hasNotif = await checkNotifications(session.user.id, data.last_seen_at)
+        setHasNotification(hasNotif)
+      }
     }
 
     const { data: activePurchases } = await supabase
@@ -438,7 +465,14 @@ export default function Dashboard({ session }: Props) {
         </div>
       </div>
 
-      {!isViewingChild && <Companion userId={session.user.id} currentPage={activePage} />}
+      {!isViewingChild && (
+        <Companion
+          userId={session.user.id}
+          currentPage={activePage}
+          hasNotification={hasNotification}
+          onNotificationRead={() => setHasNotification(false)}
+        />
+      )}
       {showOnboarding && <OnboardingModal onComplete={handleFinishOnboarding} />}
       <DigoosAnimation onRef={trigger => { digoosAnimRef.current = trigger }} />
 
