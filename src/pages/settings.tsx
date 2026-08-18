@@ -57,6 +57,24 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
   const [linkedChildren, setLinkedChildren] = useState<{ id: string; first_name: string }[]>([])
   const [loadingChildren, setLoadingChildren] = useState(false)
   const [linkedParent, setLinkedParent] = useState<{ first_name: string } | null>(null)
+  const [linkedParents, setLinkedParents] = useState<{ id: string; first_name: string; relationship: string }[]>([])
+
+  const fetchLinkedChildren = async () => {
+    setLoadingChildren(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoadingChildren(false); return }
+    const { data: links } = await supabase
+      .from('parent_child').select('child_id').eq('parent_id', user.id)
+    const childIds = ((links || []) as { child_id: string }[]).map(l => l.child_id)
+    if (childIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles').select('id, first_name').in('id', childIds)
+      setLinkedChildren((profiles || []) as { id: string; first_name: string }[])
+    } else {
+      setLinkedChildren([])
+    }
+    setLoadingChildren(false)
+  }
 
   useEffect(() => { fetchProfile() }, [])
 
@@ -81,22 +99,28 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
   }, [])
 
   useEffect(() => {
-    if (role !== 'parent' || activeTab !== 'compte' || linkedChildren.length > 0) return
-    const fetchChildren = async () => {
-      setLoadingChildren(true)
+    if (role === 'parent') return
+    const fetchLinkedParents = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoadingChildren(false); return }
-      const { data: links } = await supabase
-        .from('parent_child').select('child_id').eq('parent_id', user.id)
-      const childIds = ((links || []) as { child_id: string }[]).map(l => l.child_id)
-      if (childIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles').select('id, first_name').in('id', childIds)
-        setLinkedChildren((profiles || []) as { id: string; first_name: string }[])
+      if (!user) return
+      const { data } = await supabase
+        .from('parent_child')
+        .select('relationship, profiles!parent_id(id, first_name)')
+        .eq('child_id', user.id)
+      if (data) {
+        setLinkedParents(data.map((d: any) => ({
+          id: d.profiles.id,
+          first_name: d.profiles.first_name,
+          relationship: d.relationship,
+        })))
       }
-      setLoadingChildren(false)
     }
-    fetchChildren()
+    fetchLinkedParents()
+  }, [role])
+
+  useEffect(() => {
+    if (role !== 'parent' || activeTab !== 'compte' || linkedChildren.length > 0) return
+    fetchLinkedChildren()
   }, [role, activeTab, linkedChildren.length])
 
   const fetchProfile = async () => {
@@ -198,6 +222,24 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
     if (user) await supabase.from('profiles').update({ role }).eq('id', user.id)
     showToast('Rôle mis à jour')
     setTimeout(() => window.location.reload(), 1000)
+  }
+
+  const handleUnlinkChild = async (childId: string) => {
+    const confirmed = window.confirm(
+      'Supprimer le lien avec cet enfant ? ' +
+      "L'enfant ne sera plus visible dans ton espace parent."
+    )
+    if (!confirmed) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase
+      .from('parent_child')
+      .delete()
+      .eq('parent_id', user.id)
+      .eq('child_id', childId)
+    setLinkedChildren([])
+    await fetchLinkedChildren()
+    showToast('Lien supprimé')
   }
 
   const handleLinkParent = async () => {
@@ -536,6 +578,24 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
                   Lier
                 </button>
               </div>
+
+              {linkedParents.length > 0 && (
+                <div style={{ marginTop: '1rem' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#888' }}>Parents liés</label>
+                  {linkedParents.map(parent => (
+                    <div key={parent.id} style={{
+                      display: 'flex', alignItems: 'center',
+                      padding: '0.6rem 0.75rem',
+                      background: '#f0faf8',
+                      borderRadius: '0.5rem',
+                      marginTop: '0.4rem',
+                      fontSize: '0.9rem',
+                    }}>
+                      👤 {parent.relationship} ({parent.first_name})
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div style={sectionStyle}>
@@ -557,13 +617,32 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
                   )}
                 </>
               ) : (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                <div>
                   {linkedChildren.map(child => (
-                    <li key={child.id} style={{ padding: '0.6rem 0', borderBottom: '1px solid var(--color-border)', fontSize: '0.9rem', color: '#333' }}>
-                      👧 {child.first_name}
-                    </li>
+                    <div key={child.id} style={{
+                      display: 'flex', alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.6rem 0.75rem',
+                      background: '#f0faf8',
+                      borderRadius: '0.5rem',
+                      marginTop: '0.4rem',
+                    }}>
+                      <span style={{ fontSize: '0.9rem' }}>👤 {child.first_name}</span>
+                      <button
+                        onClick={() => handleUnlinkChild(child.id)}
+                        style={{
+                          background: 'none', border: 'none',
+                          cursor: 'pointer', color: '#e63946',
+                          fontSize: '1rem', padding: '0.2rem 0.4rem',
+                          borderRadius: '0.25rem',
+                        }}
+                        title="Supprimer le lien"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   ))}
-                </ul>
+                </div>
               )}
             </div>
           )}

@@ -658,30 +658,38 @@ export default function Home({ userId }: { userId?: string }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ color: '#2a9d8f', fontSize: '1rem', fontWeight: 'bold' }}>🔥 Séries en cours</span>
             <HelpBubble
-              title="Comment gagner des séries ?"
+              title="Séries en cours"
               position="bottom"
               content={
-                <div>
-                  <p><strong>📅 Jour actif</strong></p>
-                  <p>Fais au moins 1 exercice dans la journée.
-                  Chaque jour actif réclamé rapporte <strong>+10 Δ</strong>.</p>
-
-                  <p style={{ marginTop: '0.75rem' }}>
-                    <strong>📆 Semaine active</strong>
+                <div style={{ textAlign: 'left' }}>
+                  <p style={{ marginBottom: '0.75rem' }}>
+                    <strong>📅 Jour actif — </strong>
+                    <span style={{ color: '#b8860b' }}>+10 </span>
+                    <Delta size={13} style={{ verticalAlign: 'middle' }} />
                   </p>
-                  <p>Pour qu'une semaine compte, il faut :</p>
+                  <p>Fais au moins 1 exercice dans la journée.</p>
+
+                  <p style={{ marginTop: '0.75rem', marginBottom: '0.25rem' }}>
+                    <strong>📆 Semaine active — </strong>
+                    <span style={{ color: '#b8860b' }}>+50 </span>
+                    <Delta size={13} style={{ verticalAlign: 'middle' }} />
+                  </p>
                   <ul style={{ paddingLeft: '1.2rem', margin: '0.25rem 0' }}>
                     <li>Gagner au moins <strong>300 Δ</strong> dans la semaine</li>
                     <li>Avoir au moins <strong>3 jours actifs</strong></li>
                     <li>Faire au moins <strong>1 action dans le planificateur</strong></li>
                   </ul>
-                  <p>Une semaine active réclamée rapporte <strong>+50 Δ</strong>.</p>
-
-                  <p style={{ marginTop: '0.75rem' }}>
-                    <strong>🗓️ Mois actif</strong>
+                  <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.25rem' }}>
+                    Le compteur repart à zéro chaque dimanche à 18h.
                   </p>
-                  <p>Enchaîne des semaines actives sur un mois entier.
-                  Un mois actif réclamé rapporte <strong>+200 Δ</strong>.</p>
+
+                  <p style={{ marginTop: '0.75rem', marginBottom: '0.25rem' }}>
+                    <strong>🗓️ Mois actif — </strong>
+                    <span style={{ color: '#b8860b' }}>+200 </span>
+                    <Delta size={13} style={{ verticalAlign: 'middle' }} />
+                  </p>
+                  <p>Obtiens <strong>3 semaines actives</strong>
+                  sur un mois entier pour obtenir cette récompense.</p>
 
                   <p style={{ marginTop: '0.75rem', color: '#888', fontSize: '0.8rem' }}>
                     Les récompenses se réclament dans
