@@ -7,6 +7,7 @@ interface CompanionProps {
   userId: string
   currentPage?: string
   hasNotification?: boolean
+  notificationMessages?: string[]
   onNotificationRead?: () => void
 }
 
@@ -39,7 +40,7 @@ const getPageHelp = (page: string): string => {
   return helps[page] || '⚡ Utilise /liste pour voir toutes les commandes disponibles.'
 }
 
-export default function Companion({ userId, currentPage, hasNotification, onNotificationRead }: CompanionProps) {
+export default function Companion({ userId, currentPage, hasNotification, notificationMessages, onNotificationRead }: CompanionProps) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -200,17 +201,26 @@ export default function Companion({ userId, currentPage, hasNotification, onNoti
     setLoading(false)
   }
 
+  const handleOpen = () => {
+    if (!open && hasNotification && notificationMessages && notificationMessages.length > 0) {
+      const notifMsgs = notificationMessages.map(text => ({
+        role: 'odi' as const,
+        text,
+        isCommand: true,
+      }))
+      setMessages(prev => [...notifMsgs, ...prev])
+      onNotificationRead?.()
+    }
+    setOpen(prev => !prev)
+  }
+
   return (
     <>
       {/* Bulle flottante */}
       <div style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 1000 }}>
         <div style={{ position: 'relative', display: 'inline-block' }}>
           <button
-            onClick={() => {
-              const opening = !open
-              setOpen(opening)
-              if (opening && hasNotification) onNotificationRead?.()
-            }}
+            onClick={handleOpen}
             style={{
               width: '56px',
               height: '56px',

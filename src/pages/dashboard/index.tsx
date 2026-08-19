@@ -26,6 +26,8 @@ import Histoire from '../Histoire'
 import Cartes from '../Cartes'
 import Anagramme from '../Anagramme'
 import APropos from '../APropos'
+import MissionsPage from '../MissionsPage'
+import DefiParents from '../DefiParents'
 import ConjugaisonEtrangere from '../ConjugaisonEtrangere'
 import AnagrammeFrancais from '../AnagrammeFrancais'
 import Sidebar from './Sidebar'
@@ -67,6 +69,7 @@ export default function Dashboard({ session }: Props) {
   const [showInviteModal, setShowInviteModal] = useState(!!localStorage.getItem('odigo_pending_invite'))
   const [inviteParentName, setInviteParentName] = useState('')
   const [hasNotification, setHasNotification] = useState(false)
+  const [notificationMessages, setNotificationMessages] = useState<string[]>([])
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
@@ -92,6 +95,7 @@ export default function Dashboard({ session }: Props) {
   }, [])
 
   useEffect(() => {
+    console.log('pendingInvite:', pendingInvite, 'user:', session.user?.id)
     if (!pendingInvite || !session.user) return
     const fetchInviteInfo = async () => {
       const { data: invite } = await supabase
@@ -152,32 +156,55 @@ export default function Dashboard({ session }: Props) {
     }
   }
 
-  const checkNotifications = async (userId: string, lastSeen: string) => {
-    let hasNew = false
+  interface NotificationState {
+    hasNew: boolean
+    messages: string[]
+  }
 
-    const { count: newMissions } = await supabase
-      .from('missions')
-      .select('*', { count: 'exact', head: true })
-      .eq('child_id', userId)
-      .eq('status', 'pending')
-      .gt('created_at', lastSeen)
-    if (newMissions && newMissions > 0) hasNew = true
+  const checkNotifications = async (userId: string, lastSeen: string): Promise<NotificationState> => {
+    const messages: string[] = []
 
-    const { count: newRewards } = await supabase
-      .from('irl_rewards')
-      .select('*', { count: 'exact', head: true })
-      .gt('created_at', lastSeen)
-    if (newRewards && newRewards > 0) hasNew = true
+    const notifMissions = localStorage.getItem('odigo_notif_missions') !== 'off'
+    const notifIrl = localStorage.getItem('odigo_notif_irl') !== 'off'
+    const notifCartes = localStorage.getItem('odigo_notif_cartes') !== 'off'
 
-    const today = new Date().toISOString().split('T')[0]
-    const { count: newCards } = await supabase
-      .from('cards')
-      .select('*', { count: 'exact', head: true })
-      .lte('available_from', today)
-      .gt('available_from', lastSeen.split('T')[0])
-    if (newCards && newCards > 0) hasNew = true
+    if (notifMissions) {
+      const { count: newMissions } = await supabase
+        .from('missions')
+        .select('*', { count: 'exact', head: true })
+        .eq('child_id', userId)
+        .eq('status', 'pending')
+        .gt('created_at', lastSeen)
+      if (newMissions && newMissions > 0) {
+        messages.push(newMissions === 1
+          ? '🎯 Tu as une nouvelle mission !'
+          : `🎯 Tu as ${newMissions} nouvelles missions !`)
+      }
+    }
 
-    return hasNew
+    if (notifIrl) {
+      const { count: newRewards } = await supabase
+        .from('irl_rewards')
+        .select('*', { count: 'exact', head: true })
+        .gt('created_at', lastSeen)
+      if (newRewards && newRewards > 0) {
+        messages.push('🎁 Une nouvelle récompense IRL est disponible !')
+      }
+    }
+
+    if (notifCartes) {
+      const today = new Date().toISOString().split('T')[0]
+      const { count: newCards } = await supabase
+        .from('cards')
+        .select('*', { count: 'exact', head: true })
+        .lte('available_from', today)
+        .gt('available_from', lastSeen.split('T')[0])
+      if (newCards && newCards > 0) {
+        messages.push('🎴 Une nouvelle carte ODIGO est disponible !')
+      }
+    }
+
+    return { hasNew: messages.length > 0, messages }
   }
 
   const fetchProfile = async () => {
@@ -194,8 +221,9 @@ export default function Dashboard({ session }: Props) {
       if (data.role === 'parent') fetchChildren()
       if (data.has_met_odigo === false) setShowOnboarding(true)
       if (data.role !== 'parent' && data.last_seen_at) {
-        const hasNotif = await checkNotifications(session.user.id, data.last_seen_at)
-        setHasNotification(hasNotif)
+        const notifState = await checkNotifications(session.user.id, data.last_seen_at)
+        setHasNotification(notifState.hasNew)
+        setNotificationMessages(notifState.messages)
       }
     }
 
@@ -430,6 +458,9 @@ export default function Dashboard({ session }: Props) {
           {activePage === 'exercises' && activeExercise === 'maths-equation' && (
             <Maths initialExercise="equation" onBack={() => setActiveExercise(null)} />
           )}
+          {activePage === 'exercises' && activeExercise === 'defi-parents' && (
+            <DefiParents userId={effectiveUserId} onBack={() => setActiveExercise(null)} />
+          )}
           {activePage === 'exercises' && activeExercise === 'allumettes' && (
             <div>{backButton}<Allumettes /></div>
           )}
@@ -457,9 +488,10 @@ export default function Dashboard({ session }: Props) {
               }}
             />
           )}
+          {activePage === 'missions' && <MissionsPage userId={effectiveUserId} />}
           {activePage === 'settings' && <Settings onNavigate={setActivePage} />}
           {activePage === 'apropos' && <APropos />}
-          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'rewards' && activePage !== 'settings' && activePage !== 'parent' && activePage !== 'apropos' && (
+          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'missions' && activePage !== 'rewards' && activePage !== 'settings' && activePage !== 'parent' && activePage !== 'apropos' && (
             <p style={{ color: '#aaa' }}>Contenu à venir...</p>
           )}
         </div>
@@ -470,6 +502,7 @@ export default function Dashboard({ session }: Props) {
           userId={session.user.id}
           currentPage={activePage}
           hasNotification={hasNotification}
+          notificationMessages={notificationMessages}
           onNotificationRead={() => setHasNotification(false)}
         />
       )}

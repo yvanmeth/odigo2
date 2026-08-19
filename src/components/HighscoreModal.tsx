@@ -33,15 +33,20 @@ export default function HighscoreModal({
   const [newEntryId, setNewEntryId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const isValidUUID = (str: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+
+  const listIdToInsert = isValidUUID(listId) ? listId : null
+
   const fetchLeaderboard = async (): Promise<Highscore[]> => {
-    const { data } = await supabase
+    const query = supabase
       .from('highscores')
       .select('id, initials, score, created_at')
       .eq('exercise', exercise)
-      .eq('list_id', listId)
-      .order('score', { ascending: false })
-      .limit(5)
-    return data || []
+    const { data } = await (listIdToInsert
+      ? query.eq('list_id', listIdToInsert)
+      : query.is('list_id', null))
+    return (data || []).sort((a: Highscore, b: Highscore) => b.score - a.score).slice(0, 5)
   }
 
   useEffect(() => {
@@ -59,7 +64,7 @@ export default function HighscoreModal({
     setLoading(true)
     const { data: newEntry } = await supabase
       .from('highscores')
-      .insert({ exercise, list_id: listId, list_name: listName, initials: initials.trim().toUpperCase(), score })
+      .insert({ exercise, list_id: listIdToInsert, list_name: listName, initials: initials.trim().toUpperCase(), score })
       .select()
       .single()
     const board = await fetchLeaderboard()

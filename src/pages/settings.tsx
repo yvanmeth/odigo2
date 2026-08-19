@@ -54,6 +54,15 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
   const [helpBubbles, setHelpBubbles] = useState(
     localStorage.getItem('odigo_help_bubbles') !== 'off'
   )
+  const [notifMissions, setNotifMissions] = useState(
+    localStorage.getItem('odigo_notif_missions') !== 'off'
+  )
+  const [notifIrl, setNotifIrl] = useState(
+    localStorage.getItem('odigo_notif_irl') !== 'off'
+  )
+  const [notifCartes, setNotifCartes] = useState(
+    localStorage.getItem('odigo_notif_cartes') !== 'off'
+  )
   const [linkedChildren, setLinkedChildren] = useState<{ id: string; first_name: string }[]>([])
   const [loadingChildren, setLoadingChildren] = useState(false)
   const [linkedParent, setLinkedParent] = useState<{ first_name: string } | null>(null)
@@ -103,15 +112,22 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
     const fetchLinkedParents = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase
+      const { data: links, error } = await supabase
         .from('parent_child')
-        .select('relationship, profiles!parent_id(id, first_name)')
+        .select('parent_id, relationship')
         .eq('child_id', user.id)
-      if (data) {
-        setLinkedParents(data.map((d: any) => ({
-          id: d.profiles.id,
-          first_name: d.profiles.first_name,
-          relationship: d.relationship,
+      console.log('Links:', links, 'error:', error)
+      if (!links || links.length === 0) return
+      const parentIds = links.map(l => l.parent_id)
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name')
+        .in('id', parentIds)
+      if (profiles) {
+        setLinkedParents(links.map(l => ({
+          id: l.parent_id,
+          first_name: profiles.find(p => p.id === l.parent_id)?.first_name || 'Parent',
+          relationship: l.relationship || 'Parent',
         })))
       }
     }
@@ -510,6 +526,44 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
                 Bientôt
               </button>
             </div>
+
+            {role !== 'parent' && (
+              <>
+                <div style={{ fontWeight: 'bold', color: '#2a9d8f', marginTop: '1rem', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                  🔔 Notifications (point rouge sur Odi)
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>🎯 Nouvelles missions</div>
+                  <button
+                    onClick={() => { const v = !notifMissions; setNotifMissions(v); localStorage.setItem('odigo_notif_missions', v ? 'on' : 'off') }}
+                    style={{ background: notifMissions ? '#2a9d8f' : '#ddd', color: notifMissions ? 'white' : '#666', border: 'none', borderRadius: '1rem', padding: '0.3rem 0.9rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', flexShrink: 0 }}
+                  >
+                    {notifMissions ? 'Activé' : 'Désactivé'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>🎁 Nouvelles récompenses IRL</div>
+                  <button
+                    onClick={() => { const v = !notifIrl; setNotifIrl(v); localStorage.setItem('odigo_notif_irl', v ? 'on' : 'off') }}
+                    style={{ background: notifIrl ? '#2a9d8f' : '#ddd', color: notifIrl ? 'white' : '#666', border: 'none', borderRadius: '1rem', padding: '0.3rem 0.9rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', flexShrink: 0 }}
+                  >
+                    {notifIrl ? 'Activé' : 'Désactivé'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>🎴 Nouvelles cartes ODIGO</div>
+                  <button
+                    onClick={() => { const v = !notifCartes; setNotifCartes(v); localStorage.setItem('odigo_notif_cartes', v ? 'on' : 'off') }}
+                    style={{ background: notifCartes ? '#2a9d8f' : '#ddd', color: notifCartes ? 'white' : '#666', border: 'none', borderRadius: '1rem', padding: '0.3rem 0.9rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', flexShrink: 0 }}
+                  >
+                    {notifCartes ? 'Activé' : 'Désactivé'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Bouton Enregistrer principal */}

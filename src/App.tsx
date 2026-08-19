@@ -26,10 +26,12 @@ function App() {
   if (loading) return <div style={{ padding: '2rem' }}>Chargement...</div>
 
   const path = window.location.pathname
+  console.log('Path detected:', path)
   const inviteMatch = path.match(/^\/invite\/([A-Z0-9]+)$/i)
+  console.log('Invite match:', inviteMatch)
   if (inviteMatch) {
-    const code = inviteMatch[1].toUpperCase()
-    localStorage.setItem('odigo_pending_invite', code)
+    console.log('Storing pending invite:', inviteMatch[1].toUpperCase())
+    localStorage.setItem('odigo_pending_invite', inviteMatch[1].toUpperCase())
     window.history.replaceState({}, '', '/')
   }
 

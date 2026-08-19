@@ -16,6 +16,7 @@ export const navItems: NavItem[] = [
   { id: 'subjects', label: 'Matières', icon: <BookOpen size={18} /> },
   { id: 'wordlists', label: 'Listes de mots', icon: <ListIcon size={18} /> },
   { id: 'exercises', label: 'Exercices', icon: <Target size={18} /> },
+  { id: 'missions', label: 'Missions', icon: <Target size={18} /> },
   { id: 'rewards', label: 'Récompenses', icon: <Trophy size={18} /> },
   { id: 'settings', label: 'Paramètres', icon: <SettingsIcon size={18} /> },
   { id: 'apropos', label: 'À propos', icon: <InfoIcon size={18} /> },
@@ -27,7 +28,7 @@ export interface ExerciseCard {
   icon: string
   description: string
   color: string
-  category: 'langues' | 'francais' | 'maths'
+  category: 'langues' | 'francais' | 'maths' | 'defi'
   isAI?: boolean
 }
 
@@ -153,6 +154,15 @@ export const exerciseCards: ExerciseCard[] = [
     description: 'Trouve la valeur de x',
     color: '#e9c46a',
     category: 'maths',
+    isAI: false,
+  },
+  {
+    id: 'defi-parents',
+    label: 'Défi parents',
+    icon: '🏆',
+    description: 'Culture générale — réponds vite !',
+    color: '#e9c46a',
+    category: 'defi',
     isAI: false,
   },
 ]

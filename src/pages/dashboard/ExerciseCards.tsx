@@ -5,6 +5,7 @@ const SECTIONS = [
   { id: 'langues', label: '🌍 Langues étrangères' },
   { id: 'francais', label: '📖 Français' },
   { id: 'maths', label: '🔢 Mathématiques' },
+  { id: 'defi', label: '🏆 Défi' },
 ]
 
 interface ExerciseCardsProps {
