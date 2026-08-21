@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Home as HomeIcon, Calendar, BookOpen, List as ListIcon, Target, Trophy, Settings as SettingsIcon, Info as InfoIcon } from 'lucide-react'
+import { Home as HomeIcon, Calendar, BookOpen, List as ListIcon, Target, Trophy, Settings as SettingsIcon, Info as InfoIcon, CheckSquare } from 'lucide-react'
 
 const PRIMARY = 'var(--color-primary)'
 
@@ -16,7 +16,7 @@ export const navItems: NavItem[] = [
   { id: 'subjects', label: 'Matières', icon: <BookOpen size={18} /> },
   { id: 'wordlists', label: 'Listes de mots', icon: <ListIcon size={18} /> },
   { id: 'exercises', label: 'Exercices', icon: <Target size={18} /> },
-  { id: 'missions', label: 'Missions', icon: <Target size={18} /> },
+  { id: 'missions', label: 'Missions', icon: <CheckSquare size={18} /> },
   { id: 'rewards', label: 'Récompenses', icon: <Trophy size={18} /> },
   { id: 'settings', label: 'Paramètres', icon: <SettingsIcon size={18} /> },
   { id: 'apropos', label: 'À propos', icon: <InfoIcon size={18} /> },

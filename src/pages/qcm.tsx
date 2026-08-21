@@ -39,11 +39,6 @@ const speak = (text: string, lang = 'fr-FR') => {
   speechSynthesis.speak(utterance)
 }
 
-const audioButtonStyle: React.CSSProperties = {
-  background: 'none', border: 'none', cursor: 'pointer',
-  fontSize: '0.75rem', color: '#2a9d8f', alignSelf: 'center',
-  padding: '0.1rem 0.5rem',
-}
 
 interface GuestProps {
   guestMode?: boolean
@@ -343,9 +338,9 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
           gap: '0.5rem',
         }}>
           {displayWord}
-          {direction === 'french' && !feedback && (
-            <button onClick={() => speak(displayWord, LANG_VOICE_MAP[listLanguage] || 'en-GB')} style={audioButtonStyle}>
-              🔊 Écouter
+          {direction === 'foreign' && listLanguage !== 'Français' && !feedback && (
+            <button onClick={() => speak(displayWord, LANG_VOICE_MAP[listLanguage] || 'fr-FR')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', marginLeft: '0.5rem' }} title="Écouter la prononciation">
+              🔊
             </button>
           )}
         </div>
@@ -360,36 +355,30 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
         {choices.map((choice, i) => {
           const isCorrect = feedback && choice === feedback.answer
           return (
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <button
-                onClick={() => handleAnswer(choice)}
-                disabled={!!feedback}
-                style={{
-                  padding: '0.75rem',
-                  background: feedback
-                    ? isCorrect ? '#2a9d8f' : '#f5f5f5'
-                    : 'white',
-                  color: feedback
-                    ? isCorrect ? 'white' : '#aaa'
-                    : '#333',
-                  border: `2px solid ${feedback ? (isCorrect ? '#2a9d8f' : '#eee') : 'var(--color-border)'}`,
-                  borderRadius: '0.75rem',
-                  cursor: feedback ? 'default' : 'pointer',
-                  fontSize: '0.9rem',
-                  fontWeight: 'bold',
-                  transition: 'all 0.15s',
-                  textAlign: 'center',
-                  width: '100%',
-                }}
-              >
-                {choice}
-              </button>
-              {direction === 'foreign' && !feedback && (
-                <button onClick={() => speak(choice, 'fr-FR')} style={audioButtonStyle}>
-                  🔊 Écouter
-                </button>
-              )}
-            </div>
+            <button
+              key={i}
+              onClick={() => handleAnswer(choice)}
+              disabled={!!feedback}
+              style={{
+                padding: '0.75rem',
+                background: feedback
+                  ? isCorrect ? '#2a9d8f' : '#f5f5f5'
+                  : 'white',
+                color: feedback
+                  ? isCorrect ? 'white' : '#aaa'
+                  : '#333',
+                border: `2px solid ${feedback ? (isCorrect ? '#2a9d8f' : '#eee') : 'var(--color-border)'}`,
+                borderRadius: '0.75rem',
+                cursor: feedback ? 'default' : 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: 'bold',
+                transition: 'all 0.15s',
+                textAlign: 'center',
+                width: '100%',
+              }}
+            >
+              {choice}
+            </button>
           )
         })}
       </div>

@@ -262,7 +262,7 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
     if (!parentCode || parentCode.length < 6) { alert('Entre un code valide à 6 caractères.'); return }
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data: invite } = await supabase.from('invite_codes').select('*').eq('code', parentCode.trim().toUpperCase()).eq('used', false).single()
+    const { data: invite } = await supabase.from('invite_codes').select('*').eq('code', parentCode.trim().toUpperCase()).eq('used', false).maybeSingle()
     if (!invite) { showToast('Code introuvable ou déjà utilisé', 'error'); return }
     if (invite.expires_at && new Date(invite.expires_at) < new Date()) { showToast('Ce code a expiré. Demande un nouveau code.', 'error'); return }
     if (invite.parent_id === user.id) { alert('Tu ne peux pas te lier à ton propre compte.'); return }

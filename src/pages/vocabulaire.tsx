@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Delta } from '../components/Delta'
+import { EmptyState } from '../components/EmptyState'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
@@ -94,7 +95,7 @@ export default function Vocabulaire({ guestMode, guestListId, onGameEnd }: Guest
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).eq('list_type', 'dictée').eq('language', 'Français').order('name')
+    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).in('list_type', ['dictée', 'vocabulaire']).eq('language', 'Français').order('name')
     if (data) setLists(data)
   }
 
@@ -286,14 +287,22 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Liste de mots</label>
-            <select
-              value={selectedList}
-              onChange={e => setSelectedList(e.target.value)}
-              style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
-            >
-              <option value="">-- Sélectionner --</option>
-              {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
+            {lists.length === 0 ? (
+              <EmptyState
+                emoji="📝"
+                title="Aucune liste disponible"
+                subtitle="Crée une liste de type Dictée ou Vocabulaire en français pour jouer à cet exercice."
+              />
+            ) : (
+              <select
+                value={selectedList}
+                onChange={e => setSelectedList(e.target.value)}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
+              >
+                <option value="">-- Sélectionner --</option>
+                {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            )}
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>

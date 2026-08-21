@@ -145,13 +145,22 @@ export default function Spelling() {
     return word.split(' ').map(w => w[0] + w.slice(1).split('').map(() => '_').join(' ')).join('   ')
   }
 
-  const getDictationLang = () => {
-    if (direction === 'foreign') return 'fr-FR'
-    return LANG_VOICE_MAP[listLanguage] || 'en-GB'
+  const getVoiceForWord = (isSourceWord: boolean): string => {
+    if (!listLanguage || listLanguage === 'Français') return 'fr-FR'
+    const isForeignWord =
+      (direction === 'foreign' && isSourceWord) ||
+      (direction === 'french' && !isSourceWord)
+    return isForeignWord ? (LANG_VOICE_MAP[listLanguage] || 'fr-FR') : 'fr-FR'
   }
 
-  const speak = (text: string) => {
-    speakWithLang(text, getDictationLang())
+  const shouldShowSpeaker = (isSourceWord: boolean): boolean => {
+    if (!listLanguage || listLanguage === 'Français') return false
+    return (direction === 'foreign' && isSourceWord) ||
+           (direction === 'french' && !isSourceWord)
+  }
+
+  const speak = (text: string, lang: string) => {
+    speakWithLang(text, lang)
     setUsedListen(true)
   }
 
@@ -364,17 +373,29 @@ export default function Spelling() {
             Écris la traduction en <strong style={{ color: '#2a9d8f' }}>{targetLang}</strong>
           </div>
 
-          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', textAlign: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 'bold', color: '#333' }}>
-            {getSourceWord(currentWord)}
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', textAlign: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#333' }}>
+              {getSourceWord(currentWord)}
+            </span>
+            {shouldShowSpeaker(true) && (
+              <button
+                onClick={() => speakWithLang(getSourceWord(currentWord), getVoiceForWord(true))}
+                style={{ padding: '0.3rem 0.75rem', background: 'var(--color-border)', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
+              >
+                🔊 Écouter
+              </button>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', justifyContent: 'center' }}>
-            <button
-              onClick={() => speak(getTargetWord(currentWord))}
-              style={{ padding: '0.4rem 0.8rem', background: usedListen ? 'var(--color-border)' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-            >
-              🔊 Écouter {usedListen && '(-pts)'}
-            </button>
+            {shouldShowSpeaker(false) && (
+              <button
+                onClick={() => speak(getTargetWord(currentWord), getVoiceForWord(false))}
+                style={{ padding: '0.4rem 0.8rem', background: usedListen ? 'var(--color-border)' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                🔊 Écouter {usedListen && '(-pts)'}
+              </button>
+            )}
             <button
               onClick={() => { setShowLetterCount(true); setUsedLetterCount(true) }}
               style={{ padding: '0.4rem 0.8rem', background: usedLetterCount ? 'var(--color-border)' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}

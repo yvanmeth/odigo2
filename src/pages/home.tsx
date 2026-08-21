@@ -667,7 +667,7 @@ export default function Home({ userId }: { userId?: string }) {
                     <span style={{ color: '#b8860b' }}>+10 </span>
                     <Delta size={13} style={{ verticalAlign: 'middle' }} />
                   </p>
-                  <p>Fais au moins 1 exercice dans la journée.</p>
+                  <p>Fais au moins 1 action dans la journée : un exercice, une révision, ou une entrée dans le planificateur.</p>
 
                   <p style={{ marginTop: '0.75rem', marginBottom: '0.25rem' }}>
                     <strong>📆 Semaine active — </strong>

@@ -37,6 +37,7 @@ export default function DefiParents({ onBack }: DefiParentsProps) {
   const [lastBonus, setLastBonus] = useState(0)
   const [totalCorrect, setTotalCorrect] = useState(0)
   const [showHighscoreModal, setShowHighscoreModal] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
 
   // Refs pour la logique dans les callbacks/timeouts (évite les stale closures)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -237,7 +238,7 @@ export default function DefiParents({ onBack }: DefiParentsProps) {
           <button onClick={handleReplay} style={{ padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>
             🔄 Rejouer
           </button>
-          <button onClick={() => setShowHighscoreModal(true)} style={{ padding: '0.75rem', background: '#e9c46a', color: '#1a1a2e', border: 'none', borderRadius: '0.5rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>
+          <button onClick={() => setShowLeaderboard(true)} style={{ padding: '0.75rem', background: '#e9c46a', color: '#1a1a2e', border: 'none', borderRadius: '0.5rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>
             🏆 Voir le classement
           </button>
           {onBack && (
@@ -257,6 +258,26 @@ export default function DefiParents({ onBack }: DefiParentsProps) {
             onDisable={() => { localStorage.setItem('odigo_highscores', 'off'); setShowHighscoreModal(false) }}
             onReplay={handleReplay}
             onQuit={handleQuit}
+          />
+        )}
+
+        {showLeaderboard && (
+          <HighscoreModal
+            exercise="defi-parents"
+            listId="defi-parents"
+            listName="Défi parents"
+            score={0}
+            initialPhase="leaderboard"
+            onClose={() => setShowLeaderboard(false)}
+            onDisable={() => setShowLeaderboard(false)}
+            onReplay={() => {
+              setShowLeaderboard(false)
+              setGameState('intro')
+              setTotalScore(0)
+              setStreak(0)
+              setResults([])
+            }}
+            onQuit={() => setShowLeaderboard(false)}
           />
         )}
       </div>

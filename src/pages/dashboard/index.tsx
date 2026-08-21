@@ -68,8 +68,10 @@ export default function Dashboard({ session }: Props) {
   const [pendingInvite] = useState(localStorage.getItem('odigo_pending_invite') || '')
   const [showInviteModal, setShowInviteModal] = useState(!!localStorage.getItem('odigo_pending_invite'))
   const [inviteParentName, setInviteParentName] = useState('')
+  const [inviteRelationship, setInviteRelationship] = useState('')
   const [hasNotification, setHasNotification] = useState(false)
   const [notificationMessages, setNotificationMessages] = useState<string[]>([])
+  const [lastSeenAt, setLastSeenAt] = useState<string | null>(null)
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
@@ -95,19 +97,23 @@ export default function Dashboard({ session }: Props) {
   }, [])
 
   useEffect(() => {
-    console.log('pendingInvite:', pendingInvite, 'user:', session.user?.id)
     if (!pendingInvite || !session.user) return
     const fetchInviteInfo = async () => {
-      const { data: invite } = await supabase
+      const { data: invite, error: inviteError } = await supabase
         .from('invite_codes')
         .select('*')
         .eq('code', pendingInvite)
         .eq('used', false)
-        .single()
+        .maybeSingle()
 
       if (!invite) {
         localStorage.removeItem('odigo_pending_invite')
         setShowInviteModal(false)
+        if (inviteError) {
+          console.error('Invite error:', inviteError)
+        } else {
+          showToast("Code d'invitation introuvable ou expiré.", 'error')
+        }
         return
       }
 
@@ -124,6 +130,7 @@ export default function Dashboard({ session }: Props) {
         .eq('id', invite.parent_id)
         .single()
 
+      setInviteRelationship(invite.relationship || '')
       setInviteParentName(parentProfile?.first_name || 'ton parent')
       setShowInviteModal(true)
     }
@@ -221,10 +228,14 @@ export default function Dashboard({ session }: Props) {
       if (data.role === 'parent') fetchChildren()
       if (data.has_met_odigo === false) setShowOnboarding(true)
       if (data.role !== 'parent' && data.last_seen_at) {
+        setLastSeenAt(data.last_seen_at)
         const notifState = await checkNotifications(session.user.id, data.last_seen_at)
         setHasNotification(notifState.hasNew)
         setNotificationMessages(notifState.messages)
       }
+      await supabase.from('profiles')
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq('id', session.user.id)
     }
 
     const { data: activePurchases } = await supabase
@@ -293,6 +304,58 @@ export default function Dashboard({ session }: Props) {
   useEffect(() => {
     fetchDigoos()
   }, [activePage, effectiveUserId])
+
+  // Polling notifications toutes les 2 minutes
+  useEffect(() => {
+    if (!lastSeenAt || isParent) return
+    const interval = setInterval(async () => {
+      const result = await checkNotifications(effectiveUserId, lastSeenAt)
+      if (result.hasNew) {
+        setHasNotification(true)
+        setNotificationMessages(result.messages)
+      }
+    }, 2 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [effectiveUserId, lastSeenAt, isParent])
+
+  // Realtime — solde Digoos
+  useEffect(() => {
+    if (!effectiveUserId) return
+    const subscription = supabase
+      .channel('progress_changes')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'progress',
+        filter: `user_id=eq.${effectiveUserId}`,
+      }, (payload) => {
+        const newDigoos = (payload.new as { digoos?: number }).digoos
+        if (newDigoos !== undefined) setDigoos(newDigoos)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(subscription) }
+  }, [effectiveUserId])
+
+  // Realtime — nouvelles missions
+  useEffect(() => {
+    if (!effectiveUserId || isParent) return
+    const subscription = supabase
+      .channel('missions_changes')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'missions',
+        filter: `child_id=eq.${effectiveUserId}`,
+      }, () => {
+        setHasNotification(true)
+        setNotificationMessages(prev => [
+          '🎯 Tu as une nouvelle mission !',
+          ...prev.filter(m => !m.includes('mission')),
+        ])
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(subscription) }
+  }, [effectiveUserId, isParent])
 
   const handleFinishOnboarding = async () => {
     await supabase.from('profiles').update({ has_met_odigo: true }).eq('id', session.user.id)
@@ -516,7 +579,7 @@ export default function Dashboard({ session }: Props) {
             <h3 style={{ color: '#2a9d8f', marginBottom: '0.75rem' }}>Invitation reçue !</h3>
             <p style={{ color: '#555', marginBottom: '1.5rem' }}>
               Tu as été invité·e à lier ton compte à celui de{' '}
-              <strong>{inviteParentName}</strong>. Veux-tu accepter ?
+              <strong>{inviteParentName}</strong>{inviteRelationship ? ` (${inviteRelationship})` : ''}. Veux-tu accepter ?
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
               <button
@@ -526,7 +589,7 @@ export default function Dashboard({ session }: Props) {
                     .select('*')
                     .eq('code', pendingInvite)
                     .eq('used', false)
-                    .single()
+                    .maybeSingle()
 
                   if (!invite) {
                     showToast('Code introuvable ou déjà utilisé', 'error')

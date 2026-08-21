@@ -84,8 +84,9 @@ export default function Flashcards() {
 
   const touchStartX = useRef<number | null>(null)
 
-  const frontLang = direction === 'foreign' ? (LANG_VOICE_MAP[listLanguage] || 'en-GB') : 'fr-FR'
-  const backLang  = direction === 'foreign' ? 'fr-FR' : (LANG_VOICE_MAP[listLanguage] || 'en-GB')
+  const getForeignVoice = (): string => LANG_VOICE_MAP[listLanguage] || 'fr-FR'
+  const rectoIsForeign = direction === 'foreign' && listLanguage !== 'Français'
+  const versoIsForeign = direction === 'french' && listLanguage !== 'Français'
 
   useEffect(() => { fetchLists() }, [])
 
@@ -432,12 +433,14 @@ export default function Flashcards() {
               <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#333', textAlign: 'center', marginBottom: '1rem' }}>
                 {displayFront(currentCard)}
               </div>
-              <button
-                onClick={e => { e.stopPropagation(); speak(displayFront(currentCard), frontLang) }}
-                style={{ padding: '0.3rem 0.75rem', background: 'var(--color-border)', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
-              >
-                🔊 Écouter
-              </button>
+              {rectoIsForeign && (
+                <button
+                  onClick={e => { e.stopPropagation(); speak(displayFront(currentCard), getForeignVoice()) }}
+                  style={{ padding: '0.3rem 0.75rem', background: 'var(--color-border)', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
+                >
+                  🔊 Écouter
+                </button>
+              )}
               <div style={{ position: 'absolute', bottom: '0.75rem', fontSize: '0.75rem', color: '#ccc' }}>
                 Tape ou Espace pour retourner
               </div>
@@ -459,12 +462,14 @@ export default function Flashcards() {
               <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#2a9d8f', textAlign: 'center', marginBottom: '1rem' }}>
                 {displayBack(currentCard)}
               </div>
-              <button
-                onClick={e => { e.stopPropagation(); speak(displayBack(currentCard), backLang) }}
-                style={{ padding: '0.3rem 0.75rem', background: 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
-              >
-                🔊 Écouter
-              </button>
+              {versoIsForeign && (
+                <button
+                  onClick={e => { e.stopPropagation(); speak(displayBack(currentCard), getForeignVoice()) }}
+                  style={{ padding: '0.3rem 0.75rem', background: 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
+                >
+                  🔊 Écouter
+                </button>
+              )}
             </div>
           </div>
         </div>

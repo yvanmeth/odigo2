@@ -38,6 +38,7 @@ interface InviteCode {
   code: string
   expires_at: string
   used: boolean
+  relationship?: string
 }
 
 interface IrlRewardSimple {
@@ -156,7 +157,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
       .gte('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (data) setInviteCode(data)
   }
