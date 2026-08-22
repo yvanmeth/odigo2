@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Delta } from '../components/Delta'
+import { PLANNER_COLORS } from './planner/types'
 
 interface MissionsPageProps {
   userId: string
@@ -73,6 +74,7 @@ export default function MissionsPage({ userId }: MissionsPageProps) {
     marginBottom: '0.75rem',
     boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
     border: '1px solid #e0f0ee',
+    borderLeft: `4px solid ${PLANNER_COLORS.mission}`,
   }
 
   const sectionTitle = (text: string) => (

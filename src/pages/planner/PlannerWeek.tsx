@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { CalendarItem } from './types'
+import { PLANNER_COLORS } from './types'
 import { toDateStr, getWeekDays, parseTime, isRecurringEvent } from './helpers'
 
 interface Props {
@@ -78,7 +79,7 @@ export default function PlannerWeek({ calDate, items, onItemClick, onCellClick }
           return (
             <div key={i} style={{ borderLeft: '1px solid #f0f0f0', background: i >= 5 ? '#fafafa' : 'white', padding: '2px', minWidth: 0, overflow: 'hidden' }}>
               {dayAllDay.slice(0, 3).map(item => (
-                <div key={item.id} onClick={e => chipClick(item, e)} title={item.title} style={{ background: item.color, color: 'white', borderRadius: '0.2rem', padding: '0.1rem 0.3rem', fontSize: '0.65rem', marginBottom: '1px', cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: '100%', boxSizing: 'border-box' }}>
+                <div key={item.id} onClick={e => chipClick(item, e)} title={item.title} style={{ background: PLANNER_COLORS[item.type], color: 'white', borderRadius: '0.2rem', padding: '0.1rem 0.3rem', fontSize: '0.65rem', marginBottom: '1px', cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', maxWidth: '100%', boxSizing: 'border-box' }}>
                   {item.title}
                   {isRecurringEvent(item) && <span style={{ fontSize: '0.65rem', marginLeft: '0.2rem' }}>🔁</span>}
                 </div>
@@ -134,7 +135,7 @@ export default function PlannerWeek({ calDate, items, onItemClick, onCellClick }
                   return (
                     <div key={item.id} title={item.title} onClick={e => chipClick(item, e)} style={{
                       position: 'absolute', top: `${top}px`, left: '1px', right: '1px', height: `${ht}px`,
-                      background: item.color, borderRadius: '0.25rem', padding: '0.1rem 0.3rem',
+                      background: PLANNER_COLORS[item.type], borderRadius: '0.25rem', padding: '0.1rem 0.3rem',
                       cursor: 'pointer', overflow: 'hidden', color: 'white', fontSize: '0.65rem', zIndex: 5,
                       maxWidth: '100%', boxSizing: 'border-box',
                     }}>

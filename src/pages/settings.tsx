@@ -645,7 +645,7 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
                       marginTop: '0.4rem',
                       fontSize: '0.9rem',
                     }}>
-                      👤 {parent.relationship} ({parent.first_name})
+                      👤 {parent.first_name} ({parent.relationship})
                     </div>
                   ))}
                 </div>

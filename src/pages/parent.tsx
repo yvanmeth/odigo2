@@ -280,10 +280,24 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     fetchIrlRewards()
   }
 
-  const handleDeleteIrlReward = async (id: string) => {
-    await supabase.from('irl_rewards').delete().eq('id', id)
-    showToast('Supprimé', 'info')
-    fetchIrlRewards()
+  const handleDeleteIrlReward = async (rewardId: string) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { error } = await supabase
+      .from('irl_rewards')
+      .delete()
+      .eq('id', rewardId)
+      .eq('parent_id', user.id)
+
+    if (error) {
+      console.error('Delete error:', error)
+      showToast('Erreur lors de la suppression', 'error')
+      return
+    }
+
+    showToast('Récompense supprimée')
+    await fetchIrlRewards()
   }
 
   const fetchMissions = async () => {

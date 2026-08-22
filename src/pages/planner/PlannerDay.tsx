@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { CalendarItem } from './types'
+import { PLANNER_COLORS } from './types'
 import { toDateStr, isSameDay, parseTime, isRecurringEvent } from './helpers'
 import CalendarItemChip from './CalendarItem'
 
@@ -81,7 +82,7 @@ export default function PlannerDay({ calDate, items, onItemClick, onCellClick }:
               return (
                 <div key={item.id} onClick={e => { e.stopPropagation(); onItemClick(e, item) }} style={{
                   position: 'absolute', top: `${top}px`, left: '2px', right: '4px', height: `${ht}px`,
-                  background: item.color, borderRadius: '0.4rem', padding: '0.2rem 0.5rem',
+                  background: PLANNER_COLORS[item.type], borderRadius: '0.4rem', padding: '0.2rem 0.5rem',
                   cursor: 'pointer', overflow: 'hidden', color: 'white', fontSize: '0.78rem', zIndex: 5,
                 }}>
                   <div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

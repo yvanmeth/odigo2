@@ -1,4 +1,5 @@
 import type { CalendarItem as CalendarItemType } from './types'
+import { PLANNER_COLORS } from './types'
 import { isRecurringEvent } from './helpers'
 
 interface Props {
@@ -17,7 +18,7 @@ export default function CalendarItemChip({ item, onItemClick, compact, showTime,
 
   return (
     <div onClick={handleClick} className="calendar-item" style={{
-      background: item.color,
+      background: PLANNER_COLORS[item.type],
       color: 'white',
       borderRadius: compact ? '0.25rem' : '0.4rem',
       padding: compact ? '0.1rem 0.35rem' : '0.3rem 0.75rem',

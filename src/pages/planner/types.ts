@@ -38,6 +38,14 @@ export interface CalendarItem {
   raw: any
 }
 
+export const PLANNER_COLORS = {
+  evaluation: '#e76f51',
+  revision: '#5c6bc0',
+  event: '#2a9d8f',
+  reminder: '#e9a825',
+  mission: '#f4a261',
+} as const
+
 export const ODIGO_REMIND_LABELS: Record<string, string> = {
   each_login: 'À chaque connexion',
   one_day: 'Un jour avant',

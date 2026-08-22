@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { parseLocalDate } from '../../lib/dates'
 import type { Evaluation, Revision, AppEvent, Reminder, SubjectOption, Tab, CalendarItem } from './types'
-import { ODIGO_REMIND_LABELS, formatDate } from './types'
+import { ODIGO_REMIND_LABELS, formatDate, PLANNER_COLORS } from './types'
 import { logActivity } from '../../services/activity'
 import { addPlannerDigoos } from '../../services/digoos'
 import { Pencil, Trash2, Plus } from 'lucide-react'
@@ -376,7 +376,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
             <input type="time" value={evalStartTime} onChange={e => setEvalStartTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
             <input type="time" value={evalEndTime} onChange={e => setEvalEndTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
           </div>
-          <button onClick={handleSaveEval} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+          <button onClick={handleSaveEval} style={{ width: '100%', padding: '0.75rem', background: PLANNER_COLORS.evaluation, color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
             {editingId ? 'Mettre à jour' : 'Enregistrer'}
           </button>
         </div>
@@ -396,7 +396,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
             <input type="time" value={revEndTime} onChange={e => setRevEndTime(e.target.value)} style={{ ...inputStyle, width: '50%' }} />
           </div>
           <textarea placeholder="Détails (optionnel)" value={revDetails} onChange={e => setRevDetails(e.target.value)} style={{ ...inputStyle, height: '80px', resize: 'vertical' }} />
-          <button onClick={handleSaveRev} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+          <button onClick={handleSaveRev} style={{ width: '100%', padding: '0.75rem', background: PLANNER_COLORS.revision, color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
             {editingId ? 'Mettre à jour' : 'Enregistrer'}
           </button>
         </div>
@@ -455,7 +455,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
               )}
             </div>
           )}
-          <button onClick={handleSaveEvt} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+          <button onClick={handleSaveEvt} style={{ width: '100%', padding: '0.75rem', background: PLANNER_COLORS.event, color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
             {editingId ? 'Mettre à jour' : 'Enregistrer'}
           </button>
         </div>
@@ -477,7 +477,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
             <option value="one_week">Une semaine avant</option>
             <option value="never">Jamais</option>
           </select>
-          <button onClick={handleSaveReminder} style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+          <button onClick={handleSaveReminder} style={{ width: '100%', padding: '0.75rem', background: PLANNER_COLORS.reminder, color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
             {editingId ? 'Mettre à jour' : 'Enregistrer'}
           </button>
         </div>
@@ -488,7 +488,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
         <div>
           {evaluations.length === 0 && <EmptyState emoji="📝" title="Aucune évaluation" subtitle="Ajoute ta première évaluation pour commencer." actionLabel="+ Ajouter" onAction={() => setShowForm(true)} />}
           {evaluations.map(e => (
-            <div key={e.id} style={cardStyle}>
+            <div key={e.id} style={{ ...cardStyle, borderLeft: `4px solid ${PLANNER_COLORS.evaluation}` }}>
               <div>
                 <div style={{ fontWeight: 'bold', color: '#333' }}>{getSubjectName(e.subject_id)} — {e.topic}</div>
                 <div style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(e.evaluation_date)}{e.start_time ? ` · ${e.start_time}` : ''}</div>
@@ -515,7 +515,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
         <div>
           {revisions.length === 0 && <EmptyState emoji="📖" title="Aucune révision planifiée" subtitle="Planifie tes révisions pour rester organisé." actionLabel="+ Ajouter" onAction={() => setShowForm(true)} />}
           {revisions.map(r => (
-            <div key={r.id} style={cardStyle}>
+            <div key={r.id} style={{ ...cardStyle, borderLeft: `4px solid ${PLANNER_COLORS.revision}` }}>
               <div>
                 <div style={{ fontWeight: 'bold', color: '#333' }}>{formatDate(r.revision_date)}{r.start_time ? ` · ${r.start_time}` : ''}</div>
                 {r.details && <div style={{ fontSize: '0.85rem', color: '#888' }}>{r.details}</div>}
@@ -558,7 +558,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
             </p>
           )}
           {upcomingEvents.map(ev => (
-            <div key={ev.id} style={cardStyle}>
+            <div key={ev.id} style={{ ...cardStyle, borderLeft: `4px solid ${PLANNER_COLORS.event}` }}>
               <div>
                 <div style={{ fontWeight: 'bold', color: '#333' }}>
                   {ev.title}
@@ -581,8 +581,8 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
         <div>
           {missions.length === 0 && <EmptyState emoji="🎯" title="Aucune mission" subtitle="Le parent n'a pas encore créé de missions pour toi." />}
           {missions.map(m => (
-            <div key={m.id} style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem 1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '0.75rem', borderLeft: '4px solid #e76f51' }}>
-              <div style={{ fontWeight: 'bold', color: '#e76f51', fontSize: '0.95rem' }}>{m.name}</div>
+            <div key={m.id} style={{ background: 'white', borderRadius: '0.75rem', padding: '1rem 1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '0.75rem', borderLeft: `4px solid ${PLANNER_COLORS.mission}` }}>
+              <div style={{ fontWeight: 'bold', color: PLANNER_COLORS.mission, fontSize: '0.95rem' }}>{m.name}</div>
               {m.description && <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>{m.description}</div>}
               <div style={{ fontSize: '0.82rem', color: '#aaa', marginTop: '0.35rem' }}>
                 Deadline : {formatMissionDeadline(m.deadline)}
@@ -622,7 +622,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
         <div>
           {reminders.length === 0 && <EmptyState emoji="🔔" title="Aucun rappel" subtitle="Crée des rappels pour ne rien oublier." actionLabel="+ Ajouter" onAction={() => setShowForm(true)} />}
           {reminders.map(r => (
-            <div key={r.id} style={cardStyle}>
+            <div key={r.id} style={{ ...cardStyle, borderLeft: `4px solid ${PLANNER_COLORS.reminder}` }}>
               <div>
                 <div style={{ fontWeight: 'bold', color: '#333' }}>{r.title}</div>
                 {r.description && <div style={{ fontSize: '0.85rem', color: '#888' }}>{r.description}</div>}

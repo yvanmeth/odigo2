@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { parseLocalDate } from '../../lib/dates'
 import { useToast } from '../../components/Toast'
 import { getDefaultEndOfSchoolYear, getDefaultYearlyEnd } from './helpers'
+import { PLANNER_COLORS } from './types'
 import { logActivity } from '../../services/activity'
 import { addPlannerDigoos } from '../../services/digoos'
 
@@ -68,10 +69,11 @@ export default function CalendarCreateModal({ initialDate, initialTime, userId, 
   }, [evtRepeatYearly])
 
   const typeBtnStyle = (t: ItemType): React.CSSProperties => ({
-    padding: '0.4rem 0.75rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
-    background: itemType === t ? '#2a9d8f' : 'var(--color-border)',
-    color: itemType === t ? 'white' : '#2a9d8f',
-    fontWeight: itemType === t ? 'bold' : 'normal', fontSize: '0.85rem',
+    padding: '0.4rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem',
+    background: itemType === t ? PLANNER_COLORS[t] : 'white',
+    border: `2px solid ${itemType === t ? PLANNER_COLORS[t] : '#e0e0e0'}`,
+    color: itemType === t ? 'white' : '#555',
+    fontWeight: itemType === t ? 'bold' : 'normal',
   })
 
   const handleSave = async () => {
