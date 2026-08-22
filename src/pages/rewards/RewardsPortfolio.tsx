@@ -59,8 +59,27 @@ interface RewardsPortfolioProps {
   userId?: string
 }
 
-const WHEEL_BASE: WheelSegment[] = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 'échange', 'relancer']
-const WHEEL_COLORS = ['#2a9d8f', '#e76f51', '#e9c46a', '#4CAF50', '#5c6bc0', '#e63946', '#264653', '#f4a261', '#e9c46a', '#2a9d8f', '#43aa8b', '#e9c46a', '#9c27b0']
+const WHEEL_BASE: WheelSegment[] = [
+  100, 200, 300, 100, 400, 200, 500,
+  600, 100, 700, 200, 800, 900, 1000,
+  1100, 'échange', 'relancer',
+]
+
+const segColor = (s: WheelSegment): string => {
+  if (s === 'échange') return '#e9c46a'
+  if (s === 'relancer' || s === 2000) return '#5c6bc0'
+  if (s === 100) return '#e63946'
+  if (s === 200) return '#e76f51'
+  if (s === 300) return '#4CAF50'
+  if (s === 400) return '#2a9d8f'
+  if (s === 500) return '#264653'
+  if (s === 600) return '#43aa8b'
+  if (s === 700) return '#f4a261'
+  if (s === 800) return '#9c27b0'
+  if (s === 900) return '#2196F3'
+  if (s === 1000) return '#FF5722'
+  return '#795548'
+}
 
 const segLabel = (s: WheelSegment): string => {
   if (s === 'échange') return '↔'
@@ -179,25 +198,32 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     setCanSellFixed(isWeekActive && !fixedUsedThisWeek)
   }
 
-  const spinWheel = () => {
+  const spinWheel = (effectiveRerollCount = rerollCount) => {
     if (wheelSpinning) return
     setWheelSpinning(true)
     setWheelResult(null)
 
-    const segmentIndex = Math.floor(Math.random() * segments.length)
-    const result = segments[segmentIndex]
+    const segs: WheelSegment[] = WHEEL_BASE.map(s =>
+      s === 'relancer' && effectiveRerollCount >= 2 ? 2000 : s
+    )
+    const N = segs.length
+    const winningIndex = Math.floor(Math.random() * N)
+    const winningResult = segs[winningIndex]
 
-    const segmentAngle = 360 / segments.length
-    const segmentCenter = (segmentIndex + 0.5) * segmentAngle
+    const segmentAngle = 360 / N
+    // Angle du centre du segment gagnant (depuis 12h, sens horaire)
+    const segmentCenterAngle = (winningIndex + 0.5) * segmentAngle
+    // Rotation totale requise pour que ce centre soit sous l'indicateur (en haut)
+    const target = 360 - segmentCenterAngle
     const currentMod = wheelAngle % 360
-    const remainder = ((segmentCenter - currentMod) + 360) % 360
-    const targetAngle = remainder + 360 * 5
+    const diff = (target - currentMod + 360) % 360
+    const finalAngle = diff + 360 * 5
 
-    setWheelAngle(prev => prev + targetAngle)
+    setWheelAngle(prev => prev + finalAngle)
 
     setTimeout(() => {
       setWheelSpinning(false)
-      setWheelResult(result)
+      setWheelResult(winningResult)
     }, 3000)
   }
 
@@ -365,7 +391,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
             const midRad = midDeg * Math.PI / 180
             const tx = cx + textR * Math.cos(midRad)
             const ty = cy + textR * Math.sin(midRad)
-            const color = WHEEL_COLORS[i % WHEEL_COLORS.length]
+            const color = segColor(seg as WheelSegment)
             return (
               <g key={i}>
                 <path
@@ -564,7 +590,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
       {/* === MODAL DE VENTE === */}
       {showSellModal && sellCard && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', maxWidth: '420px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', maxWidth: '420px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
 
             {/* === Phase Exchange Picker === */}
             {showExchangePicker ? (
@@ -664,22 +690,37 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                 <h3 style={{ color: '#2a9d8f', textAlign: 'center', marginBottom: '1rem' }}>🎡 Roue de la fortune</h3>
                 {renderWheel()}
 
-                {wheelResult === null && (
-                  <button
-                    onClick={spinWheel}
-                    disabled={wheelSpinning}
-                    style={{
-                      marginTop: '1rem', width: '100%', padding: '0.75rem',
-                      background: wheelSpinning ? '#ccc' : '#2a9d8f',
-                      color: 'white', border: 'none', borderRadius: '0.5rem',
-                      cursor: wheelSpinning ? 'not-allowed' : 'pointer',
-                      fontWeight: 'bold', fontSize: '1rem',
-                    }}
-                  >
-                    {wheelSpinning ? 'En cours...' : '🎡 Lancer la roue'}
-                  </button>
+                {/* Avant lancer */}
+                {wheelResult === null && !wheelSpinning && (
+                  <>
+                    <button
+                      onClick={() => spinWheel()}
+                      style={{
+                        marginTop: '1rem', width: '100%', padding: '0.75rem',
+                        background: '#2a9d8f', color: 'white', border: 'none',
+                        borderRadius: '0.5rem', cursor: 'pointer',
+                        fontWeight: 'bold', fontSize: '1rem',
+                      }}
+                    >
+                      🎡 Lancer la roue
+                    </button>
+                    <button
+                      onClick={() => setSellMode(null)}
+                      style={{ marginTop: '0.5rem', width: '100%', padding: '0.5rem', background: 'var(--color-border)', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                    >
+                      ← Retour
+                    </button>
+                  </>
                 )}
 
+                {/* Pendant rotation */}
+                {wheelSpinning && (
+                  <p style={{ textAlign: 'center', marginTop: '1rem', color: '#888', fontSize: '0.9rem' }}>
+                    La roue tourne...
+                  </p>
+                )}
+
+                {/* Après résultat */}
                 {wheelResult !== null && !wheelSpinning && (
                   <div style={{ textAlign: 'center', marginTop: '1rem' }}>
                     {typeof wheelResult === 'number' && (
@@ -697,7 +738,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                     )}
                     {wheelResult === 'échange' && (
                       <>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#e76f51', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#b8860b', marginBottom: '0.5rem' }}>
                           ↔ Tu peux échanger ta carte !
                         </div>
                         <button
@@ -707,7 +748,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                             setAvailableCards(data || [])
                             setShowExchangePicker(true)
                           }}
-                          style={{ width: '100%', padding: '0.75rem', background: '#e76f51', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}
+                          style={{ width: '100%', padding: '0.75rem', background: '#e9c46a', color: '#333', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}
                         >
                           ↔ Choisir une carte
                         </button>
@@ -720,9 +761,10 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                         </div>
                         <button
                           onClick={() => {
-                            setRerollCount(prev => prev + 1)
+                            const newCount = rerollCount + 1
+                            setRerollCount(newCount)
                             setWheelResult(null)
-                            spinWheel()
+                            spinWheel(newCount)
                           }}
                           style={{ width: '100%', padding: '0.75rem', background: '#5c6bc0', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}
                         >
@@ -730,22 +772,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
                         </button>
                       </>
                     )}
-                    <button
-                      onClick={() => setShowSellModal(false)}
-                      style={{ marginTop: '0.5rem', width: '100%', padding: '0.5rem', background: 'var(--color-border)', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-                    >
-                      Annuler
-                    </button>
                   </div>
-                )}
-
-                {wheelResult === null && !wheelSpinning && (
-                  <button
-                    onClick={() => setSellMode(null)}
-                    style={{ marginTop: '0.5rem', width: '100%', padding: '0.5rem', background: 'var(--color-border)', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-                  >
-                    ← Retour
-                  </button>
                 )}
               </>
             ) : (

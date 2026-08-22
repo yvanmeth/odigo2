@@ -35,7 +35,7 @@ export default function DefiParents({ onBack }: DefiParentsProps) {
   const [gameState, setGameState] = useState<GameState>('intro')
   const [questions, setQuestions] = useState<DefiQuestion[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [timeLeft, setTimeLeft] = useState(10)
+  const [timeProgress, setTimeProgress] = useState(100)
   const [totalScore, setTotalScore] = useState(0)
   const [streak, setStreak] = useState(0)
   const [results, setResults] = useState<boolean[]>([])
@@ -67,19 +67,23 @@ export default function DefiParents({ onBack }: DefiParentsProps) {
     if (timerRef.current) clearInterval(timerRef.current)
     timeLeftRef.current = 10
     feedbackRef.current = null
-    setTimeLeft(10)
+    setTimeProgress(100)
     setFeedback(null)
     setUserAnswer('')
     setSelectedChoice(null)
 
     timerRef.current = setInterval(() => {
-      timeLeftRef.current -= 1
-      setTimeLeft(timeLeftRef.current)
-      if (timeLeftRef.current <= 0) {
-        clearInterval(timerRef.current!)
-        handleTimeout()
-      }
-    }, 1000)
+      setTimeProgress(prev => {
+        const next = prev - 1
+        timeLeftRef.current = Math.ceil(next / 10)
+        if (next <= 0) {
+          clearInterval(timerRef.current!)
+          handleTimeout()
+          return 0
+        }
+        return next
+      })
+    }, 100)
   }
 
   const handleTimeout = () => {
@@ -325,10 +329,10 @@ export default function DefiParents({ onBack }: DefiParentsProps) {
       <div style={{ height: '6px', background: '#e0e0e0', borderRadius: '3px', margin: '0.75rem 0' }}>
         <div style={{
           height: '100%',
-          width: `${(timeLeft / 10) * 100}%`,
-          background: timeLeft <= 3 ? '#e63946' : '#2a9d8f',
+          width: `${timeProgress}%`,
+          background: timeProgress <= 30 ? '#e63946' : '#2a9d8f',
           borderRadius: '3px',
-          transition: 'width 1s linear, background 0.3s',
+          transition: 'width 0.1s linear, background 0.3s',
         }} />
       </div>
 
