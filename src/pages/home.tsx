@@ -305,7 +305,7 @@ export default function Home({ userId }: { userId?: string }) {
     const ds = d.toISOString().split('T')[0]
     const count = dateCounts[ds] || 0
     if (i === 0 && count > 0) dayStreak++
-    else if (i > 0 && count >= 3) dayStreak++
+    else if (i > 0 && count >= 1) dayStreak++
     else if (i > 0) break
   }
 
@@ -703,7 +703,7 @@ export default function Home({ userId }: { userId?: string }) {
         <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'space-around' }}>
           <div style={{ flex: 1, textAlign: 'center' }}>
             <ProgressCircle
-              value={todayCount} max={3} streak={dayStreak}
+              value={todayCount >= 1 ? 1 : 0} max={1} streak={dayStreak}
               label="Jours" color="#2a9d8f"
             />
             <div style={{ fontSize: '0.7rem', color: '#bbb', marginTop: '0.1rem' }}>

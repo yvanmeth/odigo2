@@ -544,7 +544,7 @@ export default function Dashboard({ session }: Props) {
 
           {activePage === 'rewards' && (
             <Rewards
-              userId={effectiveUserId}
+              userId={isViewingChild ? effectiveUserId : undefined}
               onNavigate={(page, exercise) => {
                 setActivePage(page)
                 if (exercise) setActiveExercise(exercise)

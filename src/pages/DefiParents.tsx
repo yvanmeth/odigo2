@@ -22,6 +22,15 @@ const calculatePoints = (timeLeft: number): number => {
   return Math.max(10, Math.round(10 + (timeLeft / 10) * 90))
 }
 
+const shuffleArray = <T,>(arr: T[]): T[] => {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 export default function DefiParents({ onBack }: DefiParentsProps) {
   const [gameState, setGameState] = useState<GameState>('intro')
   const [questions, setQuestions] = useState<DefiQuestion[]>([])
@@ -38,6 +47,7 @@ export default function DefiParents({ onBack }: DefiParentsProps) {
   const [totalCorrect, setTotalCorrect] = useState(0)
   const [showHighscoreModal, setShowHighscoreModal] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [shuffledChoices, setShuffledChoices] = useState<string[]>([])
 
   // Refs pour la logique dans les callbacks/timeouts (évite les stale closures)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -192,6 +202,12 @@ export default function DefiParents({ onBack }: DefiParentsProps) {
     setQuestions([])
     setGameState('intro')
   }
+
+  useEffect(() => {
+    const q = questions[currentIndex]
+    if (q?.choices) setShuffledChoices(shuffleArray([...q.choices]))
+    else setShuffledChoices([])
+  }, [currentIndex, questions])
 
   // ═══ INTRO ═══
   if (gameState === 'intro') {
@@ -352,9 +368,9 @@ export default function DefiParents({ onBack }: DefiParentsProps) {
       )}
 
       {/* QCM */}
-      {currentQuestion.type === 'qcm' && currentQuestion.choices && (
+      {currentQuestion.type === 'qcm' && shuffledChoices.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '1rem' }}>
-          {currentQuestion.choices.map(choice => (
+          {shuffledChoices.map(choice => (
             <button
               key={choice}
               onClick={() => { setSelectedChoice(choice); handleAnswer(choice) }}
