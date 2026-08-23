@@ -165,4 +165,13 @@ export const exerciseCards: ExerciseCard[] = [
     category: 'defi',
     isAI: false,
   },
+  {
+    id: 'carte-suisse',
+    label: 'Carte de la Suisse',
+    icon: '🗺️',
+    description: 'Trouve les cantons sur la carte !',
+    color: '#2a9d8f',
+    category: 'defi',
+    isAI: false,
+  },
 ]
