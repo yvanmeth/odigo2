@@ -5,6 +5,7 @@ const SECTIONS = [
   { id: 'langues', label: '🌍 Langues étrangères' },
   { id: 'francais', label: '📖 Français' },
   { id: 'maths', label: '🔢 Mathématiques' },
+  { id: 'histoire', label: '🌍 Histoire & Géographie' },
   { id: 'defi', label: '🏆 Défi' },
 ]
 

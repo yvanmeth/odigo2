@@ -29,6 +29,7 @@ import APropos from '../APropos'
 import MissionsPage from '../MissionsPage'
 import DefiParents from '../DefiParents'
 import CarteSuisse from '../CarteSuisse'
+import DefiHistoireGeo from '../DefiHistoireGeo'
 import ConjugaisonEtrangere from '../ConjugaisonEtrangere'
 import AnagrammeFrancais from '../AnagrammeFrancais'
 import Sidebar from './Sidebar'
@@ -527,6 +528,9 @@ export default function Dashboard({ session }: Props) {
           )}
           {activePage === 'exercises' && activeExercise === 'carte-suisse' && (
             <CarteSuisse userId={effectiveUserId} onBack={() => setActiveExercise(null)} />
+          )}
+          {activePage === 'exercises' && activeExercise === 'histoire-geo' && (
+            <DefiHistoireGeo userId={effectiveUserId} onBack={() => setActiveExercise(null)} />
           )}
           {activePage === 'exercises' && activeExercise === 'allumettes' && (
             <div>{backButton}<Allumettes /></div>

@@ -28,7 +28,7 @@ export interface ExerciseCard {
   icon: string
   description: string
   color: string
-  category: 'langues' | 'francais' | 'maths' | 'defi'
+  category: 'langues' | 'francais' | 'maths' | 'histoire' | 'defi'
   isAI?: boolean
 }
 
@@ -167,11 +167,20 @@ export const exerciseCards: ExerciseCard[] = [
   },
   {
     id: 'carte-suisse',
-    label: 'Carte de la Suisse',
+    label: 'Trouve le canton',
     icon: '🗺️',
-    description: 'Trouve les cantons sur la carte !',
+    description: 'Trouve les cantons suisses sur la carte !',
     color: '#2a9d8f',
-    category: 'defi',
+    category: 'histoire',
+    isAI: false,
+  },
+  {
+    id: 'histoire-geo',
+    label: 'Histoire & Géo',
+    icon: '📚',
+    description: 'Teste tes connaissances en histoire et géographie !',
+    color: '#5c6bc0',
+    category: 'histoire',
     isAI: false,
   },
 ]
