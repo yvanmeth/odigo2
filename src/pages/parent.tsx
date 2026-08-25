@@ -494,21 +494,25 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
 
     setCreateChildLoading(true)
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      const { data: { user } } = await supabase.auth.getUser()
+      const session = (await supabase.auth.getSession()).data.session
 
-    console.log('Session:', session?.user?.id, 'Token:', session?.access_token?.slice(0, 20), 'Error:', sessionError)
+      console.log('User:', user?.id)
+      console.log('Session token:', session?.access_token?.slice(0, 30))
 
-    if (!session?.access_token) {
-      showToast('Session expirée, reconnecte-toi', 'error')
-      setCreateChildLoading(false)
-      return
-    }
+      const token = session?.access_token
+      if (!token) {
+        showToast('Session expirée, reconnecte-toi', 'error')
+        setCreateChildLoading(false)
+        return
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-child-account`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session?.access_token}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
