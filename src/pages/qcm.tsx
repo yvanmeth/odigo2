@@ -49,6 +49,7 @@ interface GuestProps {
 }
 
 export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd, userId }: GuestProps) {
+  console.log('QCM props:', { userId, guestMode, guestListId, guestLanguage, hasOnGameEnd: !!onGameEnd })
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
