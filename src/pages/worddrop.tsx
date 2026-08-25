@@ -75,7 +75,7 @@ export default function WordDrop({ guestMode, guestListId, onGameEnd, userId }: 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', user.id).eq('list_type', 'vocabulaire').order('name')
+    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', userId || user.id).eq('list_type', 'vocabulaire').order('name')
     if (data) setLists(data)
   }
 

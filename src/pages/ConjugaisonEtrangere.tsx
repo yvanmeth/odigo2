@@ -125,7 +125,7 @@ export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLang
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name, language').eq('user_id', user.id).eq('list_type', 'conjugaison').neq('language', 'Français').order('name')
+    const { data } = await supabase.from('word_lists').select('id, name, language').eq('user_id', userId || user.id).eq('list_type', 'conjugaison').neq('language', 'Français').order('name')
     if (data) setLists(data)
     setLoadingLists(false)
   }

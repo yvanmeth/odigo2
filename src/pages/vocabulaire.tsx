@@ -96,7 +96,7 @@ export default function Vocabulaire({ guestMode, guestListId, onGameEnd, userId 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).in('list_type', ['dictée', 'vocabulaire']).eq('language', 'Français').order('name')
+    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', userId || user.id).in('list_type', ['dictée', 'vocabulaire']).eq('language', 'Français').order('name')
     if (data) setLists(data)
   }
 

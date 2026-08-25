@@ -174,7 +174,7 @@ export default function PuzzlePhrases({ userId }: { userId?: string } = {}) {
     const { data } = await supabase
       .from('word_lists')
       .select('id, name, language')
-      .eq('user_id', user.id)
+      .eq('user_id', userId || user.id)
       .eq('list_type', 'vocabulaire')
     if (data) {
       setLists(data)
