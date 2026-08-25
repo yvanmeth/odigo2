@@ -494,12 +494,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
 
     setCreateChildLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
       const session = (await supabase.auth.getSession()).data.session
-
-      console.log('User:', user?.id)
-      console.log('Session token:', session?.access_token?.slice(0, 30))
-
       const token = session?.access_token
       if (!token) {
         showToast('Session expirée, reconnecte-toi', 'error')
@@ -531,7 +526,6 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
         setShowCreateChild(false)
         fetchChildren()
       } else {
-        console.error('Create child error:', result)
         showToast(result.error || JSON.stringify(result), 'error')
       }
     } catch {

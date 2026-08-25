@@ -148,7 +148,7 @@ export default function Sidebar({
           <nav style={{ flex: 1, padding: '0.5rem 0', display: 'flex', flexDirection: 'column' }}>
             {isParent && !isViewingChild && navButton('parent', <Users size={18} />, 'Espace parent', '#e9c46a', '#e9c46a', '#fff8e0', '#e9c46a')}
             {navItems.filter(i => i.id !== 'apropos' && !(i.id === 'missions' && isParent)).map(item => navButton(item.id, item.icon, item.label))}
-            <div style={{ marginTop: 'auto' }}>
+            <div>
               <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0.5rem 0.75rem' }} />
               {navItems.filter(i => i.id === 'apropos').map(item => navButton(item.id, item.icon, item.label))}
               <button
@@ -277,7 +277,7 @@ export default function Sidebar({
         ))}
 
         {/* Bas de sidebar : séparateur + À propos + Déconnexion */}
-        <div style={{ marginTop: 'auto' }}>
+        <div>
           <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0.5rem 0.75rem' }} />
           {navItems.filter(i => i.id === 'apropos').map(item => (
             <button

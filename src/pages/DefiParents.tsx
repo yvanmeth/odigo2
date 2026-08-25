@@ -41,8 +41,8 @@ const generateMathQuestions = (count: number): DefiQuestion[] => {
     let answer = 0
 
     if (type === 'calcul') {
-      const a = Math.floor(Math.random() * 100) + 1
-      const b = Math.floor(Math.random() * 100) + 1
+      const a = Math.floor(Math.random() * 200) + 1
+      const b = Math.floor(Math.random() * 200) + 1
       const op = Math.random() < 0.5 ? '+' : '-'
       if (op === '+') {
         question = `${a} + ${b} = ?`
@@ -53,18 +53,18 @@ const generateMathQuestions = (count: number): DefiQuestion[] => {
         answer = big - small
       }
     } else if (type === 'multiplication') {
-      const a = Math.floor(Math.random() * 12) + 1
-      const b = Math.floor(Math.random() * 12) + 1
+      const a = Math.floor(Math.random() * 15) + 1
+      const b = Math.floor(Math.random() * 15) + 1
       question = `${a} × ${b} = ?`
       answer = a * b
     } else if (type === 'division') {
-      const divisor = Math.floor(Math.random() * 10) + 2
-      const quotient = Math.floor(Math.random() * 10) + 1
+      const divisor = Math.floor(Math.random() * 12) + 2
+      const quotient = Math.floor(Math.random() * 20) + 1
       question = `${divisor * quotient} ÷ ${divisor} = ?`
       answer = quotient
     } else {
-      const x = Math.floor(Math.random() * 20) + 1
-      const a = Math.floor(Math.random() * 20) + 1
+      const x = Math.floor(Math.random() * 30) + 1
+      const a = Math.floor(Math.random() * 30) + 1
       question = `x + ${a} = ${x + a}, x = ?`
       answer = x
     }

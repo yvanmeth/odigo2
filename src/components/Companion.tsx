@@ -277,11 +277,11 @@ export default function Companion({ userId, currentPage, hasNotification, notifi
         }}>
 
           {/* Header */}
-          <div style={{ background: '#2a9d8f', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ background: '#1a6b5a', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <OdigoAvatar size={24} />
             <div>
               <div style={{ color: 'white', fontWeight: 'bold', fontSize: '0.95rem' }}>Odi</div>
-              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem' }}>Assistant — commandes uniquement</div>
+              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem' }}>Odi, ton assistant</div>
             </div>
           </div>
 

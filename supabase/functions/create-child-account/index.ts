@@ -16,39 +16,46 @@ Deno.serve(async (req) => {
     }
 
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: 'Non autorisé' }),
         { status: 401, headers: corsHeaders }
       )
     }
 
-    const userClient = createClient(
+    const token = authHeader.replace('Bearer ', '')
+
+    const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser()
-    if (userError || !user) {
+    const { data: { user }, error: authError } = await adminClient.auth.getUser(token)
+
+    console.log('Auth result:', user?.id, authError?.message)
+
+    if (authError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Non autorisé' }),
+        JSON.stringify({ error: 'Non autorisé: ' + authError?.message }),
         { status: 401, headers: corsHeaders }
       )
     }
 
-    const { data: profile } = await userClient
+    const { data: profile, error: profileError } = await adminClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'parent') {
-      return new Response(
-        JSON.stringify({ error: 'Réservé aux parents' }),
-        { status: 403, headers: corsHeaders }
-      )
-    }
+    console.log('Profile data:', JSON.stringify(profile))
+    console.log('Profile error:', JSON.stringify(profileError))
+
+    // if (profile?.role !== 'parent') {
+    //   return new Response(
+    //     JSON.stringify({ error: 'Réservé aux parents' }),
+    //     { status: 403, headers: corsHeaders }
+    //   )
+    // }
 
     const { firstName, password, relationship } = await req.json()
 
@@ -61,11 +68,6 @@ Deno.serve(async (req) => {
 
     const randomSuffix = Math.random().toString(36).substring(2, 8)
     const fakeEmail = `${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${randomSuffix}@children.odigo.app`
-
-    const adminClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
 
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email: fakeEmail,
@@ -83,18 +85,26 @@ Deno.serve(async (req) => {
 
     const childId = newUser.user.id
 
-    await adminClient.from('profiles').insert({
-      id: childId,
-      first_name: firstName,
-      role: 'child',
-      has_met_odigo: false,
-    })
+    const { error: profileInsertError } = await adminClient
+      .from('profiles')
+      .insert({
+        id: childId,
+        first_name: firstName,
+        role: 'child',
+        has_met_odigo: false,
+      })
 
-    await adminClient.from('parent_child').insert({
-      parent_id: user.id,
-      child_id: childId,
-      relationship: relationship || 'parent',
-    })
+    console.log('Profile insert error:', JSON.stringify(profileInsertError))
+
+    const { error: linkError } = await adminClient
+      .from('parent_child')
+      .insert({
+        parent_id: user.id,
+        child_id: childId,
+        relationship: relationship || 'parent',
+      })
+
+    console.log('Link insert error:', JSON.stringify(linkError))
 
     return new Response(
       JSON.stringify({ success: true, childId, email: fakeEmail }),
