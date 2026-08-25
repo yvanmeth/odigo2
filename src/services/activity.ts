@@ -5,11 +5,12 @@ export const logActivity = async (params: {
   questions_total?: number
   questions_correct?: number
   metadata?: Record<string, unknown>
-}) => {
+}, targetUserId?: string) => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
+  const userId = targetUserId || user.id
   await supabase.from('daily_activity').insert({
-    user_id: user.id,
+    user_id: userId,
     action_type: params.action_type,
     questions_total: params.questions_total || 0,
     questions_correct: params.questions_correct || 0,

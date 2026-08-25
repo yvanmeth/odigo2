@@ -168,8 +168,8 @@ export default function Anagramme({ userId, guestMode, guestListId, onGameEnd }:
       questions_total: TOTAL_WORDS,
       questions_correct: totalCorrect,
       metadata: { exercise: 'anagramme', listId: selectedListId },
-    })
-    const earned = await addDigoos(totalPoints, 'exercise')
+    }, userId)
+    const earned = await addDigoos(totalPoints, 'exercise', userId)
     setEarnedDigoos(earned)
     const isTop = await checkHighscore(totalPoints)
     if (isTop) setShowHighscore(true)

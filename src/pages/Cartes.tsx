@@ -61,7 +61,7 @@ const renderValuePills = (cardValues?: CardValue[]) => (
   )
 )
 
-export default function Cartes() {
+export default function Cartes({ userId }: { userId?: string } = {}) {
   const { showToast } = useToast()
   const [cards, setCards] = useState<CardData[]>([])
   const [userCards, setUserCards] = useState<UserCardRow[]>([])
@@ -84,6 +84,7 @@ export default function Cartes() {
   const fetchData = async (initial = false) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    const targetId = userId || user.id
 
     const [{ data: cardsData }, { data: userCardsData }, { data: progressData }] = await Promise.all([
       supabase.from('cards').select(`
@@ -96,8 +97,8 @@ export default function Cartes() {
         ),
         species:species (name)
       `).order('number'),
-      supabase.from('user_cards').select('id, card_id, quantity').eq('user_id', user.id),
-      supabase.from('progress').select('digoos').eq('user_id', user.id).single(),
+      supabase.from('user_cards').select('id, card_id, quantity').eq('user_id', targetId),
+      supabase.from('progress').select('digoos').eq('user_id', targetId).single(),
     ])
 
     setCards(cardsData || [])
@@ -116,13 +117,14 @@ export default function Cartes() {
     setLoading(false)
   }
 
-  useEffect(() => { fetchData(true) }, [])
+  useEffect(() => { fetchData(true) }, [userId])
 
   const startFlip = async (drawn: CardData) => {
     setDrawModal(prev => ({ ...prev, phase: 'flipping' }))
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    const targetId = userId || user.id
 
     const existing = userCards.find(uc => uc.card_id === drawn.id)
     const isNew = !existing
@@ -134,7 +136,7 @@ export default function Cartes() {
         .eq('id', existing.id)
     } else {
       await supabase.from('user_cards').insert({
-        user_id: user.id,
+        user_id: targetId,
         card_id: drawn.id,
         purchased_price: DRAW_PRICE,
         quantity: 1,

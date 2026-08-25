@@ -11,6 +11,7 @@ interface GuestProps {
   guestMode?: boolean
   guestListId?: string
   onGameEnd?: () => void
+  userId?: string
 }
 
 interface WordList {
@@ -43,7 +44,7 @@ const renderPhrase = (phrase: string, mot?: string, correct?: boolean) => {
   )
 }
 
-export default function Vocabulaire({ guestMode, guestListId, onGameEnd }: GuestProps = {}) {
+export default function Vocabulaire({ guestMode, guestListId, onGameEnd, userId }: GuestProps = {}) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
@@ -242,13 +243,13 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
   const finaliser = async () => {
     if (guestMode) { onGameEnd?.(); return }
-    await addDigoos(digoosEarned)
+    await addDigoos(digoosEarned, 'exercise', userId)
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: resultats.length,
       questions_correct: resultats.filter(r => r.correct).length,
       metadata: { exercise: 'vocabulaire' },
-    })
+    }, userId)
     const isTop = await checkHighscore(score)
     if (isTop) setShowHighscore(true)
     else setGameState('result')

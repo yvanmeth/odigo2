@@ -149,8 +149,8 @@ export default function AnagrammeFrancais({ userId }: AnagrammeFrancaisProps) {
       questions_total: TOTAL_WORDS,
       questions_correct: totalCorrect,
       metadata: { exercise: 'anagramme-francais', listId: selectedListId },
-    })
-    const earned = await addDigoos(totalPoints, 'exercise')
+    }, userId)
+    const earned = await addDigoos(totalPoints, 'exercise', userId)
     setEarnedDigoos(earned)
     const isTop = await checkHighscore(totalPoints)
     if (isTop) setShowHighscore(true)

@@ -45,9 +45,10 @@ interface GuestProps {
   guestListId?: string
   guestLanguage?: string
   onGameEnd?: () => void
+  userId?: string
 }
 
-export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }: GuestProps) {
+export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd, userId }: GuestProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
@@ -213,13 +214,13 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
       onGameEnd?.()
       return
     }
-    await addDigoos(5 + Math.floor(score / 10))
+    await addDigoos(5 + Math.floor(score / 10), 'exercise', userId)
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: wordsCompleted,
       questions_correct: wordsCompleted - failedWords.length,
       metadata: { exercise: 'qcm', mode },
-    })
+    }, userId)
     const isTop = await checkHighscore(score)
     if (isTop) setShowHighscore(true)
     else setGameState('result')

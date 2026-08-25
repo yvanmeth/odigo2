@@ -155,7 +155,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     const { data: profile } = await supabase
       .from('profiles')
       .select('avatar_card_id')
-      .eq('id', user.id)
+      .eq('id', targetId)
       .single()
     if (profile) setCurrentAvatarCardId(profile.avatar_card_id)
 
@@ -165,7 +165,8 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
   const setAsAvatar = async (cardId: string) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    await supabase.from('profiles').update({ avatar_card_id: cardId }).eq('id', user.id)
+    const targetId = userId || user.id
+    await supabase.from('profiles').update({ avatar_card_id: cardId }).eq('id', targetId)
     setCurrentAvatarCardId(cardId)
     showToast('Avatar mis à jour !')
   }
@@ -173,6 +174,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
   const checkSellConditions = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    const targetId = userId || user.id
 
     const today = new Date().toISOString().split('T')[0]
     const currentWeek = getCurrentWeekKey()
@@ -180,13 +182,13 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     const { data: prog } = await supabase
       .from('progress')
       .select('last_card_sale_date, last_card_sale_week, digoos_this_week')
-      .eq('user_id', user.id)
+      .eq('user_id', targetId)
       .single()
 
     const { count: todayActivity } = await supabase
       .from('daily_activity')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+      .eq('user_id', targetId)
       .eq('date', today)
 
     const isDayActive = (todayActivity || 0) > 0
@@ -231,6 +233,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     if (!sellCard) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    const targetId = userId || user.id
 
     if (sellCard.quantity > 1) {
       await supabase.from('user_cards')
@@ -245,7 +248,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     await addDigoos(amount, 'reward')
 
     await supabase.from('card_sales').insert({
-      user_id: user.id,
+      user_id: targetId,
       card_id: sellCard.cardId,
       card_name: sellCard.cardName,
       sale_type: sellMode === 'wheel' ? 'wheel' : 'fixed',
@@ -258,7 +261,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     if (sellMode === 'wheel') updates.last_card_sale_date = today
     if (sellMode === 'fixed') updates.last_card_sale_week = currentWeek
 
-    await supabase.from('progress').update(updates).eq('user_id', user.id)
+    await supabase.from('progress').update(updates).eq('user_id', targetId)
 
     setShowSellModal(false)
     setSellCard(null)
@@ -270,6 +273,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     if (!sellCard) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    const targetId = userId || user.id
 
     if (sellCard.quantity > 1) {
       await supabase.from('user_cards')
@@ -284,7 +288,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     const { data: existingCard } = await supabase
       .from('user_cards')
       .select('id, quantity')
-      .eq('user_id', user.id)
+      .eq('user_id', targetId)
       .eq('card_id', chosenCard.id)
       .maybeSingle()
 
@@ -293,12 +297,12 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
         .update({ quantity: existingCard.quantity + 1 })
         .eq('id', existingCard.id)
     } else {
-      await supabase.from('user_cards').insert({ user_id: user.id, card_id: chosenCard.id, quantity: 1 })
+      await supabase.from('user_cards').insert({ user_id: targetId, card_id: chosenCard.id, quantity: 1 })
       await supabase.from('cards').update({ stock_remaining: chosenCard.stock_remaining - 1 }).eq('id', chosenCard.id)
     }
 
     await supabase.from('card_sales').insert({
-      user_id: user.id,
+      user_id: targetId,
       card_id: sellCard.cardId,
       card_name: sellCard.cardName,
       sale_type: 'exchange',
@@ -306,7 +310,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     })
 
     const today = new Date().toISOString().split('T')[0]
-    await supabase.from('progress').update({ last_card_sale_date: today }).eq('user_id', user.id)
+    await supabase.from('progress').update({ last_card_sale_date: today }).eq('user_id', targetId)
 
     setShowSellModal(false)
     setSellCard(null)

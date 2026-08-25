@@ -61,7 +61,7 @@ const playFailSound = () => {
   } catch { /* silencieux */ }
 }
 
-export default function Flashcards() {
+export default function Flashcards({ userId }: { userId?: string } = {}) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
@@ -220,13 +220,13 @@ export default function Flashcards() {
   }
 
   const saveScore = async () => {
-    await addDigoos(digoosEarned)
+    await addDigoos(digoosEarned, 'exercise', userId)
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: totalCards,
       questions_correct: knownCount,
       metadata: { exercise: 'flashcards' },
-    })
+    }, userId)
     const isTop = await checkHighscore(knownCount)
     if (isTop) setShowHighscore(true)
     else setGameState('result')

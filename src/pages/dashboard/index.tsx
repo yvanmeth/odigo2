@@ -488,46 +488,46 @@ export default function Dashboard({ session }: Props) {
           )}
 
           {activePage === 'exercises' && activeExercise === 'worddrop' && (
-            <div>{backButton}<WordDrop /></div>
+            <div>{backButton}<WordDrop userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'qcm' && (
-            <div>{backButton}<QCM /></div>
+            <div>{backButton}<QCM userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'spelling' && (
-            <div>{backButton}<Spelling /></div>
+            <div>{backButton}<Spelling userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'flashcards' && (
-            <div>{backButton}<Flashcards /></div>
+            <div>{backButton}<Flashcards userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'conjugaison' && (
-            <div>{backButton}<Conjugaison /></div>
+            <div>{backButton}<Conjugaison userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'vocabulaire' && (
-            <div>{backButton}<Vocabulaire /></div>
+            <div>{backButton}<Vocabulaire userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'puzzlephrases' && (
-            <div>{backButton}<PuzzlePhrases /></div>
+            <div>{backButton}<PuzzlePhrases userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'anagramme' && (
             <div>{backButton}<Anagramme userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'conjugaison-etrangere' && (
-            <div>{backButton}<ConjugaisonEtrangere /></div>
+            <div>{backButton}<ConjugaisonEtrangere userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'anagramme-francais' && (
             <div>{backButton}<AnagrammeFrancais userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'maths-calcul' && (
-            <Maths initialExercise="calcul" onBack={() => setActiveExercise(null)} />
+            <Maths initialExercise="calcul" onBack={() => setActiveExercise(null)} userId={effectiveUserId} />
           )}
           {activePage === 'exercises' && activeExercise === 'maths-multiplication' && (
-            <Maths initialExercise="multiplication" onBack={() => setActiveExercise(null)} />
+            <Maths initialExercise="multiplication" onBack={() => setActiveExercise(null)} userId={effectiveUserId} />
           )}
           {activePage === 'exercises' && activeExercise === 'maths-division' && (
-            <Maths initialExercise="division" onBack={() => setActiveExercise(null)} />
+            <Maths initialExercise="division" onBack={() => setActiveExercise(null)} userId={effectiveUserId} />
           )}
           {activePage === 'exercises' && activeExercise === 'maths-equation' && (
-            <Maths initialExercise="equation" onBack={() => setActiveExercise(null)} />
+            <Maths initialExercise="equation" onBack={() => setActiveExercise(null)} userId={effectiveUserId} />
           )}
           {activePage === 'exercises' && activeExercise === 'defi-parents' && (
             <DefiParents userId={effectiveUserId} onBack={() => setActiveExercise(null)} />
@@ -552,7 +552,7 @@ export default function Dashboard({ session }: Props) {
               >
                 ← Retour
               </button>
-              <Cartes />
+              <Cartes userId={effectiveUserId} />
             </div>
           )}
 

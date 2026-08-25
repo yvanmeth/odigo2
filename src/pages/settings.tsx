@@ -51,6 +51,12 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem('odigo_dark_mode') === 'on'
   )
+  const [parentProtection, setParentProtection] = useState(
+    localStorage.getItem('odigo_parent_protection') || 'none'
+  )
+  const [parentPin, setParentPin] = useState(
+    localStorage.getItem('odigo_parent_pin') || ''
+  )
   const [highscoresEnabled, setHighscoresEnabled] = useState(
     localStorage.getItem('odigo_highscores') !== 'off'
   )
@@ -578,6 +584,73 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
                   </button>
                 </div>
               </>
+            )}
+
+            {role === 'parent' && (
+              <div style={{ marginTop: '1rem' }}>
+                <label style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>🔒 Protection du compte parent</label>
+                <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.25rem' }}>
+                  Sécurise le retour vers ton compte depuis un profil enfant.
+                </p>
+
+                {(['none', 'pin', 'password'] as const).map(option => (
+                  <div
+                    key={option}
+                    onClick={() => {
+                      setParentProtection(option)
+                      localStorage.setItem('odigo_parent_protection', option)
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.75rem',
+                      padding: '0.6rem 0.75rem', marginTop: '0.4rem',
+                      borderRadius: '0.5rem', cursor: 'pointer',
+                      background: parentProtection === option ? '#f0faf8' : 'white',
+                      border: `1px solid ${parentProtection === option ? '#2a9d8f' : '#e0e0e0'}`,
+                    }}
+                  >
+                    <div style={{
+                      width: '16px', height: '16px', borderRadius: '50%',
+                      border: `2px solid ${parentProtection === option ? '#2a9d8f' : '#ccc'}`,
+                      background: parentProtection === option ? '#2a9d8f' : 'white',
+                      flexShrink: 0,
+                    }} />
+                    <span style={{ fontSize: '0.9rem' }}>
+                      {option === 'none' && 'Aucune protection'}
+                      {option === 'pin' && 'Code PIN à 4 chiffres'}
+                      {option === 'password' && 'Mot de passe du compte'}
+                    </span>
+                  </div>
+                ))}
+
+                {parentProtection === 'pin' && (
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <label style={{ fontSize: '0.85rem', color: '#888' }}>Définir le code PIN (4 chiffres)</label>
+                    <input
+                      type="password"
+                      maxLength={4}
+                      value={parentPin}
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 4)
+                        setParentPin(val)
+                        if (val.length === 4) {
+                          localStorage.setItem('odigo_parent_pin', val)
+                        }
+                      }}
+                      placeholder="••••"
+                      style={{
+                        display: 'block', marginTop: '0.4rem',
+                        padding: '0.5rem', borderRadius: '0.5rem',
+                        border: '1px solid #e0f0ee',
+                        fontSize: '1.2rem', letterSpacing: '0.5rem',
+                        width: '100px', textAlign: 'center',
+                      }}
+                    />
+                    {parentPin.length === 4 && (
+                      <div style={{ color: '#2a9d8f', fontSize: '0.8rem', marginTop: '0.25rem' }}>✓ PIN enregistré</div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

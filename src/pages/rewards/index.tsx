@@ -178,6 +178,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
           irlRewards={irlRewards}
           onNavigate={onNavigate}
           activeTab={activeTab}
+          userId={userId}
         />
       )}
 

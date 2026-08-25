@@ -27,7 +27,7 @@ const LANG_VOICE_MAP: Record<string, string> = {
   'Arabe': 'ar-DZ', 'Italien': 'it-IT', 'Espagnol': 'es-ES', 'Français': 'fr-FR',
 }
 
-export default function Spelling() {
+export default function Spelling({ userId }: { userId?: string } = {}) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
@@ -270,13 +270,13 @@ export default function Spelling() {
   }
 
   const saveScore = async () => {
-    await addDigoos(5 + Math.floor(score / 10))
+    await addDigoos(5 + Math.floor(score / 10), 'exercise', userId)
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: wordsCompleted,
       questions_correct: wordsCompleted - failedWords.length,
       metadata: { exercise: 'spelling' },
-    })
+    }, userId)
     const isTop = await checkHighscore(score)
     if (isTop) setShowHighscore(true)
     else setGameState('result')

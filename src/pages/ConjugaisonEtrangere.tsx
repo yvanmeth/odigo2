@@ -75,9 +75,10 @@ interface GuestProps {
   guestListId?: string
   guestLanguage?: string
   onGameEnd?: () => void
+  userId?: string
 }
 
-export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLanguage: initialLanguage, onGameEnd }: GuestProps) {
+export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLanguage: initialLanguage, onGameEnd, userId }: GuestProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [loadingLists, setLoadingLists] = useState(true)
@@ -241,13 +242,13 @@ Réponds UNIQUEMENT en JSON valide :
       onGameEnd?.()
       return
     }
-    await addDigoos(digoosEarned)
+    await addDigoos(digoosEarned, 'exercise', userId)
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: questions.length,
       questions_correct: resultats.filter(r => r.correct).length,
       metadata: { exercise: 'conjugaison-etrangere', language: listLanguage },
-    })
+    }, userId)
     const isTop = await checkHighscore(score)
     if (isTop) setShowHighscore(true)
     else setGameState('result')
