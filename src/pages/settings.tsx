@@ -48,6 +48,9 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
   const [parentCode, setParentCode] = useState('')
   const [role, setRole] = useState<'student' | 'parent'>('student')
   const [savingRole, setSavingRole] = useState(false)
+  const [darkMode, setDarkMode] = useState(
+    localStorage.getItem('odigo_dark_mode') === 'on'
+  )
   const [highscoresEnabled, setHighscoresEnabled] = useState(
     localStorage.getItem('odigo_highscores') !== 'off'
   )
@@ -289,7 +292,7 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
   }
 
   const sectionStyle = {
-    background: 'white', borderRadius: '1rem',
+    background: 'var(--color-card)', borderRadius: '1rem',
     padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1.5rem',
   }
 
@@ -520,10 +523,22 @@ export default function Settings({ onNavigate }: SettingsProps = {}) {
             <div style={{ ...toggleRowStyle, borderBottom: 'none' }}>
               <div>
                 <div style={{ fontWeight: 'bold' }}>🌙 Mode nuit</div>
-                <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Disponible prochainement</div>
+                <div style={{ fontSize: '0.8rem', color: '#888' }}>Interface sombre</div>
               </div>
-              <button disabled style={{ background: '#ddd', color: '#aaa', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'not-allowed', fontWeight: 'bold', fontSize: '0.85rem', flexShrink: 0 }}>
-                Bientôt
+              <button
+                onClick={() => {
+                  const next = !darkMode
+                  setDarkMode(next)
+                  localStorage.setItem('odigo_dark_mode', next ? 'on' : 'off')
+                  if (next) {
+                    document.documentElement.setAttribute('data-theme', 'dark')
+                  } else {
+                    document.documentElement.removeAttribute('data-theme')
+                  }
+                }}
+                style={{ background: darkMode ? '#2a9d8f' : '#e0e0e0', color: darkMode ? 'white' : '#555', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', flexShrink: 0, transition: 'background 0.2s' }}
+              >
+                {darkMode ? 'Activé' : 'Désactivé'}
               </button>
             </div>
 

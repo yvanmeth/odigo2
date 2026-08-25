@@ -69,7 +69,7 @@ export default function Sidebar({
   if (isMobile) {
     if (!mobileMenuOpen) return null
 
-    const navButton = (id: string, icon: React.ReactNode, label: string, color = '#555', activeColor = PRIMARY, activeBg = 'var(--color-background)', activeBorder = PRIMARY) => (
+    const navButton = (id: string, icon: React.ReactNode, label: string, color = 'var(--color-sidebar-text)', activeColor = PRIMARY, activeBg = 'var(--color-background)', activeBorder = PRIMARY) => (
       <button
         key={id}
         onClick={() => { onNavigate(id); onMobileClose() }}
@@ -101,7 +101,7 @@ export default function Sidebar({
         {/* Panneau latéral */}
         <div style={{
           position: 'fixed', top: 0, left: 0, bottom: 0,
-          width: '280px', background: 'white',
+          width: '280px', background: 'var(--color-sidebar)',
           zIndex: 500, display: 'flex', flexDirection: 'column',
           boxShadow: '4px 0 24px rgba(0,0,0,0.15)',
           overflowY: 'auto',
@@ -148,21 +148,18 @@ export default function Sidebar({
           <nav style={{ flex: 1, padding: '0.5rem 0', display: 'flex', flexDirection: 'column' }}>
             {isParent && !isViewingChild && navButton('parent', <Users size={18} />, 'Espace parent', '#e9c46a', '#e9c46a', '#fff8e0', '#e9c46a')}
             {navItems.filter(i => i.id !== 'apropos' && !(i.id === 'missions' && isParent)).map(item => navButton(item.id, item.icon, item.label))}
-            <div style={{ borderTop: '1px solid var(--color-border)', marginTop: 'auto', paddingTop: '0.5rem' }}>
+            <div style={{ marginTop: 'auto' }}>
+              <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0.5rem 0.75rem' }} />
               {navItems.filter(i => i.id === 'apropos').map(item => navButton(item.id, item.icon, item.label))}
+              <button
+                onClick={() => { onSignOut(); onMobileClose() }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', padding: '0.75rem 1rem', background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '0.9rem' }}
+              >
+                <LogOut size={18} />
+                Se déconnecter
+              </button>
             </div>
           </nav>
-
-          {/* Déconnexion */}
-          <div style={{ padding: '1rem', borderTop: '1px solid var(--color-border)' }}>
-            <button
-              onClick={onSignOut}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', padding: '0.75rem 1rem', background: 'none', border: 'none', cursor: 'pointer', color: '#e63946', fontSize: '0.9rem' }}
-            >
-              <LogOut size={18} />
-              Se déconnecter
-            </button>
-          </div>
         </div>
       </>
     )
@@ -172,7 +169,7 @@ export default function Sidebar({
   return (
     <div style={{
       width: collapsed ? '60px' : '220px',
-      background: 'white',
+      background: 'var(--color-sidebar)',
       borderRight: '1px solid var(--color-border)',
       display: 'flex',
       flexDirection: 'column',
@@ -248,7 +245,7 @@ export default function Sidebar({
               border: 'none',
               borderLeft: activePage === 'parent' ? '3px solid #e9c46a' : '3px solid transparent',
               cursor: 'pointer',
-              color: activePage === 'parent' ? '#e9c46a' : '#555',
+              color: activePage === 'parent' ? '#e9c46a' : 'var(--color-sidebar-text)',
               fontWeight: activePage === 'parent' ? 'bold' : 'normal',
               fontSize: '0.9rem', textAlign: 'left', whiteSpace: 'nowrap'
             }}
@@ -269,7 +266,7 @@ export default function Sidebar({
               border: 'none',
               borderLeft: activePage === item.id ? `3px solid ${PRIMARY}` : '3px solid transparent',
               cursor: 'pointer',
-              color: activePage === item.id ? PRIMARY : '#555',
+              color: activePage === item.id ? PRIMARY : 'var(--color-sidebar-text)',
               fontWeight: activePage === item.id ? 'bold' : 'normal',
               fontSize: '0.9rem', textAlign: 'left', whiteSpace: 'nowrap'
             }}
@@ -279,8 +276,9 @@ export default function Sidebar({
           </button>
         ))}
 
-        {/* À propos — séparé en bas */}
-        <div style={{ borderTop: '1px solid var(--color-border)', marginTop: 'auto', paddingTop: '0.5rem' }}>
+        {/* Bas de sidebar : séparateur + À propos + Déconnexion */}
+        <div style={{ marginTop: 'auto' }}>
+          <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0.5rem 0.75rem' }} />
           {navItems.filter(i => i.id === 'apropos').map(item => (
             <button
               key={item.id}
@@ -292,7 +290,7 @@ export default function Sidebar({
                 border: 'none',
                 borderLeft: activePage === item.id ? `3px solid ${PRIMARY}` : '3px solid transparent',
                 cursor: 'pointer',
-                color: activePage === item.id ? PRIMARY : '#888',
+                color: activePage === item.id ? PRIMARY : 'var(--color-sidebar-text)',
                 fontWeight: activePage === item.id ? 'bold' : 'normal',
                 fontSize: '0.9rem', textAlign: 'left', whiteSpace: 'nowrap'
               }}
@@ -301,30 +299,27 @@ export default function Sidebar({
               {!collapsed && item.label}
             </button>
           ))}
+          <button
+            onClick={onSignOut}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              width: '100%',
+              padding: '0.75rem 1rem',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#e63946',
+              fontSize: '0.9rem',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <LogOut size={18} />
+            {!collapsed && 'Se déconnecter'}
+          </button>
         </div>
       </nav>
-
-      <div style={{ padding: '1rem', borderTop: '1px solid var(--color-border)' }}>
-        <button
-          onClick={onSignOut}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
-            width: '100%',
-            padding: '0.75rem 1rem',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: '#e63946',
-            fontSize: '0.9rem',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <LogOut size={18} />
-          {!collapsed && 'Se déconnecter'}
-        </button>
-      </div>
     </div>
   )
 }

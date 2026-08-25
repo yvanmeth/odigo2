@@ -15,6 +15,7 @@ interface Message {
   role: 'odi' | 'user'
   text: string
   isCommand?: boolean
+  isWelcome?: boolean
 }
 
 const SLASH_COMMANDS = [
@@ -65,7 +66,8 @@ export default function Companion({ userId, currentPage, hasNotification, notifi
 
     setMessages([{
       role: 'odi',
-      text: "Bonjour ! Je suis Odi. Je peux t'aider avec des commandes rapides — tape /liste pour voir lesquelles !"
+      text: "Salut, je peux t'aider avec des commandes rapides. Tape /liste pour voir lesquelles !",
+      isWelcome: true,
     }])
 
     if (profileData && !profileData.has_met_odigo) {
@@ -283,20 +285,6 @@ export default function Companion({ userId, currentPage, hasNotification, notifi
             </div>
           </div>
 
-          {/* Bandeau de transparence */}
-          <div style={{
-            background: '#fff8e0',
-            border: '1px solid #e9c46a',
-            borderRadius: '0.5rem',
-            padding: '0.5rem 0.75rem',
-            fontSize: '0.75rem',
-            color: '#b8860b',
-            lineHeight: '1.4',
-            margin: '0.5rem 0',
-          }}>
-            ⚠️ Je suis un chatbot IA. Je peux me tromper. Pour toute question importante, personnelle ou médicale, parle à un adulte de confiance.
-          </div>
-
           {/* Messages */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 1rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {messages.map((msg, i) => {
@@ -313,13 +301,19 @@ export default function Companion({ userId, currentPage, hasNotification, notifi
                     maxWidth: '85%',
                     padding: '0.6rem 0.9rem',
                     borderRadius: msg.role === 'user' ? '1rem 1rem 0.25rem 1rem' : '1rem 1rem 1rem 0.25rem',
-                    background: msg.role === 'user' ? '#2a9d8f' : msg.isCommand ? 'var(--color-background)' : 'var(--color-background)',
+                    background: msg.role === 'user' ? '#2a9d8f' : 'var(--color-background)',
                     color: msg.role === 'user' ? 'white' : '#333',
-                    fontSize: '0.9rem',
+                    fontSize: '0.85rem',
                     lineHeight: '1.4',
                     ...(msg.isCommand ? { borderLeft: '3px solid #2a9d8f', whiteSpace: 'pre-line' as const } : {}),
                   }}>
-                    {cleanText}
+                    {msg.isWelcome ? (
+                      <span>
+                        Salut, je peux t'aider avec des commandes rapides. Tape{' '}
+                        <strong style={{ color: '#2a9d8f' }}>/liste</strong>
+                        {' '}pour voir lesquelles !
+                      </span>
+                    ) : cleanText}
                   </div>
                   {hasSuggestions && i === messages.length - 1 && suggList.map((s, j) => (
                     <button
@@ -338,7 +332,7 @@ export default function Companion({ userId, currentPage, hasNotification, notifi
             })}
             {loading && (
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <div style={{ background: 'var(--color-background)', borderRadius: '1rem 1rem 1rem 0.25rem', padding: '0.6rem 0.9rem', color: '#888', fontSize: '0.9rem' }}>
+                <div style={{ background: 'var(--color-background)', borderRadius: '1rem 1rem 1rem 0.25rem', padding: '0.6rem 0.9rem', color: '#888', fontSize: '0.85rem' }}>
                   ...
                 </div>
               </div>

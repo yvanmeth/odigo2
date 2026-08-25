@@ -4,6 +4,11 @@
   --color-accent: #e9c46a;
   --color-border: #e0f0ee;
   --color-card: #ffffff;
+  --color-text: #1a1a1a;
+  --color-text-secondary: #888888;
+  --color-sidebar: #ffffff;
+  --color-sidebar-text: #555555;
+  --color-input-bg: #ffffff;
 
   --text: #6b6375;
   --text-h: #08060d;
@@ -54,6 +59,19 @@
   #social .button-icon {
     filter: invert(1) brightness(2);
   }
+}
+
+[data-theme="dark"] {
+  --color-primary: #4db8aa;
+  --color-background: #1a1a2e;
+  --color-accent: #e9c46a;
+  --color-border: #2a3a4a;
+  --color-card: #16213e;
+  --color-text: #e8e8e8;
+  --color-text-secondary: #a0a0b0;
+  --color-sidebar: #0f3460;
+  --color-sidebar-text: #e8e8e8;
+  --color-input-bg: #1e2a3a;
 }
 
 #root {

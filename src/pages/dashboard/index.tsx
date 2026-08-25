@@ -90,6 +90,12 @@ export default function Dashboard({ session }: Props) {
       root.style.setProperty('--color-accent', localStorage.getItem('odigo_theme_accent') || '#e9c46a')
       root.style.setProperty('--color-border', localStorage.getItem('odigo_theme_border') || '#e0f0ee')
     }
+    const darkMode = localStorage.getItem('odigo_dark_mode') === 'on'
+    if (darkMode) {
+      document.documentElement.setAttribute('data-theme', 'dark')
+    } else {
+      document.documentElement.removeAttribute('data-theme')
+    }
     fetchProfile()
   }, [])
 

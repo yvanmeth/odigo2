@@ -27,6 +27,10 @@ export default function LoginPage() {
   const [forgotSent, setForgotSent] = useState(false)
   const [forgotLoading, setForgotLoading] = useState(false)
 
+  const [showChildLogin, setShowChildLogin] = useState(false)
+  const [childFirstName, setChildFirstName] = useState('')
+  const [childPassword, setChildPassword] = useState('')
+
   const isSignupStep = step === 'signup-1' || step === 'signup-2' || step === 'signup-3'
   const stepNum = step === 'signup-1' ? 1 : step === 'signup-2' ? 2 : step === 'signup-3' ? 3 : 0
   const progressWidth = stepNum === 1 ? '33%' : stepNum === 2 ? '66%' : '100%'
@@ -79,6 +83,27 @@ export default function LoginPage() {
   }
 
   const goTo = (s: AuthStep) => { setError(''); setStep(s) }
+
+  const handleChildLogin = async () => {
+    if (!childFirstName.trim() || !childPassword) return
+    setLoading(true)
+    setError('')
+    const { data: emailData } = await supabase.rpc(
+      'get_child_email_by_name',
+      { child_first_name: childFirstName.trim() }
+    )
+    if (!emailData) {
+      setError('Prénom introuvable')
+      setLoading(false)
+      return
+    }
+    const { error: err } = await supabase.auth.signInWithPassword({
+      email: emailData,
+      password: childPassword,
+    })
+    if (err) setError('Mot de passe incorrect')
+    setLoading(false)
+  }
 
   if (guestMode) return <GuestMode onExit={() => setGuestMode(false)} />
 
@@ -142,6 +167,40 @@ export default function LoginPage() {
     </div>
   )
 
+  // ==================== CHILD LOGIN ====================
+
+  if (step === 'login' && showChildLogin) {
+    return (
+      <div style={containerStyle}>
+        <div style={cardStyle}>
+          {logo}
+          <p style={{ color: '#5c6bc0', margin: '0 0 1.5rem', fontWeight: 'bold' }}>Connexion enfant</p>
+          <p style={{ color: '#666', fontSize: '0.9rem', margin: '0 0 1.25rem' }}>
+            Entre ton prénom et le mot de passe que ton parent a créé pour toi.
+          </p>
+          <input
+            type="text" placeholder="Ton prénom" value={childFirstName}
+            onChange={e => setChildFirstName(e.target.value)}
+            style={inputStyle}
+          />
+          <input
+            type="password" placeholder="Mot de passe" value={childPassword}
+            onChange={e => setChildPassword(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleChildLogin() }}
+            style={inputStyle}
+          />
+          {error && <p style={{ color: '#e63946', fontSize: '0.85rem', marginBottom: '0.75rem' }}>{error}</p>}
+          <button onClick={handleChildLogin} disabled={loading || !childFirstName.trim() || !childPassword} style={{ ...btnPrimary, width: '100%', background: '#5c6bc0' }}>
+            {loading ? 'Connexion...' : 'Se connecter'}
+          </button>
+          <p onClick={() => { setShowChildLogin(false); setError('') }} style={{ ...linkStyle, color: '#888' }}>
+            ← Retour
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   // ==================== LOGIN ====================
 
   if (step === 'login') {
@@ -188,6 +247,18 @@ export default function LoginPage() {
             </button>
             <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.5rem', lineHeight: 1.4 }}>
               En tant qu'invité·e, tu auras accès à quelques exercices pour découvrir ODIGO. Aucune inscription requise.
+            </p>
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
+            <button
+              onClick={() => { setShowChildLogin(true); setError('') }}
+              style={{ background: 'none', border: '2px solid #5c6bc0', color: '#5c6bc0', borderRadius: '0.75rem', padding: '0.75rem 1.5rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', width: '100%' }}
+            >
+              👶 Se connecter sans email (compte enfant)
+            </button>
+            <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.4rem' }}>
+              Pour les enfants qui n'ont pas d'adresse email
             </p>
           </div>
         </div>

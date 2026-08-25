@@ -22,6 +22,66 @@ const calculatePoints = (timeLeft: number): number => {
   return Math.max(10, Math.round(10 + (timeLeft / 10) * 90))
 }
 
+const COMPOSITION = [
+  { category: 'Histoire', count: 2 },
+  { category: 'Géographie', count: 2 },
+  { category: 'Sciences', count: 1 },
+  { category: 'Orthographe', count: 1 },
+  { category: 'Allemand', count: 1 },
+  { category: 'Anglais', count: 1 },
+]
+
+const generateMathQuestions = (count: number): DefiQuestion[] => {
+  const questions: DefiQuestion[] = []
+  const types = ['calcul', 'multiplication', 'division', 'equation']
+
+  for (let i = 0; i < count; i++) {
+    const type = types[Math.floor(Math.random() * types.length)]
+    let question = ''
+    let answer = 0
+
+    if (type === 'calcul') {
+      const a = Math.floor(Math.random() * 100) + 1
+      const b = Math.floor(Math.random() * 100) + 1
+      const op = Math.random() < 0.5 ? '+' : '-'
+      if (op === '+') {
+        question = `${a} + ${b} = ?`
+        answer = a + b
+      } else {
+        const big = Math.max(a, b), small = Math.min(a, b)
+        question = `${big} - ${small} = ?`
+        answer = big - small
+      }
+    } else if (type === 'multiplication') {
+      const a = Math.floor(Math.random() * 12) + 1
+      const b = Math.floor(Math.random() * 12) + 1
+      question = `${a} × ${b} = ?`
+      answer = a * b
+    } else if (type === 'division') {
+      const divisor = Math.floor(Math.random() * 10) + 2
+      const quotient = Math.floor(Math.random() * 10) + 1
+      question = `${divisor * quotient} ÷ ${divisor} = ?`
+      answer = quotient
+    } else {
+      const x = Math.floor(Math.random() * 20) + 1
+      const a = Math.floor(Math.random() * 20) + 1
+      question = `x + ${a} = ${x + a}, x = ?`
+      answer = x
+    }
+
+    questions.push({
+      id: `math-generated-${i}`,
+      question,
+      type: 'saisie',
+      category: 'Maths',
+      choices: null,
+      answer: String(answer),
+    })
+  }
+
+  return questions
+}
+
 const shuffleArray = <T,>(arr: T[]): T[] => {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -143,7 +203,6 @@ export default function DefiParents({ onBack }: DefiParentsProps) {
   }
 
   const fetchQuestions = async () => {
-    // Reset complet
     scoreRef.current = 0
     streakRef.current = 0
     resultsRef.current = []
@@ -158,20 +217,31 @@ export default function DefiParents({ onBack }: DefiParentsProps) {
     setShowHighscoreModal(false)
     setGameState('playing')
 
-    const { data } = await supabase
-      .from('defi_questions')
-      .select('*')
-      .eq('active', true)
+    const allQuestions: DefiQuestion[] = []
 
-    if (!data || data.length === 0) {
+    for (const { category, count } of COMPOSITION) {
+      const { data } = await supabase
+        .from('defi_questions')
+        .select('*')
+        .eq('active', true)
+        .eq('category', category)
+
+      if (data && data.length > 0) {
+        const shuffled = [...data].sort(() => Math.random() - 0.5)
+        allQuestions.push(...(shuffled.slice(0, count) as DefiQuestion[]))
+      }
+    }
+
+    allQuestions.push(...generateMathQuestions(2))
+
+    if (allQuestions.length === 0) {
       setGameState('intro')
       return
     }
 
-    const shuffled = [...data].sort(() => Math.random() - 0.5)
-    const picked = shuffled.slice(0, 10) as DefiQuestion[]
-    questionsRef.current = picked
-    setQuestions(picked)
+    const shuffled = allQuestions.sort(() => Math.random() - 0.5)
+    questionsRef.current = shuffled
+    setQuestions(shuffled)
     startQuestion()
   }
 
