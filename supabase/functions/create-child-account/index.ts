@@ -1,16 +1,25 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 })
-  }
-
   try {
+    if (req.method === 'OPTIONS') {
+      return new Response('ok', { headers: corsHeaders })
+    }
+
+    if (req.method !== 'POST') {
+      return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+    }
+
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'Non autorisé' }),
-        { status: 401 }
+        { status: 401, headers: corsHeaders }
       )
     }
 
@@ -24,7 +33,7 @@ Deno.serve(async (req) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: 'Non autorisé' }),
-        { status: 401 }
+        { status: 401, headers: corsHeaders }
       )
     }
 
@@ -37,7 +46,7 @@ Deno.serve(async (req) => {
     if (profile?.role !== 'parent') {
       return new Response(
         JSON.stringify({ error: 'Réservé aux parents' }),
-        { status: 403 }
+        { status: 403, headers: corsHeaders }
       )
     }
 
@@ -46,12 +55,12 @@ Deno.serve(async (req) => {
     if (!firstName || !password) {
       return new Response(
         JSON.stringify({ error: 'Prénom et mot de passe requis' }),
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
     const randomSuffix = Math.random().toString(36).substring(2, 8)
-    const fakeEmail = `${firstName.toLowerCase().replace(/\s+/g, '-')}-${randomSuffix}@odigo.internal`
+    const fakeEmail = `${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${randomSuffix}@children.odigo.app`
 
     const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -68,7 +77,7 @@ Deno.serve(async (req) => {
     if (createError || !newUser.user) {
       return new Response(
         JSON.stringify({ error: createError?.message || 'Erreur création' }),
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       )
     }
 
@@ -89,13 +98,14 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, childId, email: fakeEmail }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (_err) {
+  } catch (err) {
+    console.error('Unhandled error:', err)
     return new Response(
-      JSON.stringify({ error: 'Erreur serveur' }),
-      { status: 500 }
+      JSON.stringify({ error: String(err) }),
+      { status: 500, headers: corsHeaders }
     )
   }
 })

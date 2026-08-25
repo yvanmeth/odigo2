@@ -494,7 +494,15 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
 
     setCreateChildLoading(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+    console.log('Session:', session?.user?.id, 'Token:', session?.access_token?.slice(0, 20), 'Error:', sessionError)
+
+    if (!session?.access_token) {
+      showToast('Session expirée, reconnecte-toi', 'error')
+      setCreateChildLoading(false)
+      return
+    }
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-child-account`,
         {
