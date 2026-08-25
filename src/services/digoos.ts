@@ -14,7 +14,6 @@ export const addDigoos = async (
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return 0
   const userId = targetUserId || user.id
-  console.log('addDigoos called with targetUserId:', targetUserId, 'auth user:', user.id, 'using:', userId)
 
   let finalAmount = amount
 
@@ -34,6 +33,17 @@ export const addDigoos = async (
   }
 
   if (finalAmount <= 0) return 0
+
+  if (userId !== user.id) {
+    await supabase.rpc('add_digoos_to_user', {
+      target_user_id: userId,
+      amount: finalAmount,
+    })
+    if (typeof window !== 'undefined' && (window as any).triggerDigoosAnimation) {
+      (window as any).triggerDigoosAnimation(finalAmount)
+    }
+    return finalAmount
+  }
 
   const { data } = await supabase
     .from('progress')
