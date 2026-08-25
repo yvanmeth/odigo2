@@ -539,10 +539,10 @@ export default function Dashboard({ session }: Props) {
             <DefiHistoireGeo userId={effectiveUserId} onBack={() => setActiveExercise(null)} />
           )}
           {activePage === 'exercises' && activeExercise === 'allumettes' && (
-            <div>{backButton}<Allumettes /></div>
+            <div>{backButton}<Allumettes userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'histoire' && (
-            <div>{backButton}<Histoire /></div>
+            <div>{backButton}<Histoire userId={effectiveUserId} /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'cartes' && (
             <div>

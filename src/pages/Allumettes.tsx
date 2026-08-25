@@ -133,7 +133,7 @@ const moveHard = (board: Board): Move => {
   return safeMoves.length > 0 ? pickRandom(safeMoves) : pickRandom(moves)
 }
 
-const Allumettes = () => {
+const Allumettes = ({ userId }: { userId?: string } = {}) => {
   const [gameState, setGameState] = useState<GameState>('select')
   const [difficulty, setDifficulty] = useState<Difficulty>('easy')
   const [board, setBoard] = useState<Board>(() => cloneBoard(INITIAL_BOARD))
@@ -191,7 +191,7 @@ const Allumettes = () => {
     const w: Turn = lastToMove === 'player' ? 'odigo' : 'player'
     setWinner(w)
     setGameState('result')
-    logActivity({ action_type: 'exercise_completed', metadata: { exercise: 'allumettes', winner: w } })
+    logActivity({ action_type: 'exercise_completed', metadata: { exercise: 'allumettes', winner: w } }, userId)
   }
 
   const triggerOdigoTurn = (currentBoard: Board) => {

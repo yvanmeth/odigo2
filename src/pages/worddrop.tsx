@@ -279,7 +279,11 @@ export default function WordDrop({ guestMode, guestListId, onGameEnd, userId }: 
       onGameEnd?.()
       return
     }
-    await addDigoos(5 + Math.floor(score / 10), 'exercise', userId)
+    const points = 5 + Math.floor(score / 10)
+    console.log('finaliser - userId prop:', userId)
+    console.log('finaliser - about to call addDigoos with:', points, 'for user:', userId)
+    const result = await addDigoos(points, 'exercise', userId)
+    console.log('addDigoos result:', result)
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: wordsCompleted,

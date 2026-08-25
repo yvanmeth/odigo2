@@ -14,6 +14,7 @@ export const addDigoos = async (
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return 0
   const userId = targetUserId || user.id
+  console.log('addDigoos called with targetUserId:', targetUserId, 'auth user:', user.id, 'using:', userId)
 
   let finalAmount = amount
 

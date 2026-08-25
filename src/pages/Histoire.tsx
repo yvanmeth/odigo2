@@ -263,7 +263,7 @@ function useDots(): string {
   return dots
 }
 
-export default function Histoire() {
+export default function Histoire({ userId }: { userId?: string } = {}) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [currentTitle, setCurrentTitle] = useState<StoryTitle>(() => generateTitle())
   const [digoos, setDigoos] = useState(0)
@@ -321,7 +321,7 @@ export default function Histoire() {
       setRetryParams(null)
       if (isLast) {
         setGameState('end')
-        await logActivity({ action_type: 'exercise_completed', metadata: { exercise: 'histoire' } })
+        await logActivity({ action_type: 'exercise_completed', metadata: { exercise: 'histoire' } }, userId)
       }
     } catch {
       setError("Erreur lors de la génération de l'histoire. Réessaie.")
@@ -425,7 +425,7 @@ export default function Histoire() {
       const { correct } = JSON.parse(txt)
       if (correct) {
         const reward = attempts === 0 ? 3 : attempts === 1 ? 2 : 1
-        await addDigoos(reward, 'reward')
+        await addDigoos(reward, 'reward', userId)
         setDigoos(prev => prev + reward)
         setEarnedDigoos(reward)
         setGameState('question_done')
