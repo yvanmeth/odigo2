@@ -519,7 +519,8 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
         setShowCreateChild(false)
         fetchChildren()
       } else {
-        showToast(result.error || 'Erreur lors de la création', 'error')
+        console.error('Create child error:', result)
+        showToast(result.error || JSON.stringify(result), 'error')
       }
     } catch {
       showToast('Erreur lors de la création', 'error')
