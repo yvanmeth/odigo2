@@ -8,23 +8,94 @@ interface ChildSelectorProps {
   onSelectChild: (id: string | null) => void
 }
 
-export default function ChildSelector({ children, viewingChildId, onSelectChild }: ChildSelectorProps) {
+export default function ChildSelector({ children, viewingChildId, onSelectChild: _onSelectChild }: ChildSelectorProps) {
   const [showProtectionModal, setShowProtectionModal] = useState(false)
   const [protectionInput, setProtectionInput] = useState('')
   const [protectionError, setProtectionError] = useState('')
 
-  const handleChange = (value: string) => {
-    if (value === '' && viewingChildId !== null) {
-      const protection = localStorage.getItem('odigo_parent_protection') || 'none'
-      if (protection === 'none') {
-        onSelectChild(null)
+  const switchToChildSession = async (childId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      localStorage.setItem('odigo_parent_access_token', session.access_token)
+      localStorage.setItem('odigo_parent_refresh_token', session.refresh_token)
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-child-session`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ childId }),
+        }
+      )
+
+      const result = await response.json()
+      if (!result.token) {
+        console.error('Erreur get-child-session:', result.error)
         return
       }
-      setShowProtectionModal(true)
-      setProtectionInput('')
-      setProtectionError('')
-    } else {
-      onSelectChild(value || null)
+
+      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+        token: result.token,
+        type: 'magiclink',
+        email: result.email,
+      })
+
+      if (verifyError || !verifyData.session) {
+        console.error('Erreur verifyOtp:', verifyError)
+        return
+      }
+
+      window.location.reload()
+    } catch (err) {
+      console.error('Erreur switchToChildSession:', err)
+    }
+  }
+
+  const restoreParentSession = async () => {
+    const parentAccessToken = localStorage.getItem('odigo_parent_access_token')
+    const parentRefreshToken = localStorage.getItem('odigo_parent_refresh_token')
+
+    if (!parentAccessToken || !parentRefreshToken) {
+      await supabase.auth.signOut()
+      window.location.reload()
+      return
+    }
+
+    const { error } = await supabase.auth.setSession({
+      access_token: parentAccessToken,
+      refresh_token: parentRefreshToken,
+    })
+
+    if (error) {
+      console.error('Erreur restore session:', error)
+      await supabase.auth.signOut()
+    }
+
+    localStorage.removeItem('odigo_parent_access_token')
+    localStorage.removeItem('odigo_parent_refresh_token')
+
+    window.location.reload()
+  }
+
+  const handleChildSelect = async (value: string) => {
+    if (value === '' && viewingChildId !== null) {
+      const protection = localStorage.getItem('odigo_parent_protection') || 'none'
+      if (protection !== 'none') {
+        setShowProtectionModal(true)
+        setProtectionInput('')
+        setProtectionError('')
+        return
+      }
+      await restoreParentSession()
+      return
+    }
+    if (value !== '') {
+      await switchToChildSession(value)
     }
   }
 
@@ -35,7 +106,7 @@ export default function ChildSelector({ children, viewingChildId, onSelectChild 
       const savedPin = localStorage.getItem('odigo_parent_pin')
       if (protectionInput === savedPin) {
         setShowProtectionModal(false)
-        onSelectChild(null)
+        await restoreParentSession()
       } else {
         setProtectionError('Code PIN incorrect')
       }
@@ -48,7 +119,7 @@ export default function ChildSelector({ children, viewingChildId, onSelectChild 
       })
       if (!error) {
         setShowProtectionModal(false)
-        onSelectChild(null)
+        await restoreParentSession()
       } else {
         setProtectionError('Mot de passe incorrect')
       }
@@ -63,7 +134,7 @@ export default function ChildSelector({ children, viewingChildId, onSelectChild 
         <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '0.4rem' }}>Profil actif</div>
         <select
           value={viewingChildId || ''}
-          onChange={e => handleChange(e.target.value)}
+          onChange={e => handleChildSelect(e.target.value)}
           style={{ width: '100%', padding: '0.4rem', borderRadius: '0.4rem', border: '1px solid #ddd', fontSize: '0.85rem', color: '#333' }}
         >
           <option value="">👤 Mon espace</option>
