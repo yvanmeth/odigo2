@@ -4,6 +4,7 @@ import ChildSelector from './ChildSelector'
 import { navItems, type Child } from './types'
 import { Delta } from '../../components/Delta'
 import { supabase } from '../../lib/supabase'
+import { restoreParentSession } from '../../lib/sessionUtils'
 
 const PRIMARY = 'var(--color-primary)'
 
@@ -135,8 +136,25 @@ export default function Sidebar({
             </div>
           </div>
 
-          {/* Sélecteur enfant pour les parents */}
-          {isParent && (
+          {/* Sélecteur enfant ou retour compte parent */}
+          {!!localStorage.getItem('odigo_parent_access_token') ? (
+            <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
+              <button
+                onClick={() => restoreParentSession()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  background: 'rgba(255,255,255,0.15)',
+                  border: 'none', borderRadius: '0.5rem',
+                  padding: '0.5rem 0.75rem',
+                  color: 'var(--color-sidebar-text)',
+                  cursor: 'pointer', width: '100%',
+                  fontSize: '0.9rem',
+                }}
+              >
+                ← Revenir au compte parent
+              </button>
+            </div>
+          ) : isParent && (
             <ChildSelector
               children={children}
               viewingChildId={viewingChildId}
@@ -228,9 +246,28 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* Sélecteur enfant pour les parents */}
-      {isParent && !collapsed && (
-        <ChildSelector children={children} viewingChildId={viewingChildId} onSelectChild={onSelectChild} />
+      {/* Sélecteur enfant ou retour compte parent */}
+      {!collapsed && (
+        !!localStorage.getItem('odigo_parent_access_token') ? (
+          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
+            <button
+              onClick={() => restoreParentSession()}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                background: 'rgba(255,255,255,0.15)',
+                border: 'none', borderRadius: '0.5rem',
+                padding: '0.5rem 0.75rem',
+                color: 'var(--color-sidebar-text)',
+                cursor: 'pointer', width: '100%',
+                fontSize: '0.9rem',
+              }}
+            >
+              ← Revenir au compte parent
+            </button>
+          </div>
+        ) : isParent ? (
+          <ChildSelector children={children} viewingChildId={viewingChildId} onSelectChild={onSelectChild} />
+        ) : null
       )}
 
       <nav style={{ flex: 1, padding: '0.5rem 0', display: 'flex', flexDirection: 'column' }}>
