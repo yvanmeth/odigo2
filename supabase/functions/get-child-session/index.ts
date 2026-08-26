@@ -62,23 +62,49 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Créer directement une session pour l'enfant
-    const { data: sessionData, error: sessionError } =
-      await adminClient.auth.admin.createSession({
-        user_id: childId,
+    // Récupérer l'email de l'enfant
+    const { data: childData, error: childError } =
+      await adminClient.auth.admin.getUserById(childId)
+
+    if (childError || !childData.user?.email) {
+      return new Response(
+        JSON.stringify({ error: 'Enfant introuvable' }),
+        { status: 404, headers: corsHeaders }
+      )
+    }
+
+    // Générer le lien magique
+    const { data: linkData, error: linkError } =
+      await adminClient.auth.admin.generateLink({
+        type: 'magiclink',
+        email: childData.user.email,
       })
 
-    if (sessionError || !sessionData?.session) {
+    if (linkError || !linkData?.properties?.hashed_token) {
       return new Response(
-        JSON.stringify({ error: 'Erreur création session: ' + sessionError?.message }),
+        JSON.stringify({ error: 'Erreur generateLink: ' + linkError?.message }),
+        { status: 500, headers: corsHeaders }
+      )
+    }
+
+    // Échanger le hashed_token contre une session côté serveur
+    const { data: otpData, error: otpError } =
+      await adminClient.auth.verifyOtp({
+        token_hash: linkData.properties.hashed_token,
+        type: 'magiclink',
+      })
+
+    if (otpError || !otpData?.session) {
+      return new Response(
+        JSON.stringify({ error: 'Erreur verifyOtp: ' + otpError?.message }),
         { status: 500, headers: corsHeaders }
       )
     }
 
     return new Response(
       JSON.stringify({
-        access_token: sessionData.session.access_token,
-        refresh_token: sessionData.session.refresh_token,
+        access_token: otpData.session.access_token,
+        refresh_token: otpData.session.refresh_token,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
