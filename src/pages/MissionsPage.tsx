@@ -1,19 +1,7 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { Delta } from '../components/Delta'
 import { PLANNER_COLORS } from './planner/types'
-
-interface Mission {
-  id: string
-  name: string
-  description?: string
-  deadline: string
-  status: 'pending' | 'claimed' | 'completed'
-  reward_amount?: number
-  reward_irl_id?: string
-  claimed_at?: string
-  completed_at?: string
-}
+import { fetchMissions as fetchMissionsData, claimMission, type Mission } from '../services/missions'
 
 const formatMissionDeadline = (deadline: string): string => {
   const d = new Date(deadline)
@@ -32,14 +20,8 @@ export default function MissionsPage() {
 
   const fetchMissions = async () => {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-    const { data } = await supabase
-      .from('missions')
-      .select('*')
-      .eq('child_id', user.id)
-      .order('deadline', { ascending: true })
-    setMissions((data as Mission[]) || [])
+    const data = await fetchMissionsData()
+    setMissions(data)
     setLoading(false)
   }
 
@@ -49,10 +31,7 @@ export default function MissionsPage() {
 
   const handleClaim = async (mission: Mission) => {
     setClaiming(mission.id)
-    await supabase
-      .from('missions')
-      .update({ status: 'claimed', claimed_at: new Date().toISOString() })
-      .eq('id', mission.id)
+    await claimMission(mission.id)
     await fetchMissions()
     setClaiming(null)
   }

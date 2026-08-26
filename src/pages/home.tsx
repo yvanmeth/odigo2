@@ -6,9 +6,11 @@ import { supabase } from '../lib/supabase'
 import { generateGreeting } from '../lib/greeting'
 import type { Evaluation, Revision } from '../type/index'
 import type { Event as AppEvent } from '../type/index'
-import { logActivity } from '../services/activity'
+import { logActivity, updateLastSeen } from '../services/activity'
 import { useToast } from '../components/Toast'
 import { addPlannerDigoos } from '../services/digoos'
+import { fetchMissions as fetchMissionsData, claimMission, type Mission } from '../services/missions'
+import { updateStreakRecords } from '../services/progress'
 import {
   parseLocalDate, formatDateDMY,
   getWeekBounds, getISOWeekNumber, formatWeekRange,
@@ -19,16 +21,6 @@ import { computeDayStreak, computeMonthStreak, computeMonthSteps } from '../lib/
 import ProgressCircle from './rewards/ProgressCircle'
 
 // ==================== INTERFACES ====================
-
-interface Mission {
-  id: string
-  name: string
-  description: string
-  deadline: string
-  reward_type: 'digoos' | 'irl_reward'
-  reward_amount: number | null
-  status: 'pending' | 'claimed'
-}
 
 interface Reminder {
   id: string
@@ -87,21 +79,10 @@ export default function Home() {
 
   useEffect(() => { fetchAll() }, [])
 
-  const fetchMissions = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    const targetId = user?.id
-    if (!targetId) return
-    const { data } = await supabase.from('missions')
-      .select('id, name, description, deadline, reward_type, reward_amount, status')
-      .eq('child_id', targetId)
-      .in('status', ['pending', 'claimed'])
-      .order('deadline')
-    if (data) setMissions(data as Mission[])
-  }
-
   const handleClaimMission = async (missionId: string) => {
-    await supabase.from('missions').update({ status: 'claimed', claimed_at: new Date().toISOString() }).eq('id', missionId)
-    fetchMissions()
+    await claimMission(missionId)
+    const data = await fetchMissionsData(['pending', 'claimed'])
+    setMissions(data)
     showToast('Mission signalée comme accomplie !')
   }
 
@@ -148,9 +129,7 @@ export default function Home() {
 
     // Mise à jour last_seen_at + calcul de la salutation
     const profile = profileRes.data as { first_name: string | null; birth_date: string | null; last_seen_at: string | null } | null
-    if (targetId) {
-      supabase.from('profiles').update({ last_seen_at: now.toISOString() }).eq('id', targetId)
-    }
+    updateLastSeen()
 
     const lastSeenAt = profile?.last_seen_at
     const daysSinceLastSeen = lastSeenAt
@@ -208,16 +187,7 @@ export default function Home() {
       else break
     }
     const localWeekStreak = (progressRes.data as ProgressData | null)?.week_streak || 0
-    const updateRecords = async (dayS: number, weekS: number, monthS: number) => {
-      const updates: Record<string, number> = {}
-      if (dayS > (progressData?.record_days || 0)) updates.record_days = dayS
-      if (weekS > (progressData?.record_weeks || 0)) updates.record_weeks = weekS
-      if (monthS > (progressData?.record_months || 0)) updates.record_months = monthS
-      if (Object.keys(updates).length > 0 && targetId) {
-        await supabase.from('progress').update(updates).eq('user_id', targetId)
-      }
-    }
-    await updateRecords(localDayStreak, localWeekStreak, localMonthStreak)
+    await updateStreakRecords(localDayStreak, localWeekStreak, localMonthStreak, progressData || {})
 
     setLoading(false)
   }
