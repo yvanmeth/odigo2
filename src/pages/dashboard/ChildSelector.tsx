@@ -39,14 +39,13 @@ export default function ChildSelector({ children, viewingChildId, onSelectChild:
         return
       }
 
-      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-        token: result.token,
-        type: 'magiclink',
-        email: result.email,
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
       })
 
-      if (verifyError || !verifyData.session) {
-        console.error('Erreur verifyOtp:', verifyError)
+      if (sessionError) {
+        console.error('Erreur setSession:', sessionError)
         return
       }
 

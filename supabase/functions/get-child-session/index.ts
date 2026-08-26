@@ -62,39 +62,23 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Créer une session pour l'enfant
+    // Créer directement une session pour l'enfant
     const { data: sessionData, error: sessionError } =
-      await adminClient.auth.admin.getUserById(childId)
-
-    if (sessionError || !sessionData.user) {
-      return new Response(
-        JSON.stringify({ error: 'Enfant introuvable' }),
-        { status: 404, headers: corsHeaders }
-      )
-    }
-
-    // Générer un lien magique pour créer une session
-    const { data: linkData, error: linkError } =
-      await adminClient.auth.admin.generateLink({
-        type: 'magiclink',
-        email: sessionData.user.email!,
+      await adminClient.auth.admin.createSession({
+        user_id: childId,
       })
 
-    if (linkError || !linkData) {
+    if (sessionError || !sessionData?.session) {
       return new Response(
-        JSON.stringify({ error: 'Erreur création session: ' + linkError?.message }),
+        JSON.stringify({ error: 'Erreur création session: ' + sessionError?.message }),
         { status: 500, headers: corsHeaders }
       )
     }
 
-    // Extraire le token du lien magique
-    const url = new URL(linkData.properties.action_link)
-    const accessToken = url.searchParams.get('token')
-
     return new Response(
       JSON.stringify({
-        token: accessToken,
-        email: sessionData.user.email,
+        access_token: sessionData.session.access_token,
+        refresh_token: sessionData.session.refresh_token,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
