@@ -20,6 +20,28 @@ ODIGO est une application d'apprentissage conçue pour **Neyla**, 10 ans, élèv
 - Motiver via un système de récompenses ("Digoos" / Δ) et un compagnon IA bienveillant ("Odigo")
 - Permettre aux parents de suivre la progression et de créer des récompenses réelles (IRL)
 
+**Fonctionnalités livrées** :
+- Planificateur (évaluations, révisions, événements, rappels) — vues liste/jour/semaine/mois
+- Mini-jeux : WordDrop, QCM, Épellation, Flashcards, Conjugaison (Claude), Vocabulaire (Claude), Anagramme, Anagramme français, Puzzle phrases, Maths, Conjugaison étrangère
+- Défi parents : 10 questions composition fixe, 2 maths générées algorithmiquement, timer, highscore top 10
+- Exercice Histoire & Géographie : 11 thèmes, 182 questions en base
+- Exercice Carte de la Suisse : 26 cantons cliquables
+- Matières : notes de cours (Tiptap), post-its, évaluations, listes de mots par matière
+- Listes de vocabulaire/conjugaison/dictée assistées par Claude
+- Système de récompenses Digoos (Δ) avec multiplicateur dégressif, badges, historique
+- Boutique Digooland : thèmes de couleur, titres, jeux (Allumettes, Histoire, Cartes)
+- Cartes à collectionner avec revente (roue 17 segments + prix fixe 300 Δ)
+- Missions : page dédiée, statuts `pending`/`claimed`/`completed`, bouton "Mission accomplie" côté enfant
+- Espace parent : enfants liés, codes d'invitation, récompenses IRL, gestion des missions
+- Profil actif (Option C) : vraie session enfant via Edge Function `get-child-session` + magic link, protection retour parent (PIN / mot de passe / aucune)
+- Création compte enfant sans email via Edge Function `create-child-account`
+- Connexion enfant sans email : login par prénom + mot de passe
+- Mode invité : 5 exercices, 3 parties libres, listes publiques `is_default`
+- Highscores : top 5 par exercice + liste, modal arcade
+- Mode sombre partiel (variables CSS `--color-*` en place, thèmes achetables)
+- Page À propos dans la sidebar
+- Paramètres : 2 onglets (Mon profil / Gestion du compte)
+
 **Stack technique** :
 - **React 19.2.6** + **TypeScript ~6.0.2** (strict mode, `noUnusedLocals`, `noUnusedParameters`)
 - **Vite 8** (build/dev server), `@vitejs/plugin-react`
@@ -60,7 +82,8 @@ src/
 │   ├── faq.ts            # FAQ statique + findFAQ()
 │   ├── greeting.ts        # generateGreeting() — message d'accueil contextuel (home.tsx)
 │   ├── speech.ts          # detectLang() / speak() — synthèse vocale
-│   └── dates.ts           # parseLocalDate() / formatDateDMY() / isToday()
+│   ├── dates.ts           # parseLocalDate() / formatDateDMY() / isToday()
+│   └── sessionUtils.ts    # restoreParentSession / getParentProtection / verifyParentPin
 │
 ├── services/             # Logique métier qui touche Supabase
 │   ├── digoos.ts          # addDigoos / deductDigoos / addPlannerDigoos
@@ -80,12 +103,13 @@ src/
 │   └── EmptyState.tsx       # Bloc générique "aucune donnée" avec action optionnelle
 │
 └── pages/
-    ├── loginpage.tsx       # Connexion / inscription multi-étapes (élève ou parent)
+    ├── loginpage.tsx       # Connexion / inscription multi-étapes (élève ou parent) + login enfant sans email
     ├── home.tsx            # Tableau de bord (évaluations à venir/passées, accueil contextuel)
     ├── wordlists.tsx       # Gestion des listes de vocabulaire (assistée par Claude)
-    ├── settings.tsx        # Paramètres : profil, thème, liaison parent/enfant, rôle
-    ├── parent.tsx          # Espace parent : enfants liés, codes d'invitation, récompenses IRL
-    ├── Cartes.tsx           # Cartes à collectionner (Digooland)
+    ├── settings.tsx        # Paramètres : 2 onglets (Mon profil / Gestion du compte)
+    ├── parent.tsx          # Espace parent : enfants liés, codes d'invitation, récompenses IRL, missions
+    ├── MissionsPage.tsx    # Page Missions enfant (pending/claimed/completed)
+    ├── Cartes.tsx           # Cartes à collectionner (Digooland), revente roue/prix fixe
     ├── Histoire.tsx         # Histoire interactive (Digooland), export PDF via jspdf
     ├── Allumettes.tsx       # Jeu des allumettes (Digooland)
     │
@@ -95,6 +119,14 @@ src/
     ├── flashcards.tsx        # Mini-jeu flashcards
     ├── conjugaison.tsx       # Mini-jeu conjugaison (génération via Claude)
     ├── vocabulaire.tsx       # Mini-jeu vocabulaire (définitions via Claude)
+    ├── Maths.tsx             # Mini-jeu maths (génération algorithmique)
+    ├── Anagramme.tsx         # Mini-jeu anagramme (listes de mots)
+    ├── AnagrammeFrancais.tsx # Mini-jeu anagramme français (mots courants)
+    ├── PuzzlePhrases.tsx     # Mini-jeu puzzle phrases
+    ├── ConjugaisonEtrangere.tsx # Mini-jeu conjugaison langue étrangère
+    ├── DefiParents.tsx       # Défi parents : 10 questions fixe + 2 maths, timer, highscore top 10
+    ├── DefiHistoireGeo.tsx   # Exercice Histoire & Géographie (11 thèmes, 182 questions)
+    ├── CarteSuisse.tsx       # Exercice carte de la Suisse (26 cantons cliquables)
     │
     ├── dashboard.tsx         # Shim : export { default } from './dashboard/index'
     ├── planner.tsx           # Shim : export { default } from './planner/index'
@@ -103,8 +135,8 @@ src/
     ├── dashboard/
     │   ├── index.tsx         # Shell principal : sidebar, navigation interne, Companion, DigoosAnimation
     │   ├── types.tsx          # navItems, exerciseCards, type Child
-    │   ├── Sidebar.tsx         # Sidebar (nav, sélecteur d'enfant, solde Δ, déconnexion)
-    │   ├── ChildSelector.tsx   # Sélecteur d'enfant pour les parents
+    │   ├── Sidebar.tsx         # Sidebar (nav, sélecteur enfant ou bouton retour parent, solde Δ, déconnexion)
+    │   ├── ChildSelector.tsx   # Sélecteur d'enfant (déclenche get-child-session → setSession → reload)
     │   ├── ExerciseCards.tsx   # Grille des cartes d'exercices
     │   └── OnboardingModal.tsx # Modale de première connexion
     │
@@ -141,6 +173,10 @@ src/
 
 > ⚠️ Note sur les doublons : `src/pages/dashboard.tsx`, `planner.tsx` et `rewards.tsx` sont de simples shims de réexport (`export { default } from './xxx/index'`) qui coexistent avec les dossiers `dashboard/`, `planner/`, `rewards/`. La page Matières n'a pas de shim équivalent — `dashboard/index.tsx` importe directement `'../subjects/index'`.
 
+**Edge Functions Supabase** (`supabase/functions/`) :
+- **`create-child-account/index.ts`** — Crée un compte enfant sans email : vérifie le token parent, génère un email fictif `{prenom}.{ts}@odigo-child.internal`, crée l'utilisateur via Admin API, insère le profil et le lien `parent_child`. Retourne `{ userId, email, password }`.
+- **`get-child-session/index.ts`** — Génère une vraie session enfant : vérifie le token parent, contrôle le lien `parent_child`, récupère l'email enfant via Admin API, génère un magic link (`/auth/v1/admin/generate_link`), échange le `hashed_token` via `/auth/v1/verify`, retourne `{ access_token, refresh_token }` prêts à être injectés avec `supabase.auth.setSession()`.
+
 ---
 
 ## 3. Conventions de code
@@ -169,6 +205,8 @@ src/
 - **Symbole Δ** — toujours via `<Delta />`, jamais de caractère Unicode brut, pour garantir un rendu cohérent (image SVG).
 - **Dates** — toutes les dates stockées sont au format `YYYY-MM-DD` (string). Pour les manipuler côté client, toujours utiliser `parseLocalDate(dateStr)` de `src/lib/dates.ts` (évite les bugs de fuseau horaire liés à `new Date('YYYY-MM-DD')`). Pour l'affichage, `formatDateDMY(dateStr)` (format `fr-CH`, jj/mm/aaaa). `isToday(dateStr)` pour comparer à aujourd'hui.
 - **`react-hooks/set-state-in-effect`** — plusieurs fichiers (`dashboard/index.tsx`, `flashcards.tsx`, `Cartes.tsx`) appellent une fonction `fetchX()` qui fait des `setState` depuis un `useEffect`. C'est un pattern existant et accepté dans ce projet ; ne pas le "corriger" en dehors d'une tâche dédiée à ce sujet.
+- **Changement de profil actif (Option C)** — Le parent appuie sur un enfant dans `ChildSelector` : les tokens de la session parent sont sauvegardés dans `localStorage` (`odigo_parent_access_token`, `odigo_parent_refresh_token`), l'Edge Function `get-child-session` génère des tokens enfant, `supabase.auth.setSession()` bascule la session courante, puis `window.location.reload()`. Après rechargement, `auth.uid()` est l'enfant. Pour revenir, `restoreParentSession()` (`src/lib/sessionUtils.ts`) rappelle `setSession()` avec les tokens sauvegardés. Il n'y a plus de prop `userId` passée aux composants — tous utilisent `supabase.auth.getUser()` directement.
+- **Protection retour parent** — `localStorage.getItem('odigo_parent_protection')` ∈ `'none'` / `'pin'` / `'password'`. Si `'pin'` : comparaison avec `localStorage.getItem('odigo_parent_pin')` via `verifyParentPin()`. Si `'password'` : décode le JWT parent sauvegardé pour extraire l'email, puis `supabase.auth.signInWithPassword()`. Géré dans `Sidebar.tsx` (modal de confirmation) via `getParentProtection()` / `verifyParentPin()` de `src/lib/sessionUtils.ts`.
 
 ---
 
@@ -228,6 +266,9 @@ src/
 - **`showToast(message, type?, duration?)` / `useToast()`** (`src/components/Toast.tsx`) — `type` ∈ `'success' | 'error' | 'info'` (défaut `'success'`), `duration` en ms (défaut 2500). Nécessite d'être dans un `ToastProvider` (monté dans `App.tsx`).
 - **`window.triggerDigoosAnimation(amount)`** — Hook global défini dans `dashboard/index.tsx` (`useEffect` au montage), branché sur la fonction `trigger` exposée par `DigoosAnimation` via sa prop `onRef`. Appelé automatiquement par `addDigoos()` pour afficher l'animation "+N Δ" avec son.
 - **`parseLocalDate(dateStr)` / `formatDateDMY(dateStr)` / `isToday(dateStr)`** (`src/lib/dates.ts`) — voir section 3.
+- **`restoreParentSession()`** (`src/lib/sessionUtils.ts`) — Restaure la session parent depuis `localStorage` (`odigo_parent_access_token` / `odigo_parent_refresh_token`) via `supabase.auth.setSession()`, puis `window.location.reload()`. Si les tokens sont absents, appelle `signOut()` + reload.
+- **`getParentProtection()`** — Retourne `localStorage.getItem('odigo_parent_protection') || 'none'`. Valeurs : `'none'` / `'pin'` / `'password'`.
+- **`verifyParentPin(input)`** — Compare `input` avec `localStorage.getItem('odigo_parent_pin')`. Retourne `boolean`.
 
 ---
 
@@ -236,21 +277,26 @@ src/
 ### Pages racine (`src/pages/`)
 | Fichier | Rôle |
 |---|---|
-| `loginpage.tsx` | Connexion / inscription en 3 étapes (email/mdp, profil, rôle élève ou parent) |
+| `loginpage.tsx` | Connexion / inscription multi-étapes ; login enfant sans email (prénom + mdp) |
 | `home.tsx` | Tableau de bord : évaluations à venir/passées, révisions, événements, rappels, accueil contextuel via `generateGreeting` |
 | `wordlists.tsx` | Gestion des listes de vocabulaire/conjugaison/dictée, définitions générées par Claude |
-| `settings.tsx` | Profil utilisateur, rôle, liaison parent/enfant (codes d'invitation), thème |
-| `parent.tsx` | Espace parent : liste des enfants liés, génération de codes d'invitation, gestion des récompenses IRL et de leurs achats |
-| `Cartes.tsx` | Digooland — cartes à collectionner, achat avec Δ, animation de retournement |
+| `settings.tsx` | 2 onglets : Mon profil (pseudo, avatar, thème) / Gestion du compte (liaison parent, protection retour, PIN) |
+| `parent.tsx` | Espace parent : enfants liés, codes d'invitation, récompenses IRL, gestion des missions |
+| `MissionsPage.tsx` | Page Missions enfant : liste des missions `pending`/`claimed`/`completed`, bouton "Mission accomplie" |
+| `Cartes.tsx` | Digooland — cartes à collectionner, achat avec Δ, revente (roue 17 segments ou prix fixe 300 Δ) |
 | `Histoire.tsx` | Digooland — histoire interactive à embranchements, export PDF |
 | `Allumettes.tsx` | Digooland — jeu des allumettes |
-| `worddrop.tsx`, `qcm.tsx`, `spelling.tsx`, `flashcards.tsx`, `conjugaison.tsx`, `vocabulaire.tsx` | Mini-jeux d'exercices (suivent le `GameState` pattern, récompensent via `addDigoos`/`logActivity`) |
+| `worddrop.tsx`, `qcm.tsx`, `spelling.tsx`, `flashcards.tsx`, `conjugaison.tsx`, `vocabulaire.tsx` | Mini-jeux classiques (suivent le `GameState` pattern, récompensent via `addDigoos`/`logActivity`) |
+| `Maths.tsx`, `Anagramme.tsx`, `AnagrammeFrancais.tsx`, `PuzzlePhrases.tsx`, `ConjugaisonEtrangere.tsx` | Mini-jeux supplémentaires |
+| `DefiParents.tsx` | Défi parents : 10 questions composition fixe + 2 maths algorithmiques, timer, highscore top 10 |
+| `DefiHistoireGeo.tsx` | Exercice Histoire & Géo : 11 thèmes, 182 questions en base |
+| `CarteSuisse.tsx` | Exercice carte de la Suisse : 26 cantons cliquables, highscore |
 
 ### `dashboard/` — shell principal
-- **`index.tsx`** — Point d'entrée post-login. Gère : thème CSS (`--color-primary`), profil, rôle parent/enfant, liste des enfants, navigation interne (`activePage`/`activeExercise`), solde Δ, onboarding, montage de `Companion` et `DigoosAnimation`.
+- **`index.tsx`** — Point d'entrée post-login. Gère : thème CSS (`--color-primary`), profil, rôle parent/enfant, liste des enfants, navigation interne (`activePage`/`activeExercise`), solde Δ, onboarding, montage de `Companion` et `DigoosAnimation`. Tous les composants enfants utilisent `supabase.auth.getUser()` directement — plus de prop `userId` passée.
 - **`types.tsx`** — `navItems` (tableau de bord, planificateur, matières, listes de mots, exercices, récompenses, paramètres) et `exerciseCards` (worddrop, qcm, spelling, flashcards, conjugaison, vocabulaire — `allumettes`/`histoire`/`cartes` ne sont accessibles que via Récompenses/Digooland).
-- **`Sidebar.tsx`** — Navigation latérale, sélecteur d'enfant, solde Δ, déconnexion.
-- **`ChildSelector.tsx`** — Sélection de l'enfant à visualiser (mode parent).
+- **`Sidebar.tsx`** — Navigation latérale. Si `localStorage.odigo_parent_access_token` existe → affiche "← Revenir au compte parent" (avec protection PIN/mdp). Sinon, si parent → affiche `ChildSelector`. Gère la modal de protection via `getParentProtection()` / `verifyParentPin()` / `restoreParentSession()` de `sessionUtils`.
+- **`ChildSelector.tsx`** — Sélecteur d'enfant (dropdown). Sélectionner un enfant appelle `get-child-session`, puis `supabase.auth.setSession()` + `reload()`. La valeur affichée est toujours "Mon espace" (pas de `viewingChildId`).
 - **`ExerciseCards.tsx`** — Grille de sélection des mini-jeux.
 - **`OnboardingModal.tsx`** — Modale affichée à la première connexion.
 
