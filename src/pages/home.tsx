@@ -9,7 +9,13 @@ import type { Event as AppEvent } from '../type/index'
 import { logActivity } from '../services/activity'
 import { useToast } from '../components/Toast'
 import { addPlannerDigoos } from '../services/digoos'
-import { parseLocalDate } from '../lib/dates'
+import {
+  parseLocalDate, formatDateDMY,
+  getWeekBounds, getISOWeekNumber, formatWeekRange,
+  inRange, isPastInFilter, formatMissionDeadline,
+  type PastFilter,
+} from '../lib/dates'
+import { computeDayStreak, computeMonthStreak, computeMonthSteps } from '../lib/streaks'
 import ProgressCircle from './rewards/ProgressCircle'
 
 // ==================== INTERFACES ====================
@@ -57,75 +63,8 @@ interface UserSubjectRow {
 }
 interface SubjectOption { id: number | string; name: string; emoji: string | null }
 
-type PastFilter = 'all' | 'year' | '30days' | 'none'
 type FilterKey = 'evaluations' | 'revisions' | 'events' | 'reminders'
 type TypeFilters = Record<FilterKey, boolean>
-
-// ==================== HELPERS ====================
-
-function formatMissionDeadline(deadline: string): string {
-  const d = new Date(deadline)
-  const datePart = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const h = d.getHours(), m = d.getMinutes()
-  if (h === 0 && m === 0) return datePart.charAt(0).toUpperCase() + datePart.slice(1)
-  const timePart = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-  return `${datePart.charAt(0).toUpperCase() + datePart.slice(1)} à ${timePart}`
-}
-
-function toDateStr(d: Date): string {
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function getWeekBounds(weekOffset: number): { start: string; end: string } {
-  const now = new Date()
-  const day = now.getDay()
-  const daysToMon = day === 0 ? -6 : 1 - day
-  const mon = new Date(now)
-  mon.setDate(now.getDate() + daysToMon + weekOffset * 7)
-  mon.setHours(0, 0, 0, 0)
-  const sun = new Date(mon)
-  sun.setDate(mon.getDate() + 6)
-  return { start: toDateStr(mon), end: toDateStr(sun) }
-}
-
-function getISOWeekNumber(date: Date): number {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
-  const week1 = new Date(d.getFullYear(), 0, 4)
-  return 1 + Math.round(((d.getTime() - week1.getTime())
-    / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
-}
-
-function formatWeekRange(weekOffset: number): string {
-  const { start, end } = getWeekBounds(weekOffset)
-  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' }
-  const startStr = parseLocalDate(start).toLocaleDateString('fr-FR', opts)
-  const endStr = parseLocalDate(end).toLocaleDateString('fr-FR', opts)
-  return `du lundi ${startStr} au dimanche ${endStr}`
-}
-
-function fmtDate(iso: string): string {
-  if (!iso) return ''
-  const [y, m, d] = iso.split('T')[0].split('-')
-  return `${d}.${m}.${y}`
-}
-
-function inRange(dateStr: string, start: string, end: string): boolean {
-  return dateStr >= start && dateStr <= end
-}
-
-function isPastInFilter(dateStr: string, filter: PastFilter, todayStr: string): boolean {
-  if (filter === 'none' || dateStr >= todayStr) return false
-  if (filter === 'all') return true
-  if (filter === 'year') return dateStr.startsWith(String(new Date().getFullYear()))
-  const d = new Date()
-  d.setDate(d.getDate() - 30)
-  return dateStr >= d.toISOString().split('T')[0]
-}
 
 // ==================== MAIN COMPONENT ====================
 
@@ -297,34 +236,9 @@ export default function Home() {
   })
   const todayCount = dateCounts[todayStr] || 0
 
-  // Day streak: consecutive days going back; today counts if any activity
-  let dayStreak = 0
-  for (let i = 0; i < 366; i++) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    const ds = d.toISOString().split('T')[0]
-    const count = dateCounts[ds] || 0
-    if (i === 0 && count > 0) dayStreak++
-    else if (i > 0 && count >= 1) dayStreak++
-    else if (i > 0) break
-  }
-
-  // Month streak: consecutive months with any activity
-  let monthStreak = 0
-  for (let i = 0; i < 24; i++) {
-    const d = new Date()
-    d.setMonth(d.getMonth() - i, 1)
-    const prefix = d.toISOString().substring(0, 7)
-    if (dailyActivity.some(a => a.date.startsWith(prefix))) monthStreak++
-    else break
-  }
-
-  // Month progress steps (max 32)
-  const thisMonthPrefix = todayStr.substring(0, 7)
-  const monthAct = dailyActivity.filter(a => a.date.startsWith(thisMonthPrefix))
-  const activeDaysThisMonth = new Set(monthAct.map(a => a.date.split('T')[0])).size
-  const activeWeeksThisMonth = new Set(monthAct.map(a => getISOWeekNumber(parseLocalDate(a.date.split('T')[0])))).size
-  const monthSteps = Math.min(activeDaysThisMonth, 15) + Math.min(activeWeeksThisMonth, 2) + Math.min(monthAct.length, 15)
+  const dayStreak = computeDayStreak(dateCounts)
+  const monthStreak = computeMonthStreak(dailyActivity)
+  const monthSteps = computeMonthSteps(dailyActivity, todayStr)
 
   const weekStreak = progressData?.week_streak || 0
   const digoosThisWeek = progressData?.digoos_this_week || 0
@@ -490,7 +404,7 @@ export default function Home() {
                     const doneRev = revisions.filter(r => r.evaluation_id === e.id && r.completed).length
                     return (
                       <tr key={e.id}>
-                        <td style={tdStyle}>{fmtDate(e.evaluation_date)}</td>
+                        <td style={tdStyle}>{formatDateDMY(e.evaluation_date)}</td>
                         <td style={{ ...tdStyle, fontWeight: 'bold' }}>{getSubjectName(e.subject_id)}</td>
                         <td style={tdStyle}>{e.topic}</td>
                         <td style={tdStyle}>
@@ -531,7 +445,7 @@ export default function Home() {
                     {r.completed ? '✅' : '⬜'}
                   </button>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: '0.85rem', color: '#555' }}>{fmtDate(r.revision_date)}</span>
+                    <span style={{ fontSize: '0.85rem', color: '#555' }}>{formatDateDMY(r.revision_date)}</span>
                     {r.details && (
                       <span style={{ fontSize: '0.82rem', color: '#888', marginLeft: '0.5rem' }}>{r.details}</span>
                     )}
@@ -554,7 +468,7 @@ export default function Home() {
             {weekEvts.map(ev => (
               <div key={ev.id} style={{ padding: '0.45rem 0', borderBottom: '1px solid #f5f5f5' }}>
                 <span style={{ fontWeight: 'bold', fontSize: '0.88rem', color: '#333' }}>{ev.title}</span>
-                <span style={{ fontSize: '0.82rem', color: '#aaa', marginLeft: '0.6rem' }}>{fmtDate(ev.event_date)}</span>
+                <span style={{ fontSize: '0.82rem', color: '#aaa', marginLeft: '0.6rem' }}>{formatDateDMY(ev.event_date)}</span>
                 {ev.details && (
                   <div style={{ fontSize: '0.8rem', color: '#bbb', marginTop: '0.2rem' }}>{ev.details}</div>
                 )}
@@ -584,7 +498,7 @@ export default function Home() {
                     fontSize: '0.78rem', marginLeft: '0.5rem',
                     color: r.deadline_date < todayStr ? '#e63946' : '#aaa',
                   }}>
-                    {fmtDate(r.deadline_date)}
+                    {formatDateDMY(r.deadline_date)}
                     {r.deadline_date < todayStr && ' — en retard'}
                   </span>
                 </div>
@@ -809,7 +723,7 @@ export default function Home() {
                         const doneRev = revisions.filter(r => r.evaluation_id === e.id && r.completed).length
                         return (
                           <tr key={e.id} style={{ opacity: 0.8 }}>
-                            <td style={tdStyle}>{fmtDate(e.evaluation_date)}</td>
+                            <td style={tdStyle}>{formatDateDMY(e.evaluation_date)}</td>
                             <td style={{ ...tdStyle, fontWeight: 'bold' }}>{getSubjectName(e.subject_id)}</td>
                             <td style={tdStyle}>{e.topic}</td>
                             <td style={tdStyle}>
@@ -835,7 +749,7 @@ export default function Home() {
                     padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', opacity: 0.75,
                   }}>
                     <span style={{ fontSize: '1rem' }}>{r.completed ? '✅' : '⬜'}</span>
-                    <span style={{ fontSize: '0.85rem', color: '#888' }}>{fmtDate(r.revision_date)}</span>
+                    <span style={{ fontSize: '0.85rem', color: '#888' }}>{formatDateDMY(r.revision_date)}</span>
                     {r.details && <span style={{ fontSize: '0.82rem', color: '#bbb' }}>{r.details}</span>}
                   </div>
                 ))}
@@ -850,7 +764,7 @@ export default function Home() {
                     padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', opacity: 0.75,
                   }}>
                     <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#555' }}>{ev.title}</span>
-                    <span style={{ fontSize: '0.8rem', color: '#bbb', marginLeft: '0.6rem' }}>{fmtDate(ev.event_date)}</span>
+                    <span style={{ fontSize: '0.8rem', color: '#bbb', marginLeft: '0.6rem' }}>{formatDateDMY(ev.event_date)}</span>
                   </div>
                 ))}
               </div>
@@ -866,7 +780,7 @@ export default function Home() {
                   }}>
                     <span style={{ fontSize: '1rem' }}>✅</span>
                     <span style={{ fontSize: '0.85rem', color: '#555' }}>{r.title}</span>
-                    <span style={{ fontSize: '0.78rem', color: '#bbb' }}>{fmtDate(r.deadline_date)}</span>
+                    <span style={{ fontSize: '0.78rem', color: '#bbb' }}>{formatDateDMY(r.deadline_date)}</span>
                   </div>
                 ))}
               </div>
