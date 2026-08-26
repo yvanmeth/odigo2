@@ -34,7 +34,11 @@ export default function ChildSelector({ children, viewingChildId, onSelectChild:
       )
 
       const result = await response.json()
-      if (!result.token) {
+      console.log('get-child-session result:', result)
+      console.log('access_token exists:', !!result.access_token)
+      console.log('error:', result.error)
+
+      if (!result.access_token) {
         console.error('Erreur get-child-session:', result.error)
         return
       }
@@ -43,6 +47,8 @@ export default function ChildSelector({ children, viewingChildId, onSelectChild:
         access_token: result.access_token,
         refresh_token: result.refresh_token,
       })
+
+      console.log('setSession error:', sessionError)
 
       if (sessionError) {
         console.error('Erreur setSession:', sessionError)
