@@ -4,7 +4,7 @@ import ChildSelector from './ChildSelector'
 import { navItems, type Child } from './types'
 import { Delta } from '../../components/Delta'
 import { supabase } from '../../lib/supabase'
-import { restoreParentSession } from '../../lib/sessionUtils'
+import { restoreParentSession, getParentProtection, verifyParentPin } from '../../lib/sessionUtils'
 
 const PRIMARY = 'var(--color-primary)'
 
@@ -43,6 +43,79 @@ export default function Sidebar({
   const timeStr = now.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })
 
   const [avatarCard, setAvatarCard] = useState<{ image_url: string } | null>(null)
+  const [showReturnModal, setShowReturnModal] = useState(false)
+  const [returnInput, setReturnInput] = useState('')
+  const [returnError, setReturnError] = useState('')
+
+  const handleReturnClick = () => {
+    const protection = getParentProtection()
+    if (protection === 'none') {
+      restoreParentSession()
+    } else {
+      setShowReturnModal(true)
+      setReturnInput('')
+      setReturnError('')
+    }
+  }
+
+  const handleReturnSubmit = async () => {
+    const protection = getParentProtection()
+    if (protection === 'pin') {
+      if (verifyParentPin(returnInput)) {
+        setShowReturnModal(false)
+        restoreParentSession()
+      } else {
+        setReturnError('Code PIN incorrect')
+      }
+    } else if (protection === 'password') {
+      const parentToken = localStorage.getItem('odigo_parent_access_token')
+      if (!parentToken) return
+      const payload = JSON.parse(atob(parentToken.split('.')[1]))
+      const parentEmail = payload.email
+      const { error } = await supabase.auth.signInWithPassword({
+        email: parentEmail,
+        password: returnInput,
+      })
+      if (!error) {
+        localStorage.removeItem('odigo_parent_access_token')
+        localStorage.removeItem('odigo_parent_refresh_token')
+        window.location.reload()
+      } else {
+        setReturnError('Mot de passe incorrect')
+      }
+    }
+  }
+
+  const returnModal = showReturnModal && (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: 'white', borderRadius: '1rem', padding: '2rem', maxWidth: '320px', width: '90%', textAlign: 'center' }}>
+        <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🔒</div>
+        <h3 style={{ color: '#2a9d8f', marginBottom: '0.5rem' }}>Retour au compte parent</h3>
+        <p style={{ fontSize: '0.85rem', color: '#888', marginBottom: '1rem' }}>
+          {getParentProtection() === 'pin' ? 'Saisis ton code PIN à 4 chiffres' : 'Saisis ton mot de passe'}
+        </p>
+        <input
+          type="password"
+          value={returnInput}
+          onChange={e => setReturnInput(e.target.value)}
+          maxLength={getParentProtection() === 'pin' ? 4 : 100}
+          placeholder={getParentProtection() === 'pin' ? '••••' : 'Mot de passe'}
+          autoFocus
+          style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #e0f0ee', fontSize: '1rem', textAlign: 'center', boxSizing: 'border-box' }}
+          onKeyDown={e => e.key === 'Enter' && handleReturnSubmit()}
+        />
+        {returnError && <div style={{ color: '#e63946', fontSize: '0.8rem', marginTop: '0.5rem' }}>{returnError}</div>}
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+          <button onClick={() => setShowReturnModal(false)} style={{ flex: 1, padding: '0.6rem', background: '#e0f0ee', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+            Annuler
+          </button>
+          <button onClick={handleReturnSubmit} style={{ flex: 1, padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}>
+            Confirmer
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 
   useEffect(() => {
     const fetchAvatarCard = async () => {
@@ -140,7 +213,7 @@ export default function Sidebar({
           {!!localStorage.getItem('odigo_parent_access_token') ? (
             <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
               <button
-                onClick={() => restoreParentSession()}
+                onClick={handleReturnClick}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.5rem',
                   background: 'rgba(255,255,255,0.15)',
@@ -179,6 +252,7 @@ export default function Sidebar({
             </div>
           </nav>
         </div>
+        {returnModal}
       </>
     )
   }
@@ -251,7 +325,7 @@ export default function Sidebar({
         !!localStorage.getItem('odigo_parent_access_token') ? (
           <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
             <button
-              onClick={() => restoreParentSession()}
+              onClick={handleReturnClick}
               style={{
                 display: 'flex', alignItems: 'center', gap: '0.5rem',
                 background: 'rgba(255,255,255,0.15)',
@@ -357,6 +431,7 @@ export default function Sidebar({
           </button>
         </div>
       </nav>
+      {returnModal}
     </div>
   )
 }
