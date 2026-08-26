@@ -60,11 +60,10 @@ interface RewardsBoutiqueProps {
   irlRewards: IrlReward[]
   onNavigate?: (page: string, exercise?: string) => void
   activeTab: RewardTab
-  userId?: string
 }
 
 export default function RewardsBoutique({
-  progress, onDigoosUpdate, irlRewards, onNavigate, activeTab, userId,
+  progress, onDigoosUpdate, irlRewards, onNavigate, activeTab,
 }: RewardsBoutiqueProps) {
   const { showToast } = useToast()
   const [view, setView] = useState<BoutiqueView>('menu')
@@ -96,18 +95,16 @@ export default function RewardsBoutique({
   const handleObtenir = async (reward: IrlReward) => {
     setLoadingRewardId(reward.id)
     const { data: { user } } = await supabase.auth.getUser()
-    const targetId = userId || user?.id
-    await deductDigoos(reward.cost, targetId)
-    if (targetId) {
-      await supabase.from('irl_purchases').insert({
-        child_id: targetId,
-        reward_id: reward.id,
-        reward_name: reward.name,
-        cost: reward.cost,
-        status: 'valid',
-      })
-      await supabase.from('irl_rewards').update({ stock: reward.stock - 1 }).eq('id', reward.id)
-    }
+    if (!user) return
+    await deductDigoos(reward.cost)
+    await supabase.from('irl_purchases').insert({
+      child_id: user.id,
+      reward_id: reward.id,
+      reward_name: reward.name,
+      cost: reward.cost,
+      status: 'valid',
+    })
+    await supabase.from('irl_rewards').update({ stock: reward.stock - 1 }).eq('id', reward.id)
     showToast('🎁 Récompense obtenue ! Demande-la à tes parents.')
     onDigoosUpdate()
     setLoadingRewardId(null)

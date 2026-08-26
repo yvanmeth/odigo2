@@ -99,10 +99,9 @@ interface MathsProps {
   onBack?: () => void
   guestMode?: boolean
   onGameEnd?: () => void
-  userId?: string
 }
 
-export default function Maths({ initialExercise, onBack, guestMode, onGameEnd, userId }: MathsProps) {
+export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }: MathsProps) {
   const [gameState, setGameState] = useState<GameState>(initialExercise ? 'select' : 'menu')
   const [selectedExercise, setSelectedExercise] = useState<MathExercise | null>(initialExercise ?? null)
   const [difficulty, setDifficulty] = useState<Difficulty>('moyen')
@@ -143,10 +142,10 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd, u
       questions_total: 10,
       questions_correct: totalCorrect,
       metadata: { exercise: 'maths', subExercise: selectedExercise, difficulty },
-    }, userId)
+    })
     let points = totalCorrect
     if (finalStreak >= 5) points += 5
-    const earned = await addDigoos(points, 'exercise', userId)
+    const earned = await addDigoos(points, 'exercise')
     setEarnedDigoos(earned)
     setGameState('result')
   }

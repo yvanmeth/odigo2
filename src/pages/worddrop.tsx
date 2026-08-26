@@ -29,10 +29,9 @@ interface GuestProps {
   guestListId?: string
   guestLanguage?: string
   onGameEnd?: () => void
-  userId?: string
 }
 
-export default function WordDrop({ guestMode, guestListId, onGameEnd, userId }: GuestProps) {
+export default function WordDrop({ guestMode, guestListId, onGameEnd }: GuestProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
@@ -75,7 +74,7 @@ export default function WordDrop({ guestMode, guestListId, onGameEnd, userId }: 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', userId || user.id).eq('list_type', 'vocabulaire').order('name')
+    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', user.id).eq('list_type', 'vocabulaire').order('name')
     if (data) setLists(data)
   }
 
@@ -280,16 +279,13 @@ export default function WordDrop({ guestMode, guestListId, onGameEnd, userId }: 
       return
     }
     const points = 5 + Math.floor(score / 10)
-    console.log('finaliser - userId prop:', userId)
-    console.log('finaliser - about to call addDigoos with:', points, 'for user:', userId)
-    const result = await addDigoos(points, 'exercise', userId)
-    console.log('addDigoos result:', result)
+    await addDigoos(points, 'exercise')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: wordsCompleted,
       questions_correct: wordsCompleted - failedWords.length,
       metadata: { exercise: 'worddrop' },
-    }, userId)
+    })
     const isTop = await checkHighscore(score)
     if (isTop) setShowHighscore(true)
     else setGameState('result')

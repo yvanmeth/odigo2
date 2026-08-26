@@ -7,7 +7,7 @@ import SubjectNotes from './SubjectNotes'
 import SubjectPostits from './SubjectPostits'
 import SubjectWordlists from './SubjectWordlists'
 
-export default function Subjects({ userId }: { userId?: string }) {
+export default function Subjects() {
   const [selectedSubject, setSelectedSubject] = useState<SubjectItem | null>(null)
   const [subjectTab, setSubjectTab] = useState<SubjectTab>('evals')
 
@@ -23,7 +23,6 @@ export default function Subjects({ userId }: { userId?: string }) {
   if (!selectedSubject) {
     return (
       <SubjectGrid
-        userId={userId}
         onSelectSubject={s => { setSelectedSubject(s); setSubjectTab('evals') }}
       />
     )
@@ -55,10 +54,10 @@ export default function Subjects({ userId }: { userId?: string }) {
               {hasWordlists && <button style={tabStyle('wordlists')} onClick={() => setSubjectTab('wordlists')}>📋 Listes</button>}
             </div>
 
-            {subjectTab === 'evals' && <SubjectEvals userId={userId} subjectId={selectedSubject.id} />}
-            {subjectTab === 'notes' && <SubjectNotes userId={userId} subjectId={selectedSubject.id} />}
-            {subjectTab === 'postits' && <SubjectPostits userId={userId} subjectId={selectedSubject.id} />}
-            {subjectTab === 'wordlists' && hasWordlists && <SubjectWordlists userId={userId} subjectName={selectedSubject.name} />}
+            {subjectTab === 'evals' && <SubjectEvals subjectId={selectedSubject.id} />}
+            {subjectTab === 'notes' && <SubjectNotes subjectId={selectedSubject.id} />}
+            {subjectTab === 'postits' && <SubjectPostits subjectId={selectedSubject.id} />}
+            {subjectTab === 'wordlists' && hasWordlists && <SubjectWordlists subjectName={selectedSubject.name} />}
           </>
         )
       })()}

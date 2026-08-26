@@ -5,18 +5,16 @@ import type { Evaluation, Revision } from '../../type/index'
 import { fmtDateDMY } from './types'
 
 interface SubjectEvalsProps {
-  userId?: string
   subjectId: number | string
 }
 
-export default function SubjectEvals({ userId, subjectId }: SubjectEvalsProps) {
+export default function SubjectEvals({ subjectId }: SubjectEvalsProps) {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
 
   useEffect(() => { fetchEvaluations() }, [subjectId])
 
   const getTargetId = async () => {
-    if (userId) return userId
     const { data: { user } } = await supabase.auth.getUser()
     return user?.id
   }

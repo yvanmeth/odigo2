@@ -49,7 +49,7 @@ function isSingleColumn(list: WordList): boolean {
   return list.list_type === 'conjugaison' || list.language === 'Français'
 }
 
-export default function WordLists({ userId }: { userId?: string }) {
+export default function WordLists() {
   const { showToast } = useToast()
   const [lists, setLists] = useState<WordList[]>([])
   const [wordCounts, setWordCounts] = useState<Record<string, number>>({})
@@ -94,10 +94,9 @@ export default function WordLists({ userId }: { userId?: string }) {
 
   useEffect(() => {
     fetchLists()
-  }, [userId])
+  }, [])
 
   const getTargetId = async (): Promise<string | undefined> => {
-    if (userId) return userId
     const { data: { user } } = await supabase.auth.getUser()
     return user?.id
   }

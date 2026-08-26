@@ -129,7 +129,7 @@ function isPastInFilter(dateStr: string, filter: PastFilter, todayStr: string): 
 
 // ==================== MAIN COMPONENT ====================
 
-export default function Home({ userId }: { userId?: string }) {
+export default function Home() {
   const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [greeting, setGreeting] = useState<string>('')
@@ -146,11 +146,11 @@ export default function Home({ userId }: { userId?: string }) {
   })
   const [pastFilter, setPastFilter] = useState<PastFilter>('30days')
 
-  useEffect(() => { fetchAll() }, [userId])
+  useEffect(() => { fetchAll() }, [])
 
   const fetchMissions = async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    const targetId = userId || user?.id
+    const targetId = user?.id
     if (!targetId) return
     const { data } = await supabase.from('missions')
       .select('id, name, description, deadline, reward_type, reward_amount, status')
@@ -169,7 +169,7 @@ export default function Home({ userId }: { userId?: string }) {
   const fetchAll = async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
-    const targetId = userId || user?.id
+    const targetId = user?.id
     const now = new Date()
     const today = now.toISOString().split('T')[0]
     const twoYearsAgo = `${now.getFullYear() - 2}-01-01`

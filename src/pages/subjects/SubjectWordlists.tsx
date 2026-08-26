@@ -10,11 +10,10 @@ const SUBJECT_LANGUAGE_MAP: Record<string, string> = {
 }
 
 interface SubjectWordlistsProps {
-  userId?: string
   subjectName: string
 }
 
-export default function SubjectWordlists({ userId, subjectName }: SubjectWordlistsProps) {
+export default function SubjectWordlists({ subjectName }: SubjectWordlistsProps) {
   const subjectLanguage = SUBJECT_LANGUAGE_MAP[subjectName] || subjectName
   const [wordLists, setWordLists] = useState<WordListItem[]>([])
   const [wordCounts, setWordCounts] = useState<Record<string, number>>({})
@@ -34,7 +33,6 @@ export default function SubjectWordlists({ userId, subjectName }: SubjectWordlis
   useEffect(() => { fetchWordLists() }, [subjectName])
 
   const getTargetId = async () => {
-    if (userId) return userId
     const { data: { user } } = await supabase.auth.getUser()
     return user?.id
   }

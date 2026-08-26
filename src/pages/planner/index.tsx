@@ -6,7 +6,7 @@ import { useToast } from '../../components/Toast'
 import PlannerList from './PlannerList'
 import PlannerCalendar from './PlannerCalendar'
 
-export default function Planner({ userId, isParent: _isParent }: { userId?: string; isParent?: boolean }) {
+export default function Planner({ isParent: _isParent }: { isParent?: boolean }) {
   const { showToast } = useToast()
   const [view, setPlannerView] = useState<PlannerView>('list')
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
@@ -19,12 +19,12 @@ export default function Planner({ userId, isParent: _isParent }: { userId?: stri
   const [loading, setLoading] = useState(true)
   const [pendingEditItem, setPendingEditItem] = useState<CalendarItem | null>(null)
 
-  useEffect(() => { fetchAll() }, [userId])
+  useEffect(() => { fetchAll() }, [])
 
   const fetchAll = async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
-    const targetId = userId || user?.id
+    const targetId = user?.id
     setResolvedUserId(targetId || '')
     const [evalsRes, revsRes, eventsRes, fixedRes, remindersRes, prefsRes, missionsRes] = await Promise.all([
       supabase.from('evaluations').select('*').eq('user_id', targetId).order('evaluation_date'),

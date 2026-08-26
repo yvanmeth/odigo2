@@ -3,10 +3,6 @@ import { supabase } from '../lib/supabase'
 import { Delta } from '../components/Delta'
 import { PLANNER_COLORS } from './planner/types'
 
-interface MissionsPageProps {
-  userId: string
-}
-
 interface Mission {
   id: string
   name: string
@@ -28,7 +24,7 @@ const formatMissionDeadline = (deadline: string): string => {
   })
 }
 
-export default function MissionsPage({ userId }: MissionsPageProps) {
+export default function MissionsPage() {
   const [missions, setMissions] = useState<Mission[]>([])
   const [loading, setLoading] = useState(true)
   const [showAccomplies, setShowAccomplies] = useState(false)
@@ -36,10 +32,12 @@ export default function MissionsPage({ userId }: MissionsPageProps) {
 
   const fetchMissions = async () => {
     setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
     const { data } = await supabase
       .from('missions')
       .select('*')
-      .eq('child_id', userId)
+      .eq('child_id', user.id)
       .order('deadline', { ascending: true })
     setMissions((data as Mission[]) || [])
     setLoading(false)
@@ -47,7 +45,7 @@ export default function MissionsPage({ userId }: MissionsPageProps) {
 
   useEffect(() => {
     fetchMissions()
-  }, [userId])
+  }, [])
 
   const handleClaim = async (mission: Mission) => {
     setClaiming(mission.id)

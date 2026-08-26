@@ -9,21 +9,18 @@ const getMultiplier = (exercisesToday: number): number => {
 export const addDigoos = async (
   amount: number,
   source: 'exercise' | 'planner' | 'badge' | 'reward' = 'exercise',
-  targetUserId?: string
 ): Promise<number> => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return 0
-  const userId = targetUserId || user.id
 
   let finalAmount = amount
 
-  // Appliquer dégressivité uniquement pour les exercices
   if (source === 'exercise') {
     const today = new Date().toISOString().split('T')[0]
     const { count } = await supabase
       .from('daily_activity')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('action_type', 'exercise_completed')
       .eq('date', today)
 
@@ -34,21 +31,10 @@ export const addDigoos = async (
 
   if (finalAmount <= 0) return 0
 
-  if (userId !== user.id) {
-    await supabase.rpc('add_digoos_to_user', {
-      target_user_id: userId,
-      amount: finalAmount,
-    })
-    if (typeof window !== 'undefined' && (window as any).triggerDigoosAnimation) {
-      (window as any).triggerDigoosAnimation(finalAmount)
-    }
-    return finalAmount
-  }
-
   const { data } = await supabase
     .from('progress')
     .select('digoos, digoos_this_week')
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .single()
 
   if (data) {
@@ -56,10 +42,10 @@ export const addDigoos = async (
       digoos: (data.digoos || 0) + finalAmount,
       digoos_this_week: (data.digoos_this_week || 0) + finalAmount,
       updated_at: new Date().toISOString(),
-    }).eq('user_id', userId)
+    }).eq('user_id', user.id)
   } else {
     await supabase.from('progress').insert({
-      user_id: userId,
+      user_id: user.id,
       digoos: finalAmount,
       digoos_this_week: finalAmount,
       active_weeks: [],
@@ -76,15 +62,14 @@ export const addDigoos = async (
   return finalAmount
 }
 
-export const deductDigoos = async (amount: number, targetUserId?: string) => {
+export const deductDigoos = async (amount: number) => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
-  const userId = targetUserId || user.id
 
   const { data } = await supabase
     .from('progress')
     .select('digoos, digoos_this_week')
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .single()
 
   if (!data) return
@@ -92,7 +77,7 @@ export const deductDigoos = async (amount: number, targetUserId?: string) => {
   await supabase.from('progress').update({
     digoos: Math.max(0, (data.digoos || 0) - amount),
     updated_at: new Date().toISOString(),
-  }).eq('user_id', userId)
+  }).eq('user_id', user.id)
 }
 
 export const addPlannerDigoos = async (
@@ -112,7 +97,6 @@ export const addPlannerDigoos = async (
   const amount = AMOUNTS[actionType]
   const today = new Date().toISOString().split('T')[0]
 
-  // Vérifier si cette action a déjà été récompensée aujourd'hui
   const { count } = await supabase
     .from('daily_activity')
     .select('*', { count: 'exact', head: true })
@@ -120,9 +104,8 @@ export const addPlannerDigoos = async (
     .eq('action_type', 'planner_' + actionType)
     .eq('date', today)
 
-  if ((count || 0) > 0) return 0 // Déjà récompensé aujourd'hui
+  if ((count || 0) > 0) return 0
 
-  // Logger l'action
   await supabase.from('daily_activity').insert({
     user_id: user.id,
     action_type: 'planner_' + actionType,
@@ -130,6 +113,5 @@ export const addPlannerDigoos = async (
     metadata: { actionType },
   })
 
-  // Ajouter les Digoos
   return await addDigoos(amount, 'planner')
 }

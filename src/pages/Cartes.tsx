@@ -61,7 +61,7 @@ const renderValuePills = (cardValues?: CardValue[]) => (
   )
 )
 
-export default function Cartes({ userId }: { userId?: string } = {}) {
+export default function Cartes() {
   const { showToast } = useToast()
   const [cards, setCards] = useState<CardData[]>([])
   const [userCards, setUserCards] = useState<UserCardRow[]>([])
@@ -84,7 +84,7 @@ export default function Cartes({ userId }: { userId?: string } = {}) {
   const fetchData = async (initial = false) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const targetId = userId || user.id
+    const targetId = user.id
 
     const [{ data: cardsData }, { data: userCardsData }, { data: progressData }] = await Promise.all([
       supabase.from('cards').select(`
@@ -117,14 +117,14 @@ export default function Cartes({ userId }: { userId?: string } = {}) {
     setLoading(false)
   }
 
-  useEffect(() => { fetchData(true) }, [userId])
+  useEffect(() => { fetchData(true) }, [])
 
   const startFlip = async (drawn: CardData) => {
     setDrawModal(prev => ({ ...prev, phase: 'flipping' }))
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const targetId = userId || user.id
+    const targetId = user.id
 
     const existing = userCards.find(uc => uc.card_id === drawn.id)
     const isNew = !existing

@@ -11,7 +11,6 @@ import type { Note } from './types'
 import { fmtDate, getPreview } from './types'
 
 interface SubjectNotesProps {
-  userId?: string
   subjectId: number | string
 }
 
@@ -35,7 +34,7 @@ function ArchivedNoteRow({ note, actionBtn, onUnarchive, onDelete }: {
   )
 }
 
-export default function SubjectNotes({ userId, subjectId }: SubjectNotesProps) {
+export default function SubjectNotes({ subjectId }: SubjectNotesProps) {
   const [notes, setNotes] = useState<Note[]>([])
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [showArchives, setShowArchives] = useState(false)
@@ -63,7 +62,6 @@ export default function SubjectNotes({ userId, subjectId }: SubjectNotesProps) {
   }, [editor, editingNote?.id])
 
   const getTargetId = async () => {
-    if (userId) return userId
     const { data: { user } } = await supabase.auth.getUser()
     return user?.id
   }

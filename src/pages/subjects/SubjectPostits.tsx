@@ -6,11 +6,10 @@ import type { Postit } from './types'
 import { POSTIT_COLORS, POSTIT_SIZES, POSTIT_ICONS } from './types'
 
 interface SubjectPostitsProps {
-  userId?: string
   subjectId: number | string
 }
 
-export default function SubjectPostits({ userId, subjectId }: SubjectPostitsProps) {
+export default function SubjectPostits({ subjectId }: SubjectPostitsProps) {
   const [postits, setPostits] = useState<Postit[]>([])
   const [archivedPostits, setArchivedPostits] = useState<Postit[]>([])
   const [showPostitForm, setShowPostitForm] = useState(false)
@@ -25,7 +24,6 @@ export default function SubjectPostits({ userId, subjectId }: SubjectPostitsProp
   useEffect(() => { fetchPostits() }, [subjectId])
 
   const getTargetId = async () => {
-    if (userId) return userId
     const { data: { user } } = await supabase.auth.getUser()
     return user?.id
   }

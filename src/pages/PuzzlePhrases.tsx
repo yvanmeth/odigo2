@@ -139,7 +139,7 @@ const callAPI = async (systemPrompt: string, userPrompt: string, maxTokens = 500
     .replace(/```json|```/g, '').trim()
 }
 
-export default function PuzzlePhrases({ userId }: { userId?: string } = {}) {
+export default function PuzzlePhrases() {
   const { showToast } = useToast()
 
   const [gameState, setGameState] = useState<GameState>('select')
@@ -174,7 +174,7 @@ export default function PuzzlePhrases({ userId }: { userId?: string } = {}) {
     const { data } = await supabase
       .from('word_lists')
       .select('id, name, language')
-      .eq('user_id', userId || user.id)
+      .eq('user_id', user.id)
       .eq('list_type', 'vocabulaire')
     if (data) {
       setLists(data)
@@ -349,8 +349,8 @@ export default function PuzzlePhrases({ userId }: { userId?: string } = {}) {
       questions_total: seriesLength,
       questions_correct: correctCount,
       metadata: { exercise: 'puzzlephrases', mode, listId: selectedListId },
-    }, userId)
-    const earned = await addDigoos(pointsRef.current, 'exercise', userId)
+    })
+    const earned = await addDigoos(pointsRef.current, 'exercise')
     setEarnedDigoos(earned)
     setTotalCorrect(correctCount)
     const isTop = await checkHighscore(pointsRef.current)

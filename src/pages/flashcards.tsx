@@ -61,7 +61,7 @@ const playFailSound = () => {
   } catch { /* silencieux */ }
 }
 
-export default function Flashcards({ userId }: { userId?: string } = {}) {
+export default function Flashcards() {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
@@ -117,7 +117,7 @@ export default function Flashcards({ userId }: { userId?: string } = {}) {
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', userId || user.id).eq('list_type', 'vocabulaire').order('name')
+    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', user.id).eq('list_type', 'vocabulaire').order('name')
     if (data) setLists(data)
   }
 
@@ -220,13 +220,13 @@ export default function Flashcards({ userId }: { userId?: string } = {}) {
   }
 
   const saveScore = async () => {
-    await addDigoos(digoosEarned, 'exercise', userId)
+    await addDigoos(digoosEarned, 'exercise')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: totalCards,
       questions_correct: knownCount,
       metadata: { exercise: 'flashcards' },
-    }, userId)
+    })
     const isTop = await checkHighscore(knownCount)
     if (isTop) setShowHighscore(true)
     else setGameState('result')

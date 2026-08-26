@@ -114,7 +114,7 @@ const buildReponsesAffichage = (reponses: string[], personne: string): string =>
   return pronomAttendu ? `${pronomAttendu} ${compact}` : compact
 }
 
-export default function Conjugaison({ userId }: { userId?: string } = {}) {
+export default function Conjugaison() {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [loadingLists, setLoadingLists] = useState(true)
@@ -146,7 +146,7 @@ export default function Conjugaison({ userId }: { userId?: string } = {}) {
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', userId || user.id).eq('list_type', 'conjugaison').eq('language', 'Français').order('name')
+    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).eq('list_type', 'conjugaison').eq('language', 'Français').order('name')
     if (data) setLists(data)
     setLoadingLists(false)
   }
@@ -293,13 +293,13 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
   }, [current, questions.length])
 
   const finaliser = async () => {
-    await addDigoos(digoosEarned, 'exercise', userId)
+    await addDigoos(digoosEarned, 'exercise')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: questions.length,
       questions_correct: resultats.filter(r => r.correct).length,
       metadata: { exercise: 'conjugaison' },
-    }, userId)
+    })
     const isTop = await checkHighscore(score)
     if (isTop) setShowHighscore(true)
     else setGameState('result')

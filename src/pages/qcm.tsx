@@ -45,11 +45,9 @@ interface GuestProps {
   guestListId?: string
   guestLanguage?: string
   onGameEnd?: () => void
-  userId?: string
 }
 
-export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd, userId }: GuestProps) {
-  console.log('QCM props:', { userId, guestMode, guestListId, guestLanguage, hasOnGameEnd: !!onGameEnd })
+export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }: GuestProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
@@ -88,7 +86,7 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd, 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', userId || user.id).eq('list_type', 'vocabulaire').order('name')
+    const { data } = await supabase.from('word_lists').select('id, name, language, list_type').eq('user_id', user.id).eq('list_type', 'vocabulaire').order('name')
     if (data) setLists(data)
   }
 
@@ -215,13 +213,13 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd, 
       onGameEnd?.()
       return
     }
-    await addDigoos(5 + Math.floor(score / 10), 'exercise', userId)
+    await addDigoos(5 + Math.floor(score / 10), 'exercise')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: wordsCompleted,
       questions_correct: wordsCompleted - failedWords.length,
       metadata: { exercise: 'qcm', mode },
-    }, userId)
+    })
     const isTop = await checkHighscore(score)
     if (isTop) setShowHighscore(true)
     else setGameState('result')

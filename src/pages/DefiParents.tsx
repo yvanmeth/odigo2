@@ -14,7 +14,6 @@ interface DefiQuestion {
 }
 
 interface DefiParentsProps {
-  userId: string
   onBack?: () => void
 }
 

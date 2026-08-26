@@ -75,10 +75,9 @@ interface GuestProps {
   guestListId?: string
   guestLanguage?: string
   onGameEnd?: () => void
-  userId?: string
 }
 
-export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLanguage: initialLanguage, onGameEnd, userId }: GuestProps) {
+export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLanguage: initialLanguage, onGameEnd }: GuestProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [loadingLists, setLoadingLists] = useState(true)
@@ -125,7 +124,7 @@ export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLang
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name, language').eq('user_id', userId || user.id).eq('list_type', 'conjugaison').neq('language', 'Français').order('name')
+    const { data } = await supabase.from('word_lists').select('id, name, language').eq('user_id', user.id).eq('list_type', 'conjugaison').neq('language', 'Français').order('name')
     if (data) setLists(data)
     setLoadingLists(false)
   }
@@ -242,13 +241,13 @@ Réponds UNIQUEMENT en JSON valide :
       onGameEnd?.()
       return
     }
-    await addDigoos(digoosEarned, 'exercise', userId)
+    await addDigoos(digoosEarned, 'exercise')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: questions.length,
       questions_correct: resultats.filter(r => r.correct).length,
       metadata: { exercise: 'conjugaison-etrangere', language: listLanguage },
-    }, userId)
+    })
     const isTop = await checkHighscore(score)
     if (isTop) setShowHighscore(true)
     else setGameState('result')

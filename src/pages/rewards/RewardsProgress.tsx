@@ -58,7 +58,7 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
     const userId = progress?.user_id
     if (!userId || !progress) return
     playBadgeSound()
-    await addDigoos(10, 'badge', userId)
+    await addDigoos(10, 'badge')
     const updatedClaimed = [...(progress.claimed_badges || []), badge.id]
     await supabase.from('progress').update({ claimed_badges: updatedClaimed }).eq('user_id', userId)
     onDigoosUpdate()

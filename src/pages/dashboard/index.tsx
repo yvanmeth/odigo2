@@ -58,8 +58,6 @@ export default function Dashboard({ session }: Props) {
   const [activeExercise, setActiveExercise] = useState<string | null>(null)
   const [isParent, setIsParent] = useState(false)
   const [children, setChildren] = useState<Child[]>([])
-  const [viewingChildId, setViewingChildId] = useState<string | null>(null)
-  const [viewingChildName, setViewingChildName] = useState<string>('')
   const [firstName, setFirstName] = useState<string>('')
   const [activeTitle, setActiveTitle] = useState<string | null>(null)
   const [digoos, setDigoos] = useState<number>(0)
@@ -285,75 +283,59 @@ export default function Dashboard({ session }: Props) {
     }
   }
 
-  const handleSelectChild = (childId: string | null) => {
-    setViewingChildId(childId)
-    if (childId) {
-      const child = children.find(c => c.id === childId)
-      setViewingChildName(child?.first_name || 'Enfant')
-      setActivePage('dashboard')
-    } else {
-      setViewingChildName('')
-      setActivePage('dashboard')
-    }
-  }
-
-  const effectiveUserId = viewingChildId || session.user.id
-  const isViewingChild = !!viewingChildId
-
   const fetchDigoos = async () => {
     const { data } = await supabase
       .from('progress')
       .select('digoos')
-      .eq('user_id', effectiveUserId)
+      .eq('user_id', session.user.id)
       .single()
     if (data) setDigoos(data.digoos)
   }
 
   useEffect(() => {
     fetchDigoos()
-  }, [activePage, effectiveUserId])
+  }, [activePage])
 
   // Polling notifications toutes les 2 minutes
   useEffect(() => {
     if (!lastSeenAt || isParent) return
     const interval = setInterval(async () => {
-      const result = await checkNotifications(effectiveUserId, lastSeenAt)
+      const result = await checkNotifications(session.user.id, lastSeenAt)
       if (result.hasNew) {
         setHasNotification(true)
         setNotificationMessages(result.messages)
       }
     }, 2 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [effectiveUserId, lastSeenAt, isParent])
+  }, [lastSeenAt, isParent])
 
   // Realtime — solde Digoos
   useEffect(() => {
-    if (!effectiveUserId) return
     const subscription = supabase
       .channel('progress_changes')
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'progress',
-        filter: `user_id=eq.${effectiveUserId}`,
+        filter: `user_id=eq.${session.user.id}`,
       }, (payload) => {
         const newDigoos = (payload.new as { digoos?: number }).digoos
         if (newDigoos !== undefined) setDigoos(newDigoos)
       })
       .subscribe()
     return () => { supabase.removeChannel(subscription) }
-  }, [effectiveUserId])
+  }, [])
 
   // Realtime — nouvelles missions
   useEffect(() => {
-    if (!effectiveUserId || isParent) return
+    if (isParent) return
     const subscription = supabase
       .channel('missions_changes')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'missions',
-        filter: `child_id=eq.${effectiveUserId}`,
+        filter: `child_id=eq.${session.user.id}`,
       }, () => {
         setHasNotification(true)
         setNotificationMessages(prev => [
@@ -363,7 +345,7 @@ export default function Dashboard({ session }: Props) {
       })
       .subscribe()
     return () => { supabase.removeChannel(subscription) }
-  }, [effectiveUserId, isParent])
+  }, [isParent])
 
   const handleFinishOnboarding = async () => {
     await supabase.from('profiles').update({ has_met_odigo: true }).eq('id', session.user.id)
@@ -421,14 +403,11 @@ export default function Dashboard({ session }: Props) {
         activeExercise={activeExercise}
         onNavigate={handleNavigate}
         isParent={isParent}
-        isViewingChild={isViewingChild}
         children={children}
-        viewingChildId={viewingChildId}
-        onSelectChild={handleSelectChild}
         firstName={firstName}
         activeTitle={activeTitle}
         digoos={digoos}
-        userId={effectiveUserId}
+        userId={session.user.id}
         onSignOut={() => supabase.auth.signOut()}
         isMobile={isMobile}
         mobileMenuOpen={mobileMenuOpen}
@@ -445,20 +424,6 @@ export default function Dashboard({ session }: Props) {
         }
       >
 
-        {/* Bandeau vue enfant */}
-        {isViewingChild && (
-          <div style={{ background: '#fff8e0', border: '1px solid #e9c46a', borderRadius: '0.75rem', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#e9c46a', fontWeight: 'bold', fontSize: '0.9rem' }}>
-              👧 Tu consultes l'espace de <strong>{viewingChildName}</strong>
-            </span>
-            <button
-              onClick={() => handleSelectChild(null)}
-              style={{ padding: '0.3rem 0.8rem', background: '#e9c46a', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
-            >
-              ← Mon espace
-            </button>
-          </div>
-        )}
 
         <h1 style={{ color: PRIMARY, marginBottom: '0.25rem' }}>
           {activePage === 'exercises' && activeExercise
@@ -475,74 +440,74 @@ export default function Dashboard({ session }: Props) {
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         }}>
           {activePage === 'parent' && isParent && (
-            <ParentDashboard onSelectChild={handleSelectChild} />
+            <ParentDashboard onSelectChild={() => {}} />
           )}
 
-          {activePage === 'dashboard' && <Home userId={effectiveUserId} />}
-          {activePage === 'planner' && <Planner userId={effectiveUserId} isParent={isParent && isViewingChild} />}
-          {activePage === 'subjects' && <Subjects userId={effectiveUserId} />}
-          {activePage === 'wordlists' && <WordLists userId={effectiveUserId} />}
+          {activePage === 'dashboard' && <Home />}
+          {activePage === 'planner' && <Planner isParent={isParent} />}
+          {activePage === 'subjects' && <Subjects />}
+          {activePage === 'wordlists' && <WordLists />}
 
           {activePage === 'exercises' && !activeExercise && (
             <ExerciseCards onSelectExercise={setActiveExercise} />
           )}
 
           {activePage === 'exercises' && activeExercise === 'worddrop' && (
-            <div>{backButton}<WordDrop userId={effectiveUserId} /></div>
+            <div>{backButton}<WordDrop /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'qcm' && (
-            <div>{backButton}<QCM userId={effectiveUserId} /></div>
+            <div>{backButton}<QCM /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'spelling' && (
-            <div>{backButton}<Spelling userId={effectiveUserId} /></div>
+            <div>{backButton}<Spelling /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'flashcards' && (
-            <div>{backButton}<Flashcards userId={effectiveUserId} /></div>
+            <div>{backButton}<Flashcards /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'conjugaison' && (
-            <div>{backButton}<Conjugaison userId={effectiveUserId} /></div>
+            <div>{backButton}<Conjugaison /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'vocabulaire' && (
-            <div>{backButton}<Vocabulaire userId={effectiveUserId} /></div>
+            <div>{backButton}<Vocabulaire /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'puzzlephrases' && (
-            <div>{backButton}<PuzzlePhrases userId={effectiveUserId} /></div>
+            <div>{backButton}<PuzzlePhrases /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'anagramme' && (
-            <div>{backButton}<Anagramme userId={effectiveUserId} /></div>
+            <div>{backButton}<Anagramme /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'conjugaison-etrangere' && (
-            <div>{backButton}<ConjugaisonEtrangere userId={effectiveUserId} /></div>
+            <div>{backButton}<ConjugaisonEtrangere /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'anagramme-francais' && (
-            <div>{backButton}<AnagrammeFrancais userId={effectiveUserId} /></div>
+            <div>{backButton}<AnagrammeFrancais /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'maths-calcul' && (
-            <Maths initialExercise="calcul" onBack={() => setActiveExercise(null)} userId={effectiveUserId} />
+            <Maths initialExercise="calcul" onBack={() => setActiveExercise(null)} />
           )}
           {activePage === 'exercises' && activeExercise === 'maths-multiplication' && (
-            <Maths initialExercise="multiplication" onBack={() => setActiveExercise(null)} userId={effectiveUserId} />
+            <Maths initialExercise="multiplication" onBack={() => setActiveExercise(null)} />
           )}
           {activePage === 'exercises' && activeExercise === 'maths-division' && (
-            <Maths initialExercise="division" onBack={() => setActiveExercise(null)} userId={effectiveUserId} />
+            <Maths initialExercise="division" onBack={() => setActiveExercise(null)} />
           )}
           {activePage === 'exercises' && activeExercise === 'maths-equation' && (
-            <Maths initialExercise="equation" onBack={() => setActiveExercise(null)} userId={effectiveUserId} />
+            <Maths initialExercise="equation" onBack={() => setActiveExercise(null)} />
           )}
           {activePage === 'exercises' && activeExercise === 'defi-parents' && (
-            <DefiParents userId={effectiveUserId} onBack={() => setActiveExercise(null)} />
+            <DefiParents onBack={() => setActiveExercise(null)} />
           )}
           {activePage === 'exercises' && activeExercise === 'carte-suisse' && (
-            <CarteSuisse userId={effectiveUserId} onBack={() => setActiveExercise(null)} />
+            <CarteSuisse onBack={() => setActiveExercise(null)} />
           )}
           {activePage === 'exercises' && activeExercise === 'histoire-geo' && (
-            <DefiHistoireGeo userId={effectiveUserId} onBack={() => setActiveExercise(null)} />
+            <DefiHistoireGeo onBack={() => setActiveExercise(null)} />
           )}
           {activePage === 'exercises' && activeExercise === 'allumettes' && (
-            <div>{backButton}<Allumettes userId={effectiveUserId} /></div>
+            <div>{backButton}<Allumettes /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'histoire' && (
-            <div>{backButton}<Histoire userId={effectiveUserId} /></div>
+            <div>{backButton}<Histoire /></div>
           )}
           {activePage === 'exercises' && activeExercise === 'cartes' && (
             <div>
@@ -552,20 +517,19 @@ export default function Dashboard({ session }: Props) {
               >
                 ← Retour
               </button>
-              <Cartes userId={effectiveUserId} />
+              <Cartes />
             </div>
           )}
 
           {activePage === 'rewards' && (
             <Rewards
-              userId={isViewingChild ? effectiveUserId : undefined}
               onNavigate={(page, exercise) => {
                 setActivePage(page)
                 if (exercise) setActiveExercise(exercise)
               }}
             />
           )}
-          {activePage === 'missions' && <MissionsPage userId={effectiveUserId} />}
+          {activePage === 'missions' && <MissionsPage />}
           {activePage === 'settings' && <Settings onNavigate={setActivePage} />}
           {activePage === 'apropos' && <APropos />}
           {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'missions' && activePage !== 'rewards' && activePage !== 'settings' && activePage !== 'parent' && activePage !== 'apropos' && (
@@ -574,15 +538,13 @@ export default function Dashboard({ session }: Props) {
         </div>
       </div>
 
-      {!isViewingChild && (
-        <Companion
-          userId={session.user.id}
-          currentPage={activePage}
-          hasNotification={hasNotification}
-          notificationMessages={notificationMessages}
-          onNotificationRead={() => setHasNotification(false)}
-        />
-      )}
+      <Companion
+        userId={session.user.id}
+        currentPage={activePage}
+        hasNotification={hasNotification}
+        notificationMessages={notificationMessages}
+        onNotificationRead={() => setHasNotification(false)}
+      />
       {showOnboarding && <OnboardingModal onComplete={handleFinishOnboarding} />}
       <DigoosAnimation onRef={trigger => { digoosAnimRef.current = trigger }} />
 

@@ -18,10 +18,7 @@ interface SidebarProps {
   activeExercise: string | null
   onNavigate: (page: string, exercise?: string) => void
   isParent: boolean
-  isViewingChild: boolean
   children: Child[]
-  viewingChildId: string | null
-  onSelectChild: (id: string | null) => void
   firstName: string
   activeTitle: string | null
   digoos: number
@@ -34,7 +31,7 @@ interface SidebarProps {
 
 export default function Sidebar({
   collapsed, onToggle, activePage, onNavigate,
-  isParent, isViewingChild, children, viewingChildId, onSelectChild,
+  isParent, children,
   firstName, activeTitle, digoos, userId, onSignOut,
   isMobile, mobileMenuOpen, onMobileClose,
 }: SidebarProps) {
@@ -228,17 +225,13 @@ export default function Sidebar({
               </button>
             </div>
           ) : isParent && (
-            <ChildSelector
-              children={children}
-              viewingChildId={viewingChildId}
-              onSelectChild={id => { onSelectChild(id); onMobileClose() }}
-            />
+            <ChildSelector children={children} />
           )}
 
           {/* Navigation */}
           <nav style={{ flex: 1, padding: '0.5rem 0', display: 'flex', flexDirection: 'column' }}>
-            {isParent && !isViewingChild && navButton('parent', <Users size={18} />, 'Espace parent', '#e9c46a', '#e9c46a', '#fff8e0', '#e9c46a')}
-            {navItems.filter(i => i.id !== 'apropos' && !(i.id === 'missions' && isParent && !isViewingChild)).map(item => navButton(item.id, item.icon, item.label))}
+            {isParent && navButton('parent', <Users size={18} />, 'Espace parent', '#e9c46a', '#e9c46a', '#fff8e0', '#e9c46a')}
+            {navItems.filter(i => i.id !== 'apropos' && !(i.id === 'missions' && isParent)).map(item => navButton(item.id, item.icon, item.label))}
             <div>
               <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0.5rem 0.75rem' }} />
               {navItems.filter(i => i.id === 'apropos').map(item => navButton(item.id, item.icon, item.label))}
@@ -340,13 +333,13 @@ export default function Sidebar({
             </button>
           </div>
         ) : isParent ? (
-          <ChildSelector children={children} viewingChildId={viewingChildId} onSelectChild={onSelectChild} />
+          <ChildSelector children={children} />
         ) : null
       )}
 
       <nav style={{ flex: 1, padding: '0.5rem 0', display: 'flex', flexDirection: 'column' }}>
         {/* Onglet Parent uniquement visible par les parents */}
-        {isParent && !isViewingChild && (
+        {isParent && (
           <button
             onClick={() => onNavigate('parent')}
             style={{
@@ -366,7 +359,7 @@ export default function Sidebar({
           </button>
         )}
 
-        {navItems.filter(i => i.id !== 'apropos' && !(i.id === 'missions' && isParent && !isViewingChild)).map(item => (
+        {navItems.filter(i => i.id !== 'apropos' && !(i.id === 'missions' && isParent)).map(item => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}

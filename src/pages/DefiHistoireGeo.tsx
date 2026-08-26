@@ -34,7 +34,6 @@ interface DefiHGQuestion {
 }
 
 interface Props {
-  userId: string
   onBack?: () => void
 }
 

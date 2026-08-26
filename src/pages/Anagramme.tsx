@@ -44,14 +44,13 @@ const shuffleLetters = (word: string): string[] => {
 }
 
 interface AnagrammeProps {
-  userId?: string
   guestMode?: boolean
   guestListId?: string
   guestLanguage?: string
   onGameEnd?: () => void
 }
 
-export default function Anagramme({ userId, guestMode, guestListId, onGameEnd }: AnagrammeProps) {
+export default function Anagramme({ guestMode, guestListId, onGameEnd }: AnagrammeProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedListId, setSelectedListId] = useState('')
@@ -83,11 +82,10 @@ export default function Anagramme({ userId, guestMode, guestListId, onGameEnd }:
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const targetId = userId || user.id
     const { data } = await supabase
       .from('word_lists')
       .select('id, name, list_type, language')
-      .eq('user_id', targetId)
+      .eq('user_id', user.id)
       .eq('list_type', 'vocabulaire')
       .neq('language', 'Français')
       .order('name')
@@ -168,8 +166,8 @@ export default function Anagramme({ userId, guestMode, guestListId, onGameEnd }:
       questions_total: TOTAL_WORDS,
       questions_correct: totalCorrect,
       metadata: { exercise: 'anagramme', listId: selectedListId },
-    }, userId)
-    const earned = await addDigoos(totalPoints, 'exercise', userId)
+    })
+    const earned = await addDigoos(totalPoints, 'exercise')
     setEarnedDigoos(earned)
     const isTop = await checkHighscore(totalPoints)
     if (isTop) setShowHighscore(true)

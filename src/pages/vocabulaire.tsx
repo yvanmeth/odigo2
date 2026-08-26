@@ -11,7 +11,6 @@ interface GuestProps {
   guestMode?: boolean
   guestListId?: string
   onGameEnd?: () => void
-  userId?: string
 }
 
 interface WordList {
@@ -44,7 +43,7 @@ const renderPhrase = (phrase: string, mot?: string, correct?: boolean) => {
   )
 }
 
-export default function Vocabulaire({ guestMode, guestListId, onGameEnd, userId }: GuestProps = {}) {
+export default function Vocabulaire({ guestMode, guestListId, onGameEnd }: GuestProps = {}) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
@@ -96,7 +95,7 @@ export default function Vocabulaire({ guestMode, guestListId, onGameEnd, userId 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', userId || user.id).in('list_type', ['dictée', 'vocabulaire']).eq('language', 'Français').order('name')
+    const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).in('list_type', ['dictée', 'vocabulaire']).eq('language', 'Français').order('name')
     if (data) setLists(data)
   }
 
@@ -243,13 +242,13 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
   const finaliser = async () => {
     if (guestMode) { onGameEnd?.(); return }
-    await addDigoos(digoosEarned, 'exercise', userId)
+    await addDigoos(digoosEarned, 'exercise')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: resultats.length,
       questions_correct: resultats.filter(r => r.correct).length,
       metadata: { exercise: 'vocabulaire' },
-    }, userId)
+    })
     const isTop = await checkHighscore(score)
     if (isTop) setShowHighscore(true)
     else setGameState('result')

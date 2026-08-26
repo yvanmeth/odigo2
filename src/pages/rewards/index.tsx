@@ -7,7 +7,7 @@ import RewardsProgress from './RewardsProgress'
 import RewardsHowItWorks from './RewardsHowItWorks'
 import type { RewardTab, Progress, IrlReward, IrlPurchase } from './types'
 
-export default function Rewards({ userId, onNavigate }: { userId?: string; onNavigate?: (page: string, exercise?: string) => void }) {
+export default function Rewards({ onNavigate }: { onNavigate?: (page: string, exercise?: string) => void }) {
   const [activeTab, setActiveTab] = useState<RewardTab>('rewards')
   const [progress, setProgress] = useState<Progress | null>(null)
   const [loading, setLoading] = useState(true)
@@ -19,15 +19,14 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
     fetchProgress()
     fetchIrlRewards()
     fetchIrlPurchases()
-  }, [userId])
+  }, [])
 
   const fetchProgress = async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const targetId = userId || user.id
-    const isViewingOther = !!userId && userId !== user.id
+    const targetId = user.id
 
     const { data } = await supabase
       .from('progress')
@@ -36,9 +35,9 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
       .single()
 
     if (data) {
-      const updated = isViewingOther ? data : await checkWeekReset(data, targetId)
+      const updated = await checkWeekReset(data, targetId)
       setProgress(updated)
-    } else if (!isViewingOther) {
+    } else {
       const newProgress: Partial<Progress> = {
         user_id: user.id,
         digoos: 0,
@@ -57,7 +56,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
   const fetchIrlRewards = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const targetId = userId || user.id
+    const targetId = user.id
     const { data: links } = await supabase.from('parent_child').select('parent_id').eq('child_id', targetId)
     if (!links || links.length === 0) { setIrlRewards([]); return }
     const pIds = links.map((l: any) => l.parent_id)
@@ -82,7 +81,7 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
   const fetchIrlPurchases = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const targetId = userId || user.id
+    const targetId = user.id
     const { data } = await supabase
       .from('irl_purchases')
       .select('*')
@@ -178,12 +177,11 @@ export default function Rewards({ userId, onNavigate }: { userId?: string; onNav
           irlRewards={irlRewards}
           onNavigate={onNavigate}
           activeTab={activeTab}
-          userId={userId}
         />
       )}
 
       {activeTab === 'wallet' && (
-        <RewardsPortfolio irlPurchases={irlPurchases} userId={userId} />
+        <RewardsPortfolio irlPurchases={irlPurchases} />
       )}
 
       {activeTab === 'progression' && (

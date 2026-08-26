@@ -56,7 +56,6 @@ interface AvailableCard {
 
 interface RewardsPortfolioProps {
   irlPurchases: IrlPurchase[]
-  userId?: string
 }
 
 const WHEEL_BASE: WheelSegment[] = [
@@ -104,7 +103,7 @@ const renderValuePills = (cardValues?: CardValue[]) => (
   )
 )
 
-export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfolioProps) {
+export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps) {
   const { showToast } = useToast()
   const [activeTab, setActiveTab] = useState<PortfolioTab>('irl')
   const [showHistory, setShowHistory] = useState(false)
@@ -130,7 +129,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
   const fetchUserCards = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const targetId = userId || user.id
+    const targetId = user.id
 
     const { data } = await supabase
       .from('user_cards')
@@ -165,7 +164,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
   const setAsAvatar = async (cardId: string) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const targetId = userId || user.id
+    const targetId = user.id
     await supabase.from('profiles').update({ avatar_card_id: cardId }).eq('id', targetId)
     setCurrentAvatarCardId(cardId)
     showToast('Avatar mis à jour !')
@@ -174,7 +173,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
   const checkSellConditions = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const targetId = userId || user.id
+    const targetId = user.id
 
     const today = new Date().toISOString().split('T')[0]
     const currentWeek = getCurrentWeekKey()
@@ -233,7 +232,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     if (!sellCard) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const targetId = userId || user.id
+    const targetId = user.id
 
     if (sellCard.quantity > 1) {
       await supabase.from('user_cards')
@@ -273,7 +272,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     if (!sellCard) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const targetId = userId || user.id
+    const targetId = user.id
 
     if (sellCard.quantity > 1) {
       await supabase.from('user_cards')
@@ -321,7 +320,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
 
   useEffect(() => {
     fetchUserCards()
-  }, [userId])
+  }, [])
 
   const validPurchases = irlPurchases.filter(p => p.status === 'valid')
   const usedPurchases = irlPurchases.filter(p => p.status === 'used')
@@ -425,7 +424,7 @@ export default function RewardsPortfolio({ irlPurchases, userId }: RewardsPortfo
     )
   }
 
-  const canSell = !userId
+  const canSell = true
 
   return (
     <div>

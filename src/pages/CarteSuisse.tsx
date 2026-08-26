@@ -38,7 +38,6 @@ type Difficulty = 'facile' | 'difficile'
 type FeedbackType = 'correct' | 'incorrect' | null
 
 interface CarteSuisseProps {
-  userId: string
   onBack?: () => void
 }
 

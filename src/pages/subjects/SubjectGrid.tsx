@@ -5,11 +5,10 @@ import type { SubjectItem } from './types'
 import { COLOR_PALETTE, FIXED_SUBJECTS } from './types'
 
 interface SubjectGridProps {
-  userId?: string
   onSelectSubject: (subject: SubjectItem) => void
 }
 
-export default function SubjectGrid({ userId, onSelectSubject }: SubjectGridProps) {
+export default function SubjectGrid({ onSelectSubject }: SubjectGridProps) {
   const [subjects, setSubjects] = useState<SubjectItem[]>([])
   const [loading, setLoading] = useState(true)
   const [manageMode, setManageMode] = useState(false)
@@ -20,7 +19,6 @@ export default function SubjectGrid({ userId, onSelectSubject }: SubjectGridProp
   useEffect(() => { fetchSubjects() }, [])
 
   const getTargetId = async () => {
-    if (userId) return userId
     const { data: { user } } = await supabase.auth.getUser()
     return user?.id
   }
