@@ -3,6 +3,8 @@ import { Delta } from '../components/Delta'
 import { EmptyState } from '../components/EmptyState'
 import HomeGreeting from './home/HomeGreeting'
 import HomeStreaks from './home/HomeStreaks'
+import HomeMissions from './home/HomeMissions'
+import HomeHistory from './home/HomeHistory'
 import { supabase } from '../lib/supabase'
 import { generateGreeting } from '../lib/greeting'
 import type { Evaluation, Revision } from '../type/index'
@@ -15,7 +17,7 @@ import { updateStreakRecords } from '../services/progress'
 import {
   parseLocalDate, formatDateDMY,
   getWeekBounds, getISOWeekNumber, formatWeekRange,
-  inRange, isPastInFilter, formatMissionDeadline,
+  inRange,
   type PastFilter,
 } from '../lib/dates'
 import { computeDayStreak, computeMonthStreak, computeMonthSteps } from '../lib/streaks'
@@ -481,41 +483,6 @@ export default function Home() {
 
   if (loading) return <p style={{ color: '#888', padding: '2rem', textAlign: 'center' }}>Chargement...</p>
 
-  // ---- Past section ----
-  const pastEvals = evaluations
-    .filter(e => isPastInFilter(e.evaluation_date, pastFilter, todayStr))
-    .sort((a, b) => b.evaluation_date.localeCompare(a.evaluation_date))
-  const pastRevs = revisions
-    .filter(r => isPastInFilter(r.revision_date, pastFilter, todayStr))
-    .sort((a, b) => b.revision_date.localeCompare(a.revision_date))
-  const pastEvts = events
-    .filter(e => isPastInFilter(e.event_date, pastFilter, todayStr))
-    .sort((a, b) => b.event_date.localeCompare(a.event_date))
-  const pastRems = reminders
-    .filter(r => r.completed && isPastInFilter(r.deadline_date, pastFilter, todayStr))
-    .sort((a, b) => b.deadline_date.localeCompare(a.deadline_date))
-
-  const hasPastContent =
-    (typeFilters.evaluations && pastEvals.length > 0) ||
-    (typeFilters.revisions && pastRevs.length > 0) ||
-    (typeFilters.events && pastEvts.length > 0) ||
-    (typeFilters.reminders && pastRems.length > 0)
-
-  const pastDurationBtns = (
-    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' as const, marginBottom: '1rem' }}>
-      {([['all', 'Tout'], ['year', 'Cette année'], ['30days', '30 derniers jours'], ['none', 'Aucun']] as [PastFilter, string][]).map(([val, label]) => (
-        <button key={val} onClick={() => setPastFilter(val)} style={{
-          padding: '0.3rem 0.7rem', border: 'none', borderRadius: '0.4rem',
-          cursor: 'pointer', fontSize: '0.8rem',
-          background: pastFilter === val ? '#888' : '#f0f0f0',
-          color: pastFilter === val ? 'white' : '#666',
-        }}>
-          {label}
-        </button>
-      ))}
-    </div>
-  )
-
   return (
     <div>
       {/* ==================== 0. SALUTATION ==================== */}
@@ -540,141 +507,20 @@ export default function Home() {
       {renderWeekSection(w2Start, w2End, getISOWeekNumber(parseLocalDate(w2Start)), false, 2)}
 
       {/* ==================== 4. MISSIONS ==================== */}
-      {missions.length > 0 && (
-        <div style={cardStyle}>
-          {sectionHeader('🎯 Missions')}
-          {missions.map(m => (
-            <div key={m.id} style={{
-              borderLeft: '4px solid #e76f51',
-              background: '#fff8f5',
-              borderRadius: '0.75rem',
-              padding: '0.85rem 1rem',
-              marginBottom: '0.75rem',
-            }}>
-              <div style={{ fontWeight: 'bold', color: '#e76f51', fontSize: '0.95rem' }}>{m.name}</div>
-              {m.description && (
-                <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.2rem' }}>{m.description}</div>
-              )}
-              <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '0.3rem' }}>
-                Deadline : {formatMissionDeadline(m.deadline)}
-              </div>
-              {m.reward_type === 'digoos' && m.reward_amount !== null && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: '#fff8e0', color: '#b8860b', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
-                  Récompense : {m.reward_amount} <Delta size={14} />
-                </div>
-              )}
-              {m.reward_type === 'irl_reward' && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.4rem', background: 'var(--color-background)', color: '#2a9d8f', padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.82rem', fontWeight: 'bold' }}>
-                  🎁 Récompense IRL
-                </div>
-              )}
-              {m.status === 'pending' ? (
-                <button onClick={() => handleClaimMission(m.id)} style={{ marginTop: '0.5rem', padding: '0.4rem 1rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', width: '100%' }}>
-                  ✅ Mission accomplie !
-                </button>
-              ) : (
-                <div style={{ marginTop: '0.5rem', padding: '0.3rem 0.75rem', background: '#fff8e0', color: '#b8860b', borderRadius: '0.5rem', fontSize: '0.82rem', fontWeight: 'bold', display: 'inline-block' }}>
-                  ⏳ En attente de validation parent
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <HomeMissions missions={missions} onClaim={handleClaimMission} />
 
       {/* ==================== 5. ÉVÉNEMENTS PASSÉS ==================== */}
-      <div style={cardStyle}>
-        {sectionHeader('📋 Historique')}
-        {pastDurationBtns}
-
-        {pastFilter !== 'none' && (
-          <>
-            {filterButtons}
-            {!hasPastContent && emptyMsg}
-
-            {typeFilters.evaluations && pastEvals.length > 0 && (
-              <div style={{ marginBottom: '1rem' }}>
-                {groupLabel('📝', 'Évaluations')}
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: '#f5f5f5' }}>
-                        {['Date', 'Matière', 'Sujet', 'Révisions', 'Note attendue', 'Note obtenue'].map(h => (
-                          <th key={h} style={{ ...thStyle, color: '#aaa' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pastEvals.map(e => {
-                        const totalRev = revisions.filter(r => r.evaluation_id === e.id).length
-                        const doneRev = revisions.filter(r => r.evaluation_id === e.id && r.completed).length
-                        return (
-                          <tr key={e.id} style={{ opacity: 0.8 }}>
-                            <td style={tdStyle}>{formatDateDMY(e.evaluation_date)}</td>
-                            <td style={{ ...tdStyle, fontWeight: 'bold' }}>{getSubjectName(e.subject_id)}</td>
-                            <td style={tdStyle}>{e.topic}</td>
-                            <td style={tdStyle}>
-                              <span style={{ color: '#aaa' }}>{doneRev}/{totalRev}</span>
-                            </td>
-                            <td style={tdStyle}>{e.readiness ?? '—'}</td>
-                            <td style={tdStyle}>{e.grade ?? '—'}</td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {typeFilters.revisions && pastRevs.length > 0 && (
-              <div style={{ marginBottom: '1rem' }}>
-                {groupLabel('📖', 'Révisions')}
-                {pastRevs.map(r => (
-                  <div key={r.id} style={{
-                    display: 'flex', gap: '0.75rem', alignItems: 'center',
-                    padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', opacity: 0.75,
-                  }}>
-                    <span style={{ fontSize: '1rem' }}>{r.completed ? '✅' : '⬜'}</span>
-                    <span style={{ fontSize: '0.85rem', color: '#888' }}>{formatDateDMY(r.revision_date)}</span>
-                    {r.details && <span style={{ fontSize: '0.82rem', color: '#bbb' }}>{r.details}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {typeFilters.events && pastEvts.length > 0 && (
-              <div style={{ marginBottom: '1rem' }}>
-                {groupLabel('📅', 'Événements')}
-                {pastEvts.map(ev => (
-                  <div key={ev.id} style={{
-                    padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', opacity: 0.75,
-                  }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#555' }}>{ev.title}</span>
-                    <span style={{ fontSize: '0.8rem', color: '#bbb', marginLeft: '0.6rem' }}>{formatDateDMY(ev.event_date)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {typeFilters.reminders && pastRems.length > 0 && (
-              <div>
-                {groupLabel('🔔', 'Rappels')}
-                {pastRems.map(r => (
-                  <div key={r.id} style={{
-                    display: 'flex', gap: '0.6rem', alignItems: 'center',
-                    padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', opacity: 0.75,
-                  }}>
-                    <span style={{ fontSize: '1rem' }}>✅</span>
-                    <span style={{ fontSize: '0.85rem', color: '#555' }}>{r.title}</span>
-                    <span style={{ fontSize: '0.78rem', color: '#bbb' }}>{formatDateDMY(r.deadline_date)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      <HomeHistory
+        evaluations={evaluations}
+        revisions={revisions}
+        events={events}
+        reminders={reminders}
+        subjects={subjects}
+        pastFilter={pastFilter}
+        onPastFilterChange={setPastFilter}
+        typeFilters={typeFilters}
+        onTypeFilterToggle={toggleFilter}
+      />
     </div>
   )
 }
