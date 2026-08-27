@@ -69,6 +69,16 @@ export const isPastInFilter = (dateStr: string, filter: PastFilter, todayStr: st
   return dateStr >= d.toISOString().split('T')[0]
 }
 
+export const formatISODate = (iso: string): string => {
+  const d = new Date(iso)
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
+}
+
+export const formatISODateTime = (iso: string): string => {
+  const d = new Date(iso)
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()} à ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 export const formatMissionDeadline = (deadline: string): string => {
   const d = new Date(deadline)
   const datePart = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })

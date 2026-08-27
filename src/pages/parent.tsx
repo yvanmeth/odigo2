@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import HelpBubble from '../components/HelpBubble'
+import { formatISODate, formatISODateTime } from '../lib/dates'
+import ChildTargetSelector from './parent/ChildTargetSelector'
 
 interface IrlReward {
   id: string
@@ -465,16 +467,6 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     setMarkingUsedId(null)
   }
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso)
-    return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
-  }
-
-  const formatDateTime = (iso: string) => {
-    const d = new Date(iso)
-    return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()} à ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  }
-
   const removeChild = async (childId: string) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -779,45 +771,15 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                 style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
               />
             </div>
-            {children.length > 0 && (
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.4rem' }}>Disponible pour</label>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    onClick={() => setTargetMode('all')}
-                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: targetMode === 'all' ? '#2a9d8f' : 'var(--color-border)', color: targetMode === 'all' ? 'white' : '#2a9d8f' }}
-                  >
-                    Tous mes enfants
-                  </button>
-                  <button
-                    onClick={() => setTargetMode('specific')}
-                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: targetMode === 'specific' ? '#2a9d8f' : 'var(--color-border)', color: targetMode === 'specific' ? 'white' : '#2a9d8f' }}
-                  >
-                    Choisir
-                  </button>
-                </div>
-                {targetMode === 'specific' && (
-                  <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                    {children.map(child => (
-                      <label key={child.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                        <input
-                          type="checkbox"
-                          checked={targetChildren.includes(child.id)}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setTargetChildren(prev => [...prev, child.id])
-                            } else {
-                              setTargetChildren(prev => prev.filter(id => id !== child.id))
-                            }
-                          }}
-                        />
-                        {child.first_name}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            <ChildTargetSelector
+              children={children}
+              mode={targetMode}
+              selectedIds={targetChildren}
+              onModeChange={setTargetMode}
+              onToggle={(childId, checked) => setTargetChildren(prev =>
+                checked ? [...prev, childId] : prev.filter(id => id !== childId)
+              )}
+            />
             <button
               onClick={handleSaveIrlReward}
               style={{ padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
@@ -868,7 +830,7 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                 <div>
                   <div style={{ fontWeight: 'bold', color: '#333' }}>🎁 {p.reward_name}</div>
                   <div style={{ fontSize: '0.8rem', color: '#888' }}>
-                    {p.profiles?.first_name || 'Enfant'} · Acheté le {formatDate(p.purchased_at)}
+                    {p.profiles?.first_name || 'Enfant'} · Acheté le {formatISODate(p.purchased_at)}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -978,45 +940,15 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
               )}
             </div>
 
-            {children.length > 0 && (
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.4rem' }}>Disponible pour</label>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    onClick={() => setMissionTargetMode('all')}
-                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: missionTargetMode === 'all' ? '#2a9d8f' : 'var(--color-border)', color: missionTargetMode === 'all' ? 'white' : '#2a9d8f' }}
-                  >
-                    Tous mes enfants
-                  </button>
-                  <button
-                    onClick={() => setMissionTargetMode('specific')}
-                    style={{ padding: '0.4rem 0.8rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', background: missionTargetMode === 'specific' ? '#2a9d8f' : 'var(--color-border)', color: missionTargetMode === 'specific' ? 'white' : '#2a9d8f' }}
-                  >
-                    Choisir
-                  </button>
-                </div>
-                {missionTargetMode === 'specific' && (
-                  <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                    {children.map(child => (
-                      <label key={child.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                        <input
-                          type="checkbox"
-                          checked={missionTargetChildren.includes(child.id)}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setMissionTargetChildren(prev => [...prev, child.id])
-                            } else {
-                              setMissionTargetChildren(prev => prev.filter(id => id !== child.id))
-                            }
-                          }}
-                        />
-                        {child.first_name}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            <ChildTargetSelector
+              children={children}
+              mode={missionTargetMode}
+              selectedIds={missionTargetChildren}
+              onModeChange={setMissionTargetMode}
+              onToggle={(childId, checked) => setMissionTargetChildren(prev =>
+                checked ? [...prev, childId] : prev.filter(id => id !== childId)
+              )}
+            />
 
             <button
               onClick={handleSaveMission}
@@ -1056,14 +988,14 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
                     <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.4rem' }}>{m.description}</div>
                     {variant !== 'completed' && (
                       <div style={{ fontSize: '0.82rem', color: isExpired ? '#e63946' : '#888' }}>
-                        ⏱ {isExpired ? '⏰ Expirée — deadline : ' : 'Jusqu\'au '}{formatDateTime(m.deadline)}
+                        ⏱ {isExpired ? '⏰ Expirée — deadline : ' : 'Jusqu\'au '}{formatISODateTime(m.deadline)}
                       </div>
                     )}
                     {variant === 'completed' && m.completed_at && (
-                      <div style={{ fontSize: '0.82rem', color: '#888' }}>Accomplie le {formatDate(m.completed_at)}</div>
+                      <div style={{ fontSize: '0.82rem', color: '#888' }}>Accomplie le {formatISODate(m.completed_at)}</div>
                     )}
                     {variant === 'claimed' && m.claimed_at && (
-                      <div style={{ fontSize: '0.8rem', color: '#b8860b', marginTop: '0.2rem' }}>Signalée le {formatDate(m.claimed_at)}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#b8860b', marginTop: '0.2rem' }}>Signalée le {formatISODate(m.claimed_at)}</div>
                     )}
                     <div style={{ fontSize: '0.82rem', marginTop: '0.3rem' }}>
                       {m.reward_type === 'digoos'
