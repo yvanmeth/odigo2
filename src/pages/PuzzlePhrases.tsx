@@ -6,6 +6,7 @@ import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { useToast } from '../components/Toast'
 import HighscoreModal from '../components/HighscoreModal'
+import { callClaude } from '../lib/claude'
 
 type GameState = 'select' | 'loading' | 'playing' | 'result'
 type Mode = 'facile' | 'moyen' | 'difficile'
@@ -118,27 +119,6 @@ const buildUserPrompt = (pairs: { source_word: string; target_word: string }[], 
   `Génère une phrase pour chacune de ces paires (mot ${language}/français) :\n` +
   pairs.map((p, i) => `${i + 1}. ${p.source_word} (${language}) = ${p.target_word} (français)`).join('\n')
 
-const callAPI = async (systemPrompt: string, userPrompt: string, maxTokens = 500): Promise<string> => {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: userPrompt }],
-      system: systemPrompt,
-    }),
-  })
-  const data: { content?: { type: string; text?: string }[] } = await res.json()
-  return (data.content?.find(b => b.type === 'text')?.text || '')
-    .replace(/```json|```/g, '').trim()
-}
-
 export default function PuzzlePhrases() {
   const { showToast } = useToast()
 
@@ -214,7 +194,7 @@ export default function PuzzlePhrases() {
         pickedWords.map(w => ({ source_word: w.source_word, target_word: w.target_word || '' })),
         listLang
       )
-      const txt = await callAPI(systemPrompt, userPrompt, 4000)
+      const txt = await callClaude(userPrompt, 4000, systemPrompt)
       const parsed: { french: string; words: { text: string; type: 'fixed' | 'category'; category?: string; options?: string[] }[] }[] = JSON.parse(txt)
 
       const mapped: PuzzleSentence[] = parsed.map(s => ({

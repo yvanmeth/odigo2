@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { addDigoos, deductDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { Delta } from '../components/Delta'
+import { callClaude } from '../lib/claude'
 
 const HEROS = [
   'la magicienne', "l'aventurière", 'le hérisson',
@@ -178,32 +179,6 @@ est que le sens soit correct.
 Réponds UNIQUEMENT : {"correct": true} ou {"correct": false}
 `
 
-const callAPI = async (
-  systemPrompt: string,
-  userPrompt: string,
-  maxTokens = 500
-): Promise<string> => {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: maxTokens,
-      messages: [
-        { role: 'user', content: userPrompt }
-      ],
-      system: systemPrompt,
-    })
-  })
-  const data = await res.json()
-  return data.content?.[0]?.text
-    ?.replace(/```json|```/g, '').trim() || ''
-}
 
 const removeEmojis = (str: string) => str
   .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
@@ -312,9 +287,10 @@ export default function Histoire() {
     setError('')
     if (isLast) setGameState('ending')
     try {
-      const txt = await callAPI(
-        buildSystemPrompt(currentTitle.full, interests),
-        buildUserPrompt(nodesForFetch, nodeIndex)
+      const txt = await callClaude(
+        buildUserPrompt(nodesForFetch, nodeIndex),
+        500,
+        buildSystemPrompt(currentTitle.full, interests)
       )
       const node: StoryNode = JSON.parse(txt)
       setNodes([...nodesForFetch, node])
@@ -391,9 +367,10 @@ export default function Histoire() {
     setQuestionLoading(true)
     setQuestionError('')
     try {
-      const txt = await callAPI(
-        "Tu es un assistant pédagogique pour enfants de 10 ans. Réponds UNIQUEMENT en JSON valide, sans aucun texte autour.",
-        buildQuestionPrompt(nodes)
+      const txt = await callClaude(
+        buildQuestionPrompt(nodes),
+        500,
+        "Tu es un assistant pédagogique pour enfants de 10 ans. Réponds UNIQUEMENT en JSON valide, sans aucun texte autour."
       )
       const parsed: EndQuestion = JSON.parse(txt)
       setQuestion(parsed)
@@ -418,9 +395,10 @@ export default function Histoire() {
     setQuestionLoading(true)
     setQuestionError('')
     try {
-      const txt = await callAPI(
-        "Tu es un assistant qui valide des réponses d'enfants de 10 ans. Réponds UNIQUEMENT en JSON valide.",
-        buildValidationPrompt(question.question, question.answer, userAnswer)
+      const txt = await callClaude(
+        buildValidationPrompt(question.question, question.answer, userAnswer),
+        500,
+        "Tu es un assistant qui valide des réponses d'enfants de 10 ans. Réponds UNIQUEMENT en JSON valide."
       )
       const { correct } = JSON.parse(txt)
       if (correct) {

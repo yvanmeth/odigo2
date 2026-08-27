@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import HelpBubble from '../components/HelpBubble'
 import { EmptyState } from '../components/EmptyState'
+import { callClaudeWithImage } from '../lib/claude'
 
 interface WordList {
   id: string
@@ -346,26 +347,8 @@ export default function WordLists() {
       ? `Tu vois une liste de vocabulaire. Extrais tous les mots. Pour chaque mot, fournis sa traduction en français, peu importe la langue source ou si une traduction dans une autre langue est déjà visible dans l'image. Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, sous cette forme exacte: [{"source":"mot en langue étrangère","target":"traduction en français"}].`
       : `Tu vois une liste de mots. Extrais tous les mots. Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, sous cette forme exacte: [{"source":"mot","target":""}].`
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5', max_tokens: 1000,
-          messages: [{ role: 'user', content: [
-            { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
-            { type: 'text', text: prompt },
-          ]}],
-        }),
-      })
-      const data = await response.json()
-      const txt = data.content?.[0]?.text || '[]'
-      const clean = txt.replace(/```json|```/g, '').trim()
-      const parsed = JSON.parse(clean)
+      const raw = await callClaudeWithImage(base64, file.type, prompt, 1000)
+      const parsed = JSON.parse(raw || '[]')
       setImportWords(parsed.map((w: { source: string; target: string }) => ({ ...w, selected: true })))
     } catch (err) {
       console.error('Erreur import image:', err)

@@ -6,6 +6,7 @@ import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { speak } from '../lib/speech'
 import HighscoreModal from '../components/HighscoreModal'
+import { callClaude } from '../lib/claude'
 
 interface GuestProps {
   guestMode?: boolean
@@ -157,24 +158,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 [{"mot":"le mot exact copié depuis la liste","phrase":"La phrase avec ___ à la place du mot."}]`
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 2000,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      })
-
-      const data2 = await res.json()
-      const txt = (data2.content?.find((b: any) => b.type === 'text')?.text || '')
-        .replace(/```json|```/g, '').trim()
+      const txt = await callClaude(prompt, 2000)
       const parsed: Question[] = JSON.parse(txt)
       setQueue(parsed)
       setQuestionNum(1)
