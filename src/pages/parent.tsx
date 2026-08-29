@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
-import HelpBubble from '../components/HelpBubble'
 import { formatISODate, formatISODateTime } from '../lib/dates'
 import ChildTargetSelector from './parent/ChildTargetSelector'
+import ParentCreateChild from './parent/ParentCreateChild'
+import ParentChildren from './parent/ParentChildren'
+import type { Child } from './parent/types'
 
 interface IrlReward {
   id: string
@@ -27,20 +29,6 @@ interface PendingPurchase {
   purchased_at: string
   used_at?: string | null
   profiles?: { first_name: string | null } | null
-}
-
-interface Child {
-  id: string
-  first_name: string
-  email: string
-  relationship: string
-}
-
-interface InviteCode {
-  code: string
-  expires_at: string
-  used: boolean
-  relationship?: string
 }
 
 interface IrlRewardSimple {
@@ -68,13 +56,7 @@ interface Mission {
 export default function ParentDashboard({ onSelectChild }: { onSelectChild: (childId: string | null) => void }) {
   const { showToast } = useToast()
   const [children, setChildren] = useState<Child[]>([])
-  const [inviteCode, setInviteCode] = useState<InviteCode | null>(null)
   const [loading, setLoading] = useState(true)
-  const [generatingCode, setGeneratingCode] = useState(false)
-  const [selectedRelationship, setSelectedRelationship] = useState('parent')
-  const [copied, setCopied] = useState(false)
-  const [generatedLink, setGeneratedLink] = useState('')
-  const [generatingLink, setGeneratingLink] = useState(false)
 
   // IRL Rewards states
   const [irlRewards, setIrlRewards] = useState<IrlReward[]>([])
@@ -108,16 +90,8 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
   const [pendingPurchases, setPendingPurchases] = useState<PendingPurchase[]>([])
   const [markingUsedId, setMarkingUsedId] = useState<string | null>(null)
 
-  const [showCreateChild, setShowCreateChild] = useState(false)
-  const [newChildFirstName, setNewChildFirstName] = useState('')
-  const [newChildPassword, setNewChildPassword] = useState('')
-  const [newChildConfirm, setNewChildConfirm] = useState('')
-  const [newChildRelationship, setNewChildRelationship] = useState('parent')
-  const [createChildLoading, setCreateChildLoading] = useState(false)
-
   useEffect(() => {
     fetchChildren()
-    fetchInviteCode()
     fetchIrlRewards()
     fetchPendingPurchases()
     fetchMissions()
@@ -152,72 +126,6 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
       }
     }
     setLoading(false)
-  }
-
-  const fetchInviteCode = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data } = await supabase
-      .from('invite_codes')
-      .select('*')
-      .eq('parent_id', user.id)
-      .eq('used', false)
-      .gte('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (data) setInviteCode(data)
-  }
-
-  const generateCode = async () => {
-    setGeneratingCode(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase()
-    const expiresAt = new Date()
-    expiresAt.setHours(expiresAt.getHours() + 48)
-    const { data } = await supabase
-      .from('invite_codes')
-      .insert({ parent_id: user.id, code, used: false, expires_at: expiresAt.toISOString(), relationship: selectedRelationship })
-      .select()
-      .single()
-
-    if (data) setInviteCode(data)
-    setGeneratingCode(false)
-  }
-
-  const copyCode = () => {
-    if (!inviteCode) return
-    navigator.clipboard.writeText(inviteCode.code)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleGenerateLink = async () => {
-    setGeneratingLink(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const newCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-    const expiresAt = new Date()
-    expiresAt.setHours(expiresAt.getHours() + 48)
-
-    await supabase.from('invite_codes').insert({
-      parent_id: user.id,
-      code: newCode,
-      used: false,
-      expires_at: expiresAt.toISOString(),
-      relationship: selectedRelationship,
-    })
-
-    const link = `${window.location.origin}/invite/${newCode}`
-    await navigator.clipboard.writeText(link)
-    setGeneratedLink(link)
-    showToast('Lien copié dans le presse-papiers !')
-    setGeneratingLink(false)
   }
 
   const fetchIrlRewards = async () => {
@@ -467,256 +375,16 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     setMarkingUsedId(null)
   }
 
-  const removeChild = async (childId: string) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('parent_child').delete().eq('parent_id', user.id).eq('child_id', childId)
-    fetchChildren()
-  }
-
-  const handleCreateChild = async () => {
-    if (newChildPassword !== newChildConfirm) {
-      showToast('Les mots de passe ne correspondent pas', 'error')
-      return
-    }
-    if (newChildPassword.length < 6) {
-      showToast('Le mot de passe doit faire au moins 6 caractères', 'error')
-      return
-    }
-
-    setCreateChildLoading(true)
-    try {
-      const session = (await supabase.auth.getSession()).data.session
-      const token = session?.access_token
-      if (!token) {
-        showToast('Session expirée, reconnecte-toi', 'error')
-        setCreateChildLoading(false)
-        return
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-child-account`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            firstName: newChildFirstName,
-            password: newChildPassword,
-            relationship: newChildRelationship,
-          }),
-        }
-      )
-      const result = await response.json()
-      if (result.success) {
-        showToast(`Compte créé pour ${newChildFirstName} !`)
-        setNewChildFirstName('')
-        setNewChildPassword('')
-        setNewChildConfirm('')
-        setShowCreateChild(false)
-        fetchChildren()
-      } else {
-        showToast(result.error || JSON.stringify(result), 'error')
-      }
-    } catch {
-      showToast('Erreur lors de la création', 'error')
-    } finally {
-      setCreateChildLoading(false)
-    }
-  }
-
   if (loading) return <p style={{ color: '#888' }}>Chargement...</p>
 
   return (
     <div>
 
       {/* 0. Créer un compte enfant */}
-      <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-          <h3 style={{ color: '#5c6bc0', margin: 0 }}>👶 Créer un compte enfant</h3>
-          <button
-            onClick={() => setShowCreateChild(v => !v)}
-            style={{ background: 'none', border: '1px solid #5c6bc0', color: '#5c6bc0', borderRadius: '0.5rem', padding: '0.35rem 0.75rem', cursor: 'pointer', fontSize: '0.85rem' }}
-          >
-            {showCreateChild ? 'Fermer' : '+ Créer'}
-          </button>
-        </div>
-        <p style={{ color: '#888', fontSize: '0.85rem', margin: '0 0 0.75rem' }}>
-          Ton enfant n'a pas d'email ? Crée-lui un compte directement ici.
-        </p>
-
-        {showCreateChild && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <input
-              type="text"
-              placeholder="Prénom de l'enfant"
-              value={newChildFirstName}
-              onChange={e => setNewChildFirstName(e.target.value)}
-              style={{ padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
-            />
-            <select
-              value={newChildRelationship}
-              onChange={e => setNewChildRelationship(e.target.value)}
-              style={{ padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
-            >
-              <option value="père">Père</option>
-              <option value="mère">Mère</option>
-              <option value="tuteur">Tuteur</option>
-              <option value="autre">Autre</option>
-            </select>
-            <input
-              type="password"
-              placeholder="Mot de passe"
-              value={newChildPassword}
-              onChange={e => setNewChildPassword(e.target.value)}
-              style={{ padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
-            />
-            <input
-              type="password"
-              placeholder="Confirmer le mot de passe"
-              value={newChildConfirm}
-              onChange={e => setNewChildConfirm(e.target.value)}
-              style={{ padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
-            />
-            <button
-              onClick={handleCreateChild}
-              disabled={createChildLoading || !newChildFirstName.trim() || !newChildPassword}
-              style={{ padding: '0.7rem', background: createChildLoading ? '#ccc' : '#5c6bc0', color: 'white', border: 'none', borderRadius: '0.5rem', fontWeight: 'bold', cursor: createChildLoading ? 'default' : 'pointer', fontSize: '0.9rem' }}
-            >
-              {createChildLoading ? 'Création...' : 'Créer le compte'}
-            </button>
-          </div>
-        )}
-      </div>
+      <ParentCreateChild onChildCreated={fetchChildren} />
 
       {/* 1. Mes enfants */}
-      <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-          <h3 style={{ color: '#2a9d8f', margin: 0 }}>👨‍👩‍👧 Mes enfants</h3>
-          <HelpBubble
-            title="Comment lier un compte enfant ?"
-            position="bottom"
-            content={
-              <div>
-                <p><strong>Option 1 — Par code</strong></p>
-                <ol style={{ paddingLeft: '1.2rem', margin: '0.5rem 0' }}>
-                  <li>Sélectionne la relation (Père, Mère...)</li>
-                  <li>Clique "Générer un code"</li>
-                  <li>Communique ce code à ton enfant</li>
-                  <li>L'enfant le saisit dans Paramètres → Comptes</li>
-                </ol>
-                <p><strong>Option 2 — Par lien</strong></p>
-                <ol style={{ paddingLeft: '1.2rem', margin: '0.5rem 0' }}>
-                  <li>Sélectionne la relation (Père, Mère...)</li>
-                  <li>Clique "Générer un lien"</li>
-                  <li>Envoie le lien à ton enfant (SMS, email...)</li>
-                  <li>L'enfant clique sur le lien et confirme</li>
-                </ol>
-                <p style={{ color: '#888', fontSize: '0.8rem', marginTop: '0.5rem' }}>
-                  Le code et le lien sont valables 48 heures.
-                </p>
-              </div>
-            }
-          />
-        </div>
-
-        {children.length === 0 ? (
-          <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucun enfant lié pour l'instant.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
-            {children.map(child => (
-              <div key={child.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--color-background)', borderRadius: '0.5rem' }}>
-                <div>
-                  <div style={{ fontWeight: 'bold', color: '#333' }}>{child.first_name}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#888' }}>{child.relationship}</div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    onClick={() => onSelectChild(child.id)}
-                    style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
-                  >
-                    Voir
-                  </button>
-                  <button
-                    onClick={() => removeChild(child.id)}
-                    style={{ padding: '0.4rem 0.8rem', background: 'none', color: '#e63946', border: '1px solid #e63946', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.8rem' }}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {children.length < 5 && (
-          <div>
-            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-              Génère un code et transmets-le à ton enfant pour lier les comptes.
-            </p>
-            <select
-              value={selectedRelationship}
-              onChange={e => setSelectedRelationship(e.target.value)}
-              style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.85rem', marginBottom: '0.5rem' }}
-            >
-              <option value="père">Père</option>
-              <option value="mère">Mère</option>
-              <option value="autre">Autre</option>
-            </select>
-
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <button
-                onClick={generateCode}
-                disabled={generatingCode}
-                style={{ flex: 1, padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                {generatingCode ? 'Génération...' : '+ Générer un code'}
-              </button>
-              <button
-                onClick={handleGenerateLink}
-                disabled={generatingLink}
-                style={{ flex: 1, padding: '0.6rem', background: 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-              >
-                {generatingLink ? 'Génération...' : '🔗 Générer un lien'}
-              </button>
-            </div>
-
-            {inviteCode && (
-              <div style={{ background: 'var(--color-background)', borderRadius: '0.5rem', padding: '0.75rem', textAlign: 'center', marginBottom: '0.5rem' }}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2a9d8f', letterSpacing: '0.3rem', marginBottom: '0.5rem' }}>
-                  {inviteCode.code}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#aaa', marginBottom: '0.5rem' }}>
-                  Expire le {new Date(inviteCode.expires_at).toLocaleDateString('fr-CH')}
-                </div>
-                <button
-                  onClick={copyCode}
-                  style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-                >
-                  {copied ? '✓ Copié !' : 'Copier le code'}
-                </button>
-              </div>
-            )}
-
-            {generatedLink && (
-              <div>
-                <div style={{ background: '#f0faf8', borderRadius: '0.5rem', padding: '0.75rem', marginTop: '0.5rem', fontSize: '0.8rem', color: '#2a9d8f', wordBreak: 'break-all', border: '1px solid #e0f0ee' }}>
-                  🔗 {generatedLink}
-                </div>
-                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem' }}>
-                  Valable 48 heures. Envoie ce lien à ton enfant par SMS, email ou WhatsApp.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {children.length >= 5 && (
-          <p style={{ color: '#aaa', fontSize: '0.8rem' }}>Maximum 5 enfants atteint.</p>
-        )}
-      </div>
+      <ParentChildren children={children} onSelectChild={onSelectChild} onChildRemoved={fetchChildren} />
 
       {/* 2. Récompenses IRL */}
       <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
