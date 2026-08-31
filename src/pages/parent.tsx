@@ -1,35 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { formatISODate, formatISODateTime } from '../lib/dates'
 import ChildTargetSelector from './parent/ChildTargetSelector'
 import ParentCreateChild from './parent/ParentCreateChild'
 import ParentChildren from './parent/ParentChildren'
+import ParentIrlRewards from './parent/ParentIrlRewards'
+import ParentPendingPurchases from './parent/ParentPendingPurchases'
 import type { Child } from './parent/types'
-
-interface IrlReward {
-  id: string
-  parent_id: string
-  name: string
-  cost: number
-  description?: string | null
-  stock: number
-  valid_until?: string | null
-  created_at: string
-}
-
-interface PendingPurchase {
-  id: string
-  child_id: string
-  reward_id: string
-  reward_name: string
-  cost: number
-  status: 'valid' | 'used'
-  purchased_at: string
-  used_at?: string | null
-  profiles?: { first_name: string | null } | null
-}
 
 interface IrlRewardSimple {
   id: string
@@ -58,18 +37,6 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
   const [children, setChildren] = useState<Child[]>([])
   const [loading, setLoading] = useState(true)
 
-  // IRL Rewards states
-  const [irlRewards, setIrlRewards] = useState<IrlReward[]>([])
-  const [showIrlForm, setShowIrlForm] = useState(false)
-  const [irlEditingId, setIrlEditingId] = useState<string | null>(null)
-  const [irlName, setIrlName] = useState('')
-  const [irlCost, setIrlCost] = useState('')
-  const [irlDescription, setIrlDescription] = useState('')
-  const [irlStock, setIrlStock] = useState('1')
-  const [irlValidUntil, setIrlValidUntil] = useState('')
-  const [targetMode, setTargetMode] = useState<'all' | 'specific'>('all')
-  const [targetChildren, setTargetChildren] = useState<string[]>([])
-
   // Missions states
   const [missions, setMissions] = useState<Mission[]>([])
   const [irlRewardsList, setIrlRewardsList] = useState<IrlRewardSimple[]>([])
@@ -86,14 +53,8 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
 
   const [showCompleted, setShowCompleted] = useState(false)
 
-  // Récompenses en attente
-  const [pendingPurchases, setPendingPurchases] = useState<PendingPurchase[]>([])
-  const [markingUsedId, setMarkingUsedId] = useState<string | null>(null)
-
   useEffect(() => {
     fetchChildren()
-    fetchIrlRewards()
-    fetchPendingPurchases()
     fetchMissions()
     fetchIrlRewardsList()
   }, [])
@@ -126,95 +87,6 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
       }
     }
     setLoading(false)
-  }
-
-  const fetchIrlRewards = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data } = await supabase.from('irl_rewards').select('*').eq('parent_id', user.id).order('name')
-    if (data) setIrlRewards(data)
-  }
-
-  const handleEditIrlReward = async (r: IrlReward) => {
-    setIrlName(r.name)
-    setIrlCost(String(r.cost))
-    setIrlDescription(r.description || '')
-    setIrlStock(String(r.stock ?? 1))
-    setIrlValidUntil(r.valid_until || '')
-    setIrlEditingId(r.id)
-
-    const { data: existingTargets } = await supabase
-      .from('irl_reward_children')
-      .select('child_id')
-      .eq('reward_id', r.id)
-
-    if (existingTargets && existingTargets.length > 0) {
-      setTargetMode('specific')
-      setTargetChildren(existingTargets.map((t: { child_id: string }) => t.child_id))
-    } else {
-      setTargetMode('all')
-      setTargetChildren([])
-    }
-
-    setShowIrlForm(true)
-  }
-
-  const handleSaveIrlReward = async () => {
-    if (!irlName || !irlCost) return
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const payload = {
-      name: irlName,
-      cost: parseInt(irlCost),
-      description: irlDescription || null,
-      stock: parseInt(irlStock) || 1,
-      valid_until: irlValidUntil || null,
-    }
-
-    let rewardId: string
-    if (irlEditingId) {
-      await supabase.from('irl_rewards').update(payload).eq('id', irlEditingId)
-      rewardId = irlEditingId
-      showToast('Récompense mise à jour')
-    } else {
-      const { data } = await supabase.from('irl_rewards').insert({ ...payload, parent_id: user.id }).select().single()
-      rewardId = data?.id
-      showToast('Récompense créée')
-    }
-
-    if (rewardId) {
-      await supabase.from('irl_reward_children').delete().eq('reward_id', rewardId)
-      if (targetMode === 'specific' && targetChildren.length > 0) {
-        await supabase.from('irl_reward_children').insert(
-          targetChildren.map(childId => ({ reward_id: rewardId, child_id: childId }))
-        )
-      }
-    }
-
-    setIrlName(''); setIrlCost(''); setIrlDescription(''); setIrlStock('1'); setIrlValidUntil('')
-    setIrlEditingId(null); setShowIrlForm(false)
-    setTargetMode('all'); setTargetChildren([])
-    fetchIrlRewards()
-  }
-
-  const handleDeleteIrlReward = async (rewardId: string) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { error } = await supabase
-      .from('irl_rewards')
-      .delete()
-      .eq('id', rewardId)
-      .eq('parent_id', user.id)
-
-    if (error) {
-      console.error('Delete error:', error)
-      showToast('Erreur lors de la suppression', 'error')
-      return
-    }
-
-    showToast('Récompense supprimée')
-    await fetchIrlRewards()
   }
 
   const fetchMissions = async () => {
@@ -348,33 +220,6 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
     fetchMissions()
   }
 
-  const fetchPendingPurchases = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data: links } = await supabase
-      .from('parent_child').select('child_id').eq('parent_id', user.id)
-    const childIds = links?.map(l => l.child_id) || []
-    if (childIds.length === 0) { setPendingPurchases([]); return }
-
-    const [purchasesRes, profilesRes] = await Promise.all([
-      supabase.from('irl_purchases').select('*').in('child_id', childIds).eq('status', 'valid').order('purchased_at', { ascending: false }),
-      supabase.from('profiles').select('id, first_name').in('id', childIds),
-    ])
-
-    const firstNames = new Map((profilesRes.data || []).map(p => [p.id, p.first_name]))
-    const enriched = (purchasesRes.data || []).map(p => ({ ...p, profiles: { first_name: firstNames.get(p.child_id) || null } }))
-    setPendingPurchases(enriched)
-  }
-
-  const handleMarkUsed = async (purchase: PendingPurchase) => {
-    setMarkingUsedId(purchase.id)
-    await supabase.from('irl_purchases').update({ status: 'used', used_at: new Date().toISOString() }).eq('id', purchase.id)
-    showToast('Récompense marquée comme utilisée')
-    await fetchPendingPurchases()
-    setMarkingUsedId(null)
-  }
-
   if (loading) return <p style={{ color: '#888' }}>Chargement...</p>
 
   return (
@@ -387,141 +232,10 @@ export default function ParentDashboard({ onSelectChild }: { onSelectChild: (chi
       <ParentChildren children={children} onSelectChild={onSelectChild} onChildRemoved={fetchChildren} />
 
       {/* 2. Récompenses IRL */}
-      <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ color: '#2a9d8f', margin: 0 }}>🎁 Récompenses IRL</h3>
-          <button
-            onClick={() => {
-              if (showIrlForm) {
-                setShowIrlForm(false); setIrlEditingId(null)
-                setIrlName(''); setIrlCost(''); setIrlDescription(''); setIrlStock('1'); setIrlValidUntil('')
-                setTargetMode('all'); setTargetChildren([])
-              } else {
-                setShowIrlForm(true)
-              }
-            }}
-            style={{ padding: '0.4rem 0.9rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-          >
-            {showIrlForm ? '✕ Annuler' : '+ Ajouter'}
-          </button>
-        </div>
-
-        {showIrlForm && (
-          <div style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <input
-              type="text" placeholder="Nom de la récompense" value={irlName}
-              onChange={e => setIrlName(e.target.value)}
-              style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
-            />
-            <input
-              type="number" placeholder="Coût en Digoos" min={1} value={irlCost}
-              onChange={e => setIrlCost(e.target.value)}
-              style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
-            />
-            <textarea
-              placeholder="Description (facultatif)" value={irlDescription}
-              onChange={e => setIrlDescription(e.target.value)}
-              style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem', resize: 'vertical', height: '70px' }}
-            />
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.25rem' }}>Quantité disponible</label>
-              <input
-                type="number" min={1} value={irlStock}
-                onChange={e => setIrlStock(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.25rem' }}>Valable jusqu'au</label>
-              <input
-                type="date" value={irlValidUntil}
-                onChange={e => setIrlValidUntil(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
-              />
-            </div>
-            <ChildTargetSelector
-              children={children}
-              mode={targetMode}
-              selectedIds={targetChildren}
-              onModeChange={setTargetMode}
-              onToggle={(childId, checked) => setTargetChildren(prev =>
-                checked ? [...prev, childId] : prev.filter(id => id !== childId)
-              )}
-            />
-            <button
-              onClick={handleSaveIrlReward}
-              style={{ padding: '0.6rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-            >
-              {irlEditingId ? 'Mettre à jour' : 'Enregistrer'}
-            </button>
-          </div>
-        )}
-
-        {irlRewards.length === 0 ? (
-          <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucune récompense définie.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {irlRewards.map(r => (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--color-background)', borderRadius: '0.75rem' }}>
-                <div>
-                  <div style={{ fontWeight: 'bold', color: '#333' }}>{r.name}</div>
-                  {r.description && <div style={{ fontSize: '0.82rem', color: '#888' }}>{r.description}</div>}
-                  <div style={{ fontSize: '0.82rem', color: '#e9c46a', fontWeight: 'bold', marginTop: '0.15rem' }}>{r.cost} Digoos</div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => handleEditIrlReward(r)} style={{ background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.4rem', padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center' }}><Pencil size={14} /></button>
-                  <button onClick={() => handleDeleteIrlReward(r.id)} style={{ background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.4rem', padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center' }}><Trash2 size={14} /></button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <ParentIrlRewards children={children} onRewardsChanged={fetchIrlRewardsList} />
 
       {/* 3. Récompenses en attente */}
-      <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
-        <h3 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>⏳ Récompenses en attente</h3>
-
-        {pendingPurchases.length === 0 ? (
-          <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Aucune récompense en attente.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {pendingPurchases.map(p => (
-              <div
-                key={p.id}
-                style={{
-                  background: 'white', border: '2px dashed #2a9d8f', borderRadius: '0.75rem',
-                  padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  flexWrap: 'wrap', gap: '0.75rem',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 'bold', color: '#333' }}>🎁 {p.reward_name}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#888' }}>
-                    {p.profiles?.first_name || 'Enfant'} · Acheté le {formatISODate(p.purchased_at)}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{ borderLeft: '1px dashed #ccc', alignSelf: 'stretch' }} />
-                  <span style={{ background: '#e9c46a', color: 'white', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                    {p.cost} Digoos
-                  </span>
-                  <span style={{ background: 'var(--color-background)', color: '#2a9d8f', borderRadius: '1rem', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                    ✓ Valable
-                  </span>
-                  <button
-                    onClick={() => handleMarkUsed(p)}
-                    disabled={markingUsedId === p.id}
-                    style={{ padding: '0.4rem 0.8rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: markingUsedId === p.id ? 'default' : 'pointer', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
-                  >
-                    {markingUsedId === p.id ? '...' : 'Marquer comme utilisée'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <ParentPendingPurchases />
 
       {/* 4. Missions */}
       <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
