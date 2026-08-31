@@ -34,3 +34,25 @@ export interface PendingPurchase {
   used_at?: string | null
   profiles?: { first_name: string | null } | null
 }
+
+export interface IrlRewardSimple {
+  id: string
+  name: string
+  cost: number
+}
+
+export interface Mission {
+  id: string
+  parent_id: string
+  child_id: string
+  name: string
+  description: string
+  deadline: string
+  reward_type: 'digoos' | 'irl_reward'
+  reward_amount: number | null
+  reward_irl_id: string | null
+  status: 'pending' | 'claimed' | 'completed'
+  claimed_at: string | null
+  completed_at: string | null
+  profiles?: { first_name: string | null } | null
+}
