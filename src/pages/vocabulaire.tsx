@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Delta } from '../components/Delta'
 import { EmptyState } from '../components/EmptyState'
 import { supabase } from '../lib/supabase'
@@ -70,6 +70,8 @@ export default function Vocabulaire({ guestMode, guestListId, onGameEnd }: Guest
   const [userInterests, setUserInterests] = useState<string[]>([])
   const [userFirstName, setUserFirstName] = useState('')
 
+  const inputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -92,6 +94,8 @@ export default function Vocabulaire({ guestMode, guestListId, onGameEnd }: Guest
       fetchLists()
     }
   }, [])
+
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100) }, [questionNum, gameState])
 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -440,7 +444,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           onKeyDown={handleKey}
           disabled={!!feedback}
           placeholder="Écris le mot manquant..."
-          autoFocus
+          ref={inputRef}
           style={{
             width: '100%', padding: '0.85rem 1rem',
             border: feedback ? `2px solid ${feedback.correct ? '#2a9d8f' : '#e63946'}` : '2px solid var(--color-border)',

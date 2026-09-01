@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Delta } from '../components/Delta'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
@@ -114,6 +114,8 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
   const [earnedDigoos, setEarnedDigoos] = useState(0)
 
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const startGame = () => {
     if (!selectedExercise) return
     const generator = GENERATORS[selectedExercise]
@@ -130,6 +132,8 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
 
   // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => { if (guestMode && initialExercise) startGame() }, [])
+
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100) }, [currentIndex, gameState])
 
   const finaliser = async (finalResults: boolean[], finalStreak: number) => {
     if (guestMode) {
@@ -334,7 +338,7 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
           value={userAnswer}
           onChange={e => setUserAnswer(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !feedback && userAnswer && checkAnswer()}
-          autoFocus
+          ref={inputRef}
           disabled={!!feedback}
           placeholder="Ta réponse..."
           style={{

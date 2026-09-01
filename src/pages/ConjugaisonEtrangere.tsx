@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Delta } from '../components/Delta'
 import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
@@ -98,6 +98,8 @@ export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLang
   const [showHighscore, setShowHighscore] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
 
+  const inputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     if (guestMode && guestListId) {
       setSelectedList(guestListId)
@@ -121,6 +123,8 @@ export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLang
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTenses])
+
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100) }, [current, gameState])
 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -447,7 +451,7 @@ Réponds UNIQUEMENT en JSON valide :
           onKeyDown={handleKey}
           disabled={!!feedback}
           placeholder="Forme conjuguée..."
-          autoFocus
+          ref={inputRef}
           style={{
             width: '100%', padding: '0.85rem 1rem',
             border: feedback ? `2px solid ${feedback.correct ? '#2a9d8f' : '#e63946'}` : '2px solid var(--color-border)',
