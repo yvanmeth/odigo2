@@ -32,6 +32,7 @@ import CarteSuisse from '../CarteSuisse'
 import DefiHistoireGeo from '../DefiHistoireGeo'
 import ConjugaisonEtrangere from '../ConjugaisonEtrangere'
 import AnagrammeFrancais from '../AnagrammeFrancais'
+import { switchToChildSession } from '../../lib/childSession'
 import Sidebar from './Sidebar'
 import OnboardingModal from './OnboardingModal'
 import ExerciseCards from './ExerciseCards'
@@ -440,7 +441,7 @@ export default function Dashboard({ session }: Props) {
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         }}>
           {activePage === 'parent' && isParent && (
-            <ParentDashboard onSelectChild={() => {}} />
+            <ParentDashboard onSelectChild={(id) => { if (id) switchToChildSession(id) }} />
           )}
 
           {activePage === 'dashboard' && <Home />}
