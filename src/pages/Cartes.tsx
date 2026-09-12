@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Delta } from '../components/Delta'
 import { supabase } from '../lib/supabase'
-import { deductDigoos } from '../services/digoos'
 import { useToast } from '../components/Toast'
 
 const PRIMARY = '#2a9d8f'
@@ -98,7 +97,7 @@ export default function Cartes() {
         species:species (name)
       `).order('number'),
       supabase.from('user_cards').select('id, card_id, quantity').eq('user_id', targetId),
-      supabase.from('progress').select('digoos').eq('user_id', targetId).single(),
+      supabase.from('progress').select('digoos').eq('user_id', targetId).maybeSingle(),
     ])
 
     setCards(cardsData || [])
@@ -119,37 +118,12 @@ export default function Cartes() {
 
   useEffect(() => { fetchData(true) }, [])
 
-  const startFlip = async (drawn: CardData) => {
+  const startFlip = (drawn: CardData) => {
     setDrawModal(prev => ({ ...prev, phase: 'flipping' }))
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const targetId = user.id
-
-    const existing = userCards.find(uc => uc.card_id === drawn.id)
-    const isNew = !existing
-    const newQuantity = existing ? existing.quantity + 1 : 1
-
-    if (existing) {
-      await supabase.from('user_cards')
-        .update({ quantity: existing.quantity + 1 })
-        .eq('id', existing.id)
-    } else {
-      await supabase.from('user_cards').insert({
-        user_id: targetId,
-        card_id: drawn.id,
-        purchased_price: DRAW_PRICE,
-        quantity: 1,
-      })
-      await supabase.from('cards')
-        .update({ stock_remaining: drawn.stock_remaining - 1 })
-        .eq('id', drawn.id)
-    }
-
     setFlipped(prev => ({ ...prev, [drawn.id]: true }))
 
     setTimeout(() => {
-      setDrawModal(prev => ({ ...prev, phase: 'revealed', isNew, newQuantity }))
+      setDrawModal(prev => ({ ...prev, phase: 'revealed' }))
       fetchData()
     }, 1200)
   }
@@ -168,9 +142,19 @@ export default function Cartes() {
     const drawn = available[Math.floor(Math.random() * available.length)]
     const targetIndex = Math.floor(Math.random() * 12)
 
-    await deductDigoos(DRAW_PRICE)
+    const { data: rpcData, error: rpcError } = await supabase.rpc('draw_card_atomic', {
+      p_card_id: drawn.id,
+      p_price: DRAW_PRICE,
+    })
 
-    setDrawModal({ open: true, phase: 'spinning', highlightedIndex: 0, drawnCard: drawn, isNew: false, newQuantity: 1 })
+    if (rpcError || !rpcData) {
+      showToast(rpcError?.message || 'Erreur lors du tirage. Réessaie !', 'error')
+      return
+    }
+
+    const result = rpcData as { is_new: boolean; new_quantity: number; remaining_digoos: number }
+    setDigoos(result.remaining_digoos)
+    setDrawModal({ open: true, phase: 'spinning', highlightedIndex: 0, drawnCard: drawn, isNew: result.is_new, newQuantity: result.new_quantity })
 
     const totalSteps = 32
     let step = 0
@@ -249,6 +233,9 @@ export default function Cartes() {
         </button>
         <p style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '0.5rem' }}>
           Une carte au hasard parmi toutes celles disponibles. Les doublons sont possibles !
+        </p>
+        <p style={{ fontSize: '0.75rem', color: '#e76f51', marginTop: '0.25rem', fontWeight: 'bold' }}>
+          ⚠️ Résultat définitif dès le lancement !
         </p>
       </div>
 

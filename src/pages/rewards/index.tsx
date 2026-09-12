@@ -32,7 +32,7 @@ export default function Rewards({ onNavigate }: { onNavigate?: (page: string, ex
       .from('progress')
       .select('*')
       .eq('user_id', targetId)
-      .single()
+      .maybeSingle()
 
     if (data) {
       const updated = await checkWeekReset(data, targetId)

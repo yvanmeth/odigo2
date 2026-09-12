@@ -182,7 +182,7 @@ export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps
       .from('progress')
       .select('last_card_sale_date, last_card_sale_week, digoos_this_week')
       .eq('user_id', targetId)
-      .single()
+      .maybeSingle()
 
     const { count: todayActivity } = await supabase
       .from('daily_activity')

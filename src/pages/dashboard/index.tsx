@@ -289,7 +289,7 @@ export default function Dashboard({ session }: Props) {
       .from('progress')
       .select('digoos')
       .eq('user_id', session.user.id)
-      .single()
+      .maybeSingle()
     if (data) setDigoos(data.digoos)
   }
 

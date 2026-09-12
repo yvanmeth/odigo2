@@ -275,7 +275,7 @@ export default function Histoire() {
         .from('progress')
         .select('digoos')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
       if (progress) setDigoos(progress.digoos || 0)
     }

@@ -97,7 +97,7 @@ export default function Home() {
 
     const [progressRes, evalsRes, revisionsRes, eventsRes, remindersRes, activityRes, fixedRes, prefsRes, profileRes, missionsRes] =
       await Promise.all([
-        supabase.from('progress').select('week_streak, digoos_this_week, digoos, record_days, record_weeks, record_months').eq('user_id', targetId).single(),
+        supabase.from('progress').select('week_streak, digoos_this_week, digoos, record_days, record_weeks, record_months').eq('user_id', targetId).maybeSingle(),
         supabase.from('evaluations').select('*').eq('user_id', targetId).order('evaluation_date'),
         supabase.from('revisions').select('*').eq('user_id', targetId).order('revision_date'),
         supabase.from('events').select('*').eq('user_id', targetId).order('event_date'),

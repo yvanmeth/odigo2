@@ -35,7 +35,7 @@ export const addDigoos = async (
     .from('progress')
     .select('digoos, digoos_this_week')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
   if (data) {
     await supabase.from('progress').update({
@@ -70,7 +70,7 @@ export const deductDigoos = async (amount: number) => {
     .from('progress')
     .select('digoos, digoos_this_week')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
   if (!data) return
 

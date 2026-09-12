@@ -117,7 +117,7 @@ export default function Companion({ userId, currentPage, hasNotification, notifi
       case '/digoos': {
         const { data: prog } = await supabase
           .from('progress').select('digoos, digoos_this_week')
-          .eq('user_id', userId).single()
+          .eq('user_id', userId).maybeSingle()
         response = `⚡ Ton solde : ${prog?.digoos || 0} Δ\n` +
           `Cette semaine : ${prog?.digoos_this_week || 0} Δ\n\n` +
           `Pour en gagner plus : fais des exercices, utilise le planificateur, ou réclame tes récompenses de jours/semaines/mois actifs dans Progrès et récompenses !`
@@ -136,7 +136,7 @@ export default function Companion({ userId, currentPage, hasNotification, notifi
           supabase.from('daily_activity').select('*', { count: 'exact', head: true })
             .eq('user_id', userId).eq('action_type', 'exercise_completed')
             .gte('date', mondayStr).lte('date', sundayStr),
-          supabase.from('progress').select('digoos_this_week').eq('user_id', userId).single(),
+          supabase.from('progress').select('digoos_this_week').eq('user_id', userId).maybeSingle(),
         ])
         response = `⚡ Ta semaine :\n\n` +
           `🎯 ${actRes.count || 0} exercice(s) complété(s)\n` +
