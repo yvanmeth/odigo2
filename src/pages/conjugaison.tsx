@@ -84,34 +84,48 @@ interface ValidationResult {
 }
 
 const validerReponse = (input: string, q: Question): ValidationResult => {
-  const { pronom, forme } = parseReponse(input)
-  const erreurPronom = pronom !== null && !pronominCorrect(pronom, q.personne)
+  const isSubjonctif = q.temps.toLowerCase().includes('subjonctif')
+  const isImperatif  = q.temps.toLowerCase().includes('impératif')
 
-  // La forme saisie correspond-elle à l'une des variantes ?
+  // Strip "que "/"qu'" propre au subjonctif avant parsing
+  const cleanInput = isSubjonctif ? input.replace(/^(que\s+|qu')\s*/i, '') : input
+
+  const { pronom, forme: formeRaw } = parseReponse(cleanInput)
+
+  // Strip "!" optionnel à l'impératif
+  const forme = isImperatif ? formeRaw.replace(/\s*!$/, '').trim() : formeRaw
+
+  // À l'impératif le pronom est toléré sans pénalité
+  const erreurPronom = !isImperatif && pronom !== null && !pronominCorrect(pronom, q.personne)
   const formeOk = q.reponses.some(r => forme.trim() === r.trim())
-  const correct = formeOk && !erreurPronom
+  const correct  = formeOk && !erreurPronom
 
-  // Affichage condensé des variantes : "suis allé(e)(s)"
-  const reponsesAffichage = buildReponsesAffichage(q.reponses, q.personne)
-
+  const reponsesAffichage = buildReponsesAffichage(q.reponses, q.personne, q.temps)
   return { correct, erreurPronom, pronomSaisi: pronom, formeSaisie: forme, reponsesAffichage }
 }
 
-// Construit un affichage compact des variantes ex: ["suis allé","suis allée"] → "suis allé(e)"
-const buildReponsesAffichage = (reponses: string[], personne: string): string => {
+const longestCommonPrefix = (strs: string[]): string => {
+  if (strs.length === 0) return ''
+  let prefix = strs[0]
+  for (let i = 1; i < strs.length; i++) {
+    while (!strs[i].startsWith(prefix)) prefix = prefix.slice(0, -1)
+    if (prefix === '') return ''
+  }
+  return prefix
+}
+
+// Construit un affichage compact ex: ["suis allé","suis allée"] → "je suis allé(e)"
+// base = plus long préfixe commun ; suffixes non-vides entre parenthèses
+const buildReponsesAffichage = (reponses: string[], personne: string, temps?: string): string => {
   if (reponses.length === 0) return ''
+  const isImperatif = temps?.toLowerCase().includes('impératif') ?? false
+  const pronomAttendu = isImperatif ? '' : (PRONOMS[personne]?.[0] ?? '')
   if (reponses.length === 1) {
-    const pronomAttendu = PRONOMS[personne]?.[0] ?? ''
     return pronomAttendu ? `${pronomAttendu} ${reponses[0]}` : reponses[0]
   }
-  // Trouver la base commune et les suffixes variables
-  const base = reponses[0]
-  const pronomAttendu = PRONOMS[personne]?.[0] ?? ''
-  const suffixes = reponses.map(r => r.slice(base.length))
-  const uniqueSuffixes = [...new Set(suffixes)].filter(s => s !== '')
-  const compact = uniqueSuffixes.length > 0
-    ? `${base}(${uniqueSuffixes.join('/').replace(/^\(/, '')})`
-    : base
+  const base = longestCommonPrefix(reponses)
+  const uniqueSuffixes = [...new Set(reponses.map(r => r.slice(base.length)))].filter(s => s !== '')
+  const compact = uniqueSuffixes.length > 0 ? `${base}(${uniqueSuffixes.join('/')})` : base
   return pronomAttendu ? `${pronomAttendu} ${compact}` : compact
 }
 

@@ -32,6 +32,7 @@ import CarteSuisse from '../CarteSuisse'
 import DefiHistoireGeo from '../DefiHistoireGeo'
 import ConjugaisonEtrangere from '../ConjugaisonEtrangere'
 import AnagrammeFrancais from '../AnagrammeFrancais'
+import { formatDateDMY, toDateStr } from '../../lib/dates'
 import { switchToChildSession } from '../../lib/childSession'
 import Sidebar from './Sidebar'
 import OnboardingModal from './OnboardingModal'
@@ -215,6 +216,41 @@ export default function Dashboard({ session }: Props) {
         .gt('available_from', lastSeen.split('T')[0])
       if (newCards && newCards > 0) {
         messages.push('🎴 Une nouvelle carte ODIGO est disponible !')
+      }
+    }
+
+    // Rappels selon odigo_remind
+    const { data: reminders } = await supabase
+      .from('reminders')
+      .select('title, deadline_date, odigo_remind')
+      .eq('user_id', userId)
+      .eq('completed', false)
+      .neq('odigo_remind', 'never')
+
+    if (reminders && reminders.length > 0) {
+      const todayDate = new Date()
+      todayDate.setHours(0, 0, 0, 0)
+      const todayStr = toDateStr(todayDate)
+      const tomorrowDate = new Date(todayDate)
+      tomorrowDate.setDate(todayDate.getDate() + 1)
+      const tomorrowStr = toDateStr(tomorrowDate)
+      const in7DaysDate = new Date(todayDate)
+      in7DaysDate.setDate(todayDate.getDate() + 7)
+      const in7DaysStr = toDateStr(in7DaysDate)
+
+      for (const r of reminders) {
+        const deadline = r.deadline_date as string
+        let shouldNotify = false
+        if (r.odigo_remind === 'each_login') {
+          shouldNotify = true
+        } else if (r.odigo_remind === 'one_day') {
+          shouldNotify = deadline >= todayStr && deadline <= tomorrowStr
+        } else if (r.odigo_remind === 'one_week') {
+          shouldNotify = deadline >= todayStr && deadline <= in7DaysStr
+        }
+        if (shouldNotify) {
+          messages.push(`📅 Rappel : ${r.title} — avant le ${formatDateDMY(deadline)}`)
+        }
       }
     }
 
