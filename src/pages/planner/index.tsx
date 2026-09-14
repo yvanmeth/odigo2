@@ -8,7 +8,7 @@ import PlannerCalendar from './PlannerCalendar'
 
 export default function Planner({ isParent: _isParent }: { isParent?: boolean }) {
   const { showToast } = useToast()
-  const [view, setPlannerView] = useState<PlannerView>('list')
+  const [view, setPlannerView] = useState<PlannerView>('calendar')
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
   const [events, setEvents] = useState<AppEvent[]>([])
@@ -95,8 +95,8 @@ export default function Planner({ isParent: _isParent }: { isParent?: boolean })
       {/* Barre supérieure — toggle liste / calendrier */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ display: 'flex', gap: '0.2rem', background: 'var(--color-background)', borderRadius: '0.5rem', padding: '0.2rem' }}>
-          <button style={viewToggle('list')} onClick={() => setPlannerView('list')}>📋 Liste</button>
-          <button style={viewToggle('calendar')} onClick={() => setPlannerView('calendar')}>📅 Calendrier</button>
+          <button style={viewToggle('calendar')} onClick={() => setPlannerView('calendar')}>📅 Vue calendrier</button>
+          <button style={viewToggle('list')} onClick={() => setPlannerView('list')}>📋 Vue liste</button>
         </div>
       </div>
 
