@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { parseLocalDate } from '../../lib/dates'
+import { parseLocalDate, formatFullDateTime } from '../../lib/dates'
 import type { Evaluation, Revision, AppEvent, Reminder, SubjectOption, Tab, CalendarItem } from './types'
 import { ODIGO_REMIND_LABELS, formatDate, PLANNER_COLORS } from './types'
 import { logActivity } from '../../services/activity'
@@ -10,6 +10,7 @@ import { useToast } from '../../components/Toast'
 import { EmptyState } from '../../components/EmptyState'
 import { Delta } from '../../components/Delta'
 import { type PlannerMission, getDefaultEndOfSchoolYear, getDefaultYearlyEnd } from './helpers'
+import CalendarCreateModal from './CalendarCreateModal'
 
 const formatMissionDeadline = (deadline: string): string => {
   const d = new Date(deadline)
@@ -28,6 +29,7 @@ interface Props {
   subjects: SubjectOption[]
   missions: PlannerMission[]
   onRefresh: () => void
+  userId: string
   onDelete: (table: string, id: string) => void
   onDeleteEvent: (event: AppEvent, mode: 'single' | 'following' | 'all') => void
   pendingEditItem: CalendarItem | null
@@ -39,9 +41,9 @@ const modalChoiceBtnStyle: React.CSSProperties = {
   background: 'var(--color-border)', color: '#2a9d8f', fontSize: '0.88rem', textAlign: 'left', fontWeight: 'bold',
 }
 
-export default function PlannerList({ evaluations, revisions, events, reminders, subjects, missions, onRefresh, onDelete, onDeleteEvent, pendingEditItem, onPendingEditConsumed }: Props) {
+export default function PlannerList({ evaluations, revisions, events, reminders, subjects, missions, userId, onRefresh, onDelete, onDeleteEvent, pendingEditItem, onPendingEditConsumed }: Props) {
   const { showToast } = useToast()
-  const [activeTab, setActiveTab] = useState<Tab>('evaluations')
+  const [activeTab, setActiveTab] = useState<Tab>('all')
 
   const handleClaimMission = async (missionId: string) => {
     await supabase.from('missions').update({ status: 'claimed', claimed_at: new Date().toISOString() }).eq('id', missionId)
@@ -146,6 +148,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
     } else if (pendingEditItem.type === 'mission') {
       setActiveTab('missions')
     }
+    setShowCreateModal(false)
     onPendingEditConsumed()
   }, [pendingEditItem])
 
@@ -163,6 +166,8 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
     }
   }, [evtRepeatYearly])
 
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [eventsWindowDays, setEventsWindowDays] = useState(30)
   const closeForm = () => { setShowForm(false); setEditingId(null); setEditSeriesModal({ event: null, mode: null }) }
   const getSubjectName = (id: unknown) => subjects.find(s => String(s.id) === String(id))?.name || '?'
 
@@ -317,6 +322,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
     background: 'white', borderRadius: '0.75rem', padding: '1rem 1.25rem',
     boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '0.75rem',
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    textAlign: 'left' as const,
   }
 
   const actionBtnStyle = {
@@ -335,16 +341,43 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
     return eventDate >= today && eventDate <= limitDate
   })
 
+  const allWindowLimitDate = new Date(today)
+  allWindowLimitDate.setDate(allWindowLimitDate.getDate() + eventsWindowDays)
+  const allWindowEvents = events.filter(e => {
+    const eventDate = parseLocalDate(e.event_date)
+    return eventDate >= today && eventDate <= allWindowLimitDate
+  })
+
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+  type AllItem =
+    | { type: 'evaluation'; date: string; raw: Evaluation }
+    | { type: 'revision'; date: string; raw: Revision }
+    | { type: 'event'; date: string; raw: AppEvent }
+    | { type: 'reminder'; date: string; raw: Reminder }
+
+  const allItems: AllItem[] = [
+    ...evaluations.filter(e => e.evaluation_date >= todayStr)
+      .map(e => ({ type: 'evaluation' as const, date: e.evaluation_date, raw: e })),
+    ...revisions.filter(r => r.revision_date >= todayStr)
+      .map(r => ({ type: 'revision' as const, date: r.revision_date, raw: r })),
+    ...allWindowEvents
+      .map(e => ({ type: 'event' as const, date: e.event_date, raw: e })),
+    ...reminders.filter(r => !r.completed && r.deadline_date >= todayStr)
+      .map(r => ({ type: 'reminder' as const, date: r.deadline_date, raw: r })),
+  ].sort((a, b) => a.date.localeCompare(b.date))
+
   return (
     <div>
       {/* Onglets */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '1rem' }}>
-        <button style={tabStyle('evaluations')} onClick={() => { setActiveTab('evaluations'); closeForm() }}>📝 Évaluations</button>
-        <button style={tabStyle('revisions')} onClick={() => { setActiveTab('revisions'); closeForm() }}>📖 Révisions</button>
-        <button style={tabStyle('events')} onClick={() => { setActiveTab('events'); closeForm() }}>📅 Événements</button>
-        <button style={tabStyle('reminders')} onClick={() => { setActiveTab('reminders'); closeForm() }}>✅ Rappels</button>
+        <button style={tabStyle('all')} onClick={() => { setActiveTab('all'); closeForm(); setShowCreateModal(false) }}>📋 Tout</button>
+        <button style={tabStyle('evaluations')} onClick={() => { setActiveTab('evaluations'); closeForm(); setShowCreateModal(false) }}>📝 Évaluations</button>
+        <button style={tabStyle('revisions')} onClick={() => { setActiveTab('revisions'); closeForm(); setShowCreateModal(false) }}>📖 Révisions</button>
+        <button style={tabStyle('events')} onClick={() => { setActiveTab('events'); closeForm(); setShowCreateModal(false) }}>📅 Événements</button>
+        <button style={tabStyle('reminders')} onClick={() => { setActiveTab('reminders'); closeForm(); setShowCreateModal(false) }}>✅ Rappels</button>
         {missions.length > 0 && (
-          <button style={tabStyle('missions')} onClick={() => { setActiveTab('missions'); closeForm() }}>🎯 Missions</button>
+          <button style={tabStyle('missions')} onClick={() => { setActiveTab('missions'); closeForm(); setShowCreateModal(false) }}>🎯 Missions</button>
         )}
       </div>
 
@@ -352,10 +385,18 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
       {activeTab !== 'missions' && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
           <button
-            onClick={() => { if (showForm) { closeForm() } else { setShowForm(true) } }}
+            onClick={() => {
+              if (activeTab === 'all') {
+                if (showForm) closeForm()
+                setShowCreateModal(prev => !prev)
+              } else {
+                setShowCreateModal(false)
+                if (showForm) { closeForm() } else { setShowForm(true) }
+              }
+            }}
             style={{ padding: '0.6rem 1.2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
           >
-            {showForm ? '✕ Annuler' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Plus size={16} />Ajouter</span>}
+            {(activeTab === 'all' ? showCreateModal : showForm) ? '✕ Annuler' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Plus size={16} />Ajouter</span>}
           </button>
         </div>
       )}
@@ -479,6 +520,104 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
           </select>
           <button onClick={handleSaveReminder} style={{ width: '100%', padding: '0.75rem', background: PLANNER_COLORS.reminder, color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
             {editingId ? 'Mettre à jour' : 'Enregistrer'}
+          </button>
+        </div>
+      )}
+
+      {/* Vue tout — liste chronologique multi-type */}
+      {activeTab === 'all' && (
+        <div>
+          <p style={{ fontSize: '0.82rem', color: '#aaa', textAlign: 'center', margin: '0 0 0.75rem' }}>
+            Événements des {eventsWindowDays} prochains jours
+          </p>
+          {allItems.length === 0 && (
+            <EmptyState emoji="📋" title="Rien à venir" subtitle="Ajoute des évaluations, révisions, événements ou rappels pour les voir ici." actionLabel="+ Ajouter" onAction={() => setShowCreateModal(true)} />
+          )}
+          {allItems.map(item => {
+            const color = PLANNER_COLORS[item.type]
+            const typeLabel = { evaluation: '📝 Évaluation', revision: '📖 Révision', event: '📅 Événement', reminder: '🔔 Rappel' }[item.type]
+            if (item.type === 'evaluation') {
+              const e = item.raw
+              return (
+                <div key={`eval-${e.id}`} style={{ ...cardStyle, borderLeft: `4px solid ${color}` }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.72rem', color, fontWeight: 'bold', marginBottom: '0.15rem' }}>{typeLabel}</div>
+                    <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '0.2rem' }}>{formatFullDateTime(e.evaluation_date, e.start_time || undefined, e.end_time || undefined)}</div>
+                    <div style={{ fontWeight: 'bold', color: '#333' }}>{getSubjectName(e.subject_id)} — {e.topic}</div>
+                    {e.readiness !== null && e.readiness !== undefined && <div style={{ fontSize: '0.82rem', color: '#2a9d8f' }}>Note attendue : {e.readiness}/6</div>}
+                    {e.grade !== null && e.grade !== undefined && <div style={{ fontSize: '0.82rem', color: '#2a9d8f' }}>Note obtenue : {e.grade}/6</div>}
+                  </div>
+                </div>
+              )
+            }
+            if (item.type === 'revision') {
+              const r = item.raw
+              return (
+                <div key={`rev-${r.id}`} style={{ ...cardStyle, borderLeft: `4px solid ${color}` }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.72rem', color, fontWeight: 'bold', marginBottom: '0.15rem' }}>{typeLabel}</div>
+                    <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '0.2rem' }}>{formatFullDateTime(r.revision_date, r.start_time || undefined, r.end_time || undefined)}</div>
+                    {r.details && <div style={{ fontWeight: 'bold', color: '#333' }}>{r.details}</div>}
+                    <div style={{ fontSize: '0.82rem', color: r.completed ? '#2a9d8f' : '#e63946' }}>{r.completed ? '✓ Fait' : '○ À faire'}</div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const completed = !r.completed
+                      await supabase.from('revisions').update({ completed }).eq('id', r.id)
+                      await logActivity({ action_type: 'revision_checked', metadata: { completed } })
+                      if (completed) await addPlannerDigoos('revision_checked')
+                      onRefresh()
+                    }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', flexShrink: 0 }}
+                  >
+                    {r.completed ? '✅' : '⬜'}
+                  </button>
+                </div>
+              )
+            }
+            if (item.type === 'event') {
+              const ev = item.raw
+              return (
+                <div key={`evt-${ev.id}`} style={{ ...cardStyle, borderLeft: `4px solid ${color}` }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.72rem', color, fontWeight: 'bold', marginBottom: '0.15rem' }}>{typeLabel}</div>
+                    <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '0.2rem' }}>{formatFullDateTime(ev.event_date, ev.start_time || undefined, ev.end_time || undefined)}</div>
+                    <div style={{ fontWeight: 'bold', color: '#333' }}>
+                      {ev.title}
+                      {ev.recurrence_id && <span style={{ fontSize: '0.65rem', marginLeft: '0.3rem', opacity: 0.7 }}>🔁</span>}
+                    </div>
+                    {ev.details && <div style={{ fontSize: '0.85rem', color: '#888' }}>{ev.details}</div>}
+                  </div>
+                </div>
+              )
+            }
+            if (item.type === 'reminder') {
+              const r = item.raw
+              return (
+                <div key={`rem-${r.id}`} style={{ ...cardStyle, borderLeft: `4px solid ${color}` }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.72rem', color, fontWeight: 'bold', marginBottom: '0.15rem' }}>{typeLabel}</div>
+                    <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '0.2rem' }}>{formatFullDateTime(r.deadline_date, r.deadline_time || undefined)}</div>
+                    <div style={{ fontWeight: 'bold', color: '#333' }}>{r.title}</div>
+                    {r.description && <div style={{ fontSize: '0.85rem', color: '#888' }}>{r.description}</div>}
+                    <div style={{ fontSize: '0.8rem', color: '#2a9d8f' }}>🔔 {ODIGO_REMIND_LABELS[r.odigo_remind]}</div>
+                  </div>
+                  <button
+                    onClick={async () => { await supabase.from('reminders').update({ completed: !r.completed }).eq('id', r.id); onRefresh() }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', flexShrink: 0 }}
+                  >
+                    {r.completed ? '✅' : '⬜'}
+                  </button>
+                </div>
+              )
+            }
+            return null
+          })}
+          <button
+            onClick={() => setEventsWindowDays(prev => prev + 30)}
+            style={{ display: 'block', width: '100%', background: 'none', border: 'none', cursor: 'pointer', color: '#2a9d8f', fontSize: '0.85rem', textAlign: 'center', padding: '0.75rem 0', marginTop: '0.25rem' }}
+          >
+            Voir plus loin →
           </button>
         </div>
       )}
@@ -662,6 +801,18 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal création depuis l'onglet Tout */}
+      {activeTab === 'all' && showCreateModal && (
+        <CalendarCreateModal
+          initialDate={todayStr}
+          userId={userId}
+          subjects={subjects}
+          evaluations={evaluations}
+          onClose={() => setShowCreateModal(false)}
+          onSaved={() => { setShowCreateModal(false); onRefresh() }}
+        />
       )}
 
       {/* Modal choix suppression événement récurrent */}

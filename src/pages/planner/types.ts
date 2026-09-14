@@ -10,7 +10,7 @@ export interface SubjectOption {
   isCustom: boolean
 }
 
-export type Tab = 'evaluations' | 'revisions' | 'events' | 'reminders' | 'missions'
+export type Tab = 'all' | 'evaluations' | 'revisions' | 'events' | 'reminders' | 'missions'
 export type PlannerView = 'list' | 'calendar'
 export type CalendarView = 'day' | 'week' | 'month'
 

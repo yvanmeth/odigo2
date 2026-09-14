@@ -87,3 +87,16 @@ export const formatMissionDeadline = (deadline: string): string => {
   const timePart = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   return `${datePart.charAt(0).toUpperCase() + datePart.slice(1)} à ${timePart}`
 }
+
+export const formatFullDateTime = (dateStr: string, startTime?: string, endTime?: string): string => {
+  const d = parseLocalDate(dateStr)
+  const datePart = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const label = datePart.charAt(0).toUpperCase() + datePart.slice(1)
+  const fmt = (t: string): string => {
+    const [h, m] = t.split(':').map(Number)
+    return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
+  }
+  if (!startTime && !endTime) return label
+  if (startTime && endTime) return `${label}, de ${fmt(startTime)} à ${fmt(endTime)}`
+  return `${label} à ${fmt(startTime ?? endTime!)}`
+}

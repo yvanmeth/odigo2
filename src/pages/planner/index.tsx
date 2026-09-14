@@ -121,6 +121,7 @@ export default function Planner({ isParent: _isParent }: { isParent?: boolean })
           reminders={reminders}
           subjects={subjects}
           missions={missions}
+          userId={resolvedUserId}
           onRefresh={fetchAll}
           onDelete={handleDelete}
           onDeleteEvent={handleDeleteEvent}
