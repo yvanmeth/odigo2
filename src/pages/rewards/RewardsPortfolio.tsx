@@ -199,21 +199,39 @@ export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps
     setCanSellFixed(isWeekActive && !fixedUsedThisWeek)
   }
 
-  const spinWheel = (effectiveRerollCount = rerollCount) => {
-    if (wheelSpinning) return
+  const spinWheel = async (effectiveRerollCount = rerollCount) => {
+    if (wheelSpinning || !sellCard) return
     setWheelSpinning(true)
     setWheelResult(null)
 
-    const segs: WheelSegment[] = WHEEL_BASE.map(s =>
-      s === 'relancer' && effectiveRerollCount >= 2 ? 2000 : s
-    )
-    const N = segs.length
-    const winningIndex = Math.floor(Math.random() * N)
-    const winningResult = segs[winningIndex]
+    const { data: rpcData, error: rpcError } = await supabase.rpc('sell_card_spin_atomic', {
+      p_user_card_id: sellCard.userCardId,
+      p_card_id: sellCard.cardId,
+      p_card_name: sellCard.cardName,
+      p_reroll_count: effectiveRerollCount,
+    })
 
+    if (rpcError || !rpcData) {
+      setWheelSpinning(false)
+      showToast(rpcError?.message || 'Erreur lors du lancement. Réessaie !', 'error')
+      return
+    }
+
+    const result = rpcData as {
+      winning_index: number
+      result_type: 'relancer' | 'echange' | 'amount'
+      amount?: number
+      remaining_digoos?: number
+    }
+
+    const winningResult: WheelSegment =
+      result.result_type === 'amount' ? (result.amount ?? 0) :
+      result.result_type === 'echange' ? 'échange' : 'relancer'
+
+    const N = segments.length
     const segmentAngle = 360 / N
     // Angle du centre du segment gagnant (depuis 12h, sens horaire)
-    const segmentCenterAngle = (winningIndex + 0.5) * segmentAngle
+    const segmentCenterAngle = (result.winning_index + 0.5) * segmentAngle
     // Rotation totale requise pour que ce centre soit sous l'indicateur (en haut)
     const target = 360 - segmentCenterAngle
     const currentMod = wheelAngle % 360
@@ -225,42 +243,32 @@ export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps
     setTimeout(() => {
       setWheelSpinning(false)
       setWheelResult(winningResult)
+      if (result.result_type !== 'relancer') fetchUserCards()
     }, 3000)
   }
 
-  const executeSale = async (amount: number) => {
+  const executeFixedSale = async () => {
     if (!sellCard) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const targetId = user.id
+    const amount = 300
 
     if (sellCard.quantity > 1) {
-      await supabase.from('user_cards')
-        .update({ quantity: sellCard.quantity - 1 })
-        .eq('id', sellCard.userCardId)
+      await supabase.from('user_cards').update({ quantity: sellCard.quantity - 1 }).eq('id', sellCard.userCardId)
     } else {
-      await supabase.from('user_cards')
-        .delete()
-        .eq('id', sellCard.userCardId)
+      await supabase.from('user_cards').delete().eq('id', sellCard.userCardId)
     }
 
     await addDigoos(amount, 'reward')
 
     await supabase.from('card_sales').insert({
-      user_id: targetId,
-      card_id: sellCard.cardId,
-      card_name: sellCard.cardName,
-      sale_type: sellMode === 'wheel' ? 'wheel' : 'fixed',
-      amount,
+      user_id: targetId, card_id: sellCard.cardId,
+      card_name: sellCard.cardName, sale_type: 'fixed', amount,
     })
 
-    const today = new Date().toISOString().split('T')[0]
     const currentWeek = getCurrentWeekKey()
-    const updates: Record<string, string> = {}
-    if (sellMode === 'wheel') updates.last_card_sale_date = today
-    if (sellMode === 'fixed') updates.last_card_sale_week = currentWeek
-
-    await supabase.from('progress').update(updates).eq('user_id', targetId)
+    await supabase.from('progress').update({ last_card_sale_week: currentWeek }).eq('user_id', targetId)
 
     setShowSellModal(false)
     setSellCard(null)
@@ -269,48 +277,13 @@ export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps
   }
 
   const executeExchange = async (chosenCard: AvailableCard) => {
-    if (!sellCard) return
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const targetId = user.id
-
-    if (sellCard.quantity > 1) {
-      await supabase.from('user_cards')
-        .update({ quantity: sellCard.quantity - 1 })
-        .eq('id', sellCard.userCardId)
-    } else {
-      await supabase.from('user_cards')
-        .delete()
-        .eq('id', sellCard.userCardId)
-    }
-
-    const { data: existingCard } = await supabase
-      .from('user_cards')
-      .select('id, quantity')
-      .eq('user_id', targetId)
-      .eq('card_id', chosenCard.id)
-      .maybeSingle()
-
-    if (existingCard) {
-      await supabase.from('user_cards')
-        .update({ quantity: existingCard.quantity + 1 })
-        .eq('id', existingCard.id)
-    } else {
-      await supabase.from('user_cards').insert({ user_id: targetId, card_id: chosenCard.id, quantity: 1 })
-      await supabase.from('cards').update({ stock_remaining: chosenCard.stock_remaining - 1 }).eq('id', chosenCard.id)
-    }
-
-    await supabase.from('card_sales').insert({
-      user_id: targetId,
-      card_id: sellCard.cardId,
-      card_name: sellCard.cardName,
-      sale_type: 'exchange',
-      amount: 0,
+    const { error } = await supabase.rpc('claim_exchange_card_atomic', {
+      p_chosen_card_id: chosenCard.id,
     })
-
-    const today = new Date().toISOString().split('T')[0]
-    await supabase.from('progress').update({ last_card_sale_date: today }).eq('user_id', targetId)
-
+    if (error) {
+      showToast(error.message || "Erreur lors de l'échange. Réessaie !", 'error')
+      return
+    }
     setShowSellModal(false)
     setSellCard(null)
     setShowExchangePicker(false)
@@ -707,6 +680,9 @@ export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps
                     >
                       🎡 Lancer la roue
                     </button>
+                    <p style={{ fontSize: '0.75rem', color: '#e76f51', marginTop: '0.3rem', marginBottom: 0, textAlign: 'center', fontWeight: 'bold' }}>
+                      ⚠️ Résultat définitif dès le lancement !
+                    </p>
                     <button
                       onClick={() => setSellMode(null)}
                       style={{ marginTop: '0.5rem', width: '100%', padding: '0.5rem', background: 'var(--color-border)', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
@@ -732,10 +708,10 @@ export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps
                           🎉 Tu obtiens {wheelResult} <Delta size={20} /> !
                         </div>
                         <button
-                          onClick={() => executeSale(wheelResult)}
+                          onClick={() => { setShowSellModal(false); setSellCard(null) }}
                           style={{ width: '100%', padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}
                         >
-                          ✓ Confirmer la vente
+                          ✓ Continuer
                         </button>
                       </>
                     )}
@@ -802,7 +778,7 @@ export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps
                     Annuler
                   </button>
                   <button
-                    onClick={() => executeSale(300)}
+                    onClick={() => executeFixedSale()}
                     style={{ flex: 1, padding: '0.6rem', background: '#e9c46a', color: '#333', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}
                   >
                     ✓ Confirmer
