@@ -146,7 +146,7 @@ export default function HomeWeekSection({
       </div>
 
       {!hasContent && (
-        <EmptyState emoji="🌟" title="Semaine vierge" subtitle="Ajoute des évaluations, révisions ou événements dans le Planificateur." />
+        <EmptyState emoji="🌟" title="Semaine vierge" subtitle="Ajoute des évaluations, révisions ou événements dans Mon agenda." />
       )}
 
       {/* Évaluations */}

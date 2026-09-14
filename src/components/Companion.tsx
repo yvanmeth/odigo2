@@ -31,7 +31,7 @@ const SLASH_COMMANDS = [
 const getPageHelp = (page: string): string => {
   const helps: Record<string, string> = {
     dashboard: '⚡ Le Tableau de bord résume ta semaine : évaluations à venir, révisions, événements, rappels, et tes séries de jours/semaines/mois actifs.',
-    planner: '⚡ Le Planificateur te permet d\'ajouter tes évaluations, révisions, événements et rappels. Tu peux basculer entre vue Liste et vue Calendrier.',
+    planner: '⚡ Mon agenda te permet d\'ajouter tes évaluations, révisions, événements et rappels. Tu peux basculer entre vue Liste et vue Calendrier.',
     subjects: '⚡ Dans Matières, tu retrouves tes notes de cours, post-its, listes de mots et évaluations par matière.',
     wordlists: '⚡ Crée et gère tes listes de vocabulaire, conjugaison ou dictée. Elles servent dans les exercices.',
     exercises: '⚡ Choisis un exercice pour t\'entraîner et gagner des Δ : QCM, épellation, flashcards, conjugaison, puzzle de phrases, maths...',
@@ -120,7 +120,7 @@ export default function Companion({ userId, currentPage, hasNotification, notifi
           .eq('user_id', userId).maybeSingle()
         response = `⚡ Ton solde : ${prog?.digoos || 0} Δ\n` +
           `Cette semaine : ${prog?.digoos_this_week || 0} Δ\n\n` +
-          `Pour en gagner plus : fais des exercices, utilise le planificateur, ou réclame tes récompenses de jours/semaines/mois actifs dans Progrès et récompenses !`
+          `Pour en gagner plus : fais des exercices, utilise mon agenda, ou réclame tes récompenses de jours/semaines/mois actifs dans Progrès et récompenses !`
         break
       }
 

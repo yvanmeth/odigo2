@@ -36,7 +36,7 @@ export default function RewardsHowItWorks() {
           <li>La régularité est plus récompensée que l'intensité !</li>
         </ul>
 
-        <h4 style={subTitleStyle}>Planificateur</h4>
+        <h4 style={subTitleStyle}>Mon agenda</h4>
         <ul style={listStyle}>
           <li>Ajouter une évaluation : +2 <Delta size={16} /> (1 fois par jour)</li>
           <li>Saisir une note obtenue : +2 <Delta size={16} /> (1 fois par jour)</li>
@@ -47,8 +47,8 @@ export default function RewardsHowItWorks() {
 
         <h4 style={subTitleStyle}>Jours, semaines et mois actifs</h4>
         <ul style={listStyle}>
-          <li>Jour actif (+10 <Delta size={16} />) : au moins 1 exercice ou 1 action dans le planificateur dans la journée</li>
-          <li>Semaine active (+50 <Delta size={16} />) : au moins 300 <Delta size={16} /> gagnés, 3 jours actifs ET 1 ajout dans le planificateur</li>
+          <li>Jour actif (+10 <Delta size={16} />) : au moins 1 exercice ou 1 action dans mon agenda dans la journée</li>
+          <li>Semaine active (+50 <Delta size={16} />) : au moins 300 <Delta size={16} /> gagnés, 3 jours actifs ET 1 ajout dans mon agenda</li>
           <li>Mois actif (+200 <Delta size={16} />) : au moins 15 jours actifs, 2 semaines actives ET 15 exercices complétés</li>
           <li>Les récompenses de jours/semaines/mois se récupèrent manuellement dans l'onglet « Progrès et récompenses »</li>
         </ul>

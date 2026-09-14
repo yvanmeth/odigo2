@@ -114,7 +114,7 @@ export default function HomeHistory({
           </div>
 
           {!hasPastContent && (
-            <EmptyState emoji="🌟" title="Semaine vierge" subtitle="Ajoute des évaluations, révisions ou événements dans le Planificateur." />
+            <EmptyState emoji="🌟" title="Semaine vierge" subtitle="Ajoute des évaluations, révisions ou événements dans Mon agenda." />
           )}
 
           {typeFilters.evaluations && pastEvals.length > 0 && (

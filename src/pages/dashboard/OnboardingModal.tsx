@@ -24,9 +24,9 @@ const STEPS: StepContent[] = [
   },
   {
     icon: <Calendar size={48} color="#2a9d8f" />,
-    title: '📅 Le Planificateur',
+    title: '📅 Mon agenda',
     text: <>Organise ici ton travail. Note tes évaluations, planifie tes révisions et ajoute des rappels importants, comme dans un agenda, et chaque action te rapporte des <Delta size={14} /> !</>,
-    details: <>Le Planificateur propose une vue liste et une vue calendrier (jour, semaine, mois). Ajouter une évaluation rapporte 2 <Delta size={12} />, cocher une révision comme faite rapporte 2 <Delta size={12} />, et ajouter un événement ou un rappel rapporte 1 <Delta size={12} />.</>,
+    details: <>Mon agenda propose une vue liste et une vue calendrier (jour, semaine, mois). Ajouter une évaluation rapporte 2 <Delta size={12} />, cocher une révision comme faite rapporte 2 <Delta size={12} />, et ajouter un événement ou un rappel rapporte 1 <Delta size={12} />.</>,
   },
   {
     icon: <List size={48} color="#5c6bc0" />,

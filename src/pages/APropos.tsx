@@ -4,7 +4,7 @@ import { useToast } from '../components/Toast'
 
 const POINTS = [
   { icon: '🎯', title: 'Exercices', desc: 'QCM, épellation, flashcards, conjugaison, anagrammes... plusieurs façons de mémoriser et de progresser.' },
-  { icon: '📅', title: 'Planificateur', desc: 'Note tes évaluations, planifie tes révisions et ajoute des rappels importants, comme dans un agenda.' },
+  { icon: '📅', title: 'Mon agenda', desc: 'Note tes évaluations, planifie tes révisions et ajoute des rappels importants, comme dans un agenda.' },
   { icon: '🏆', title: 'Récompenses', desc: 'Gagne des Digoos (Δ) à chaque exercice, échange-les contre des récompenses IRL ou des objets Digooland.' },
   { icon: '🎴', title: 'Cartes', desc: 'Collectionne des cartes ODIGO et personnalise ton profil avec ton avatar préféré.' },
 ]

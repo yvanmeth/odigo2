@@ -35,7 +35,7 @@ export default function HomeStreaks({
                   <span style={{ color: '#b8860b' }}>+10 </span>
                   <Delta size={13} style={{ verticalAlign: 'middle' }} />
                 </p>
-                <p>Fais au moins 1 action dans la journée : un exercice, une révision, ou une entrée dans le planificateur.</p>
+                <p>Fais au moins 1 action dans la journée : un exercice, une révision, ou une entrée dans mon agenda.</p>
 
                 <p style={{ marginTop: '0.75rem', marginBottom: '0.25rem' }}>
                   <strong>📆 Semaine active — </strong>
@@ -45,7 +45,7 @@ export default function HomeStreaks({
                 <ul style={{ paddingLeft: '1.2rem', margin: '0.25rem 0' }}>
                   <li>Gagner au moins <strong>300 Δ</strong> dans la semaine</li>
                   <li>Avoir au moins <strong>3 jours actifs</strong></li>
-                  <li>Faire au moins <strong>1 action dans le planificateur</strong></li>
+                  <li>Faire au moins <strong>1 action dans mon agenda</strong></li>
                 </ul>
                 <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.25rem' }}>
                   Le compteur repart à zéro chaque dimanche à 18h.

@@ -12,7 +12,7 @@ export const FAQ: FAQItem[] = [
     audience: 'child',
     tags: ['parents', 'voir', 'voient', 'accès', 'surveillance'],
     question: 'Que peuvent voir mes parents ?',
-    answer: `Tes parents peuvent voir ton tableau de bord, ton planificateur (évaluations, révisions, événements, rappels), tes listes de mots et tes matières. Ils peuvent aussi voir combien de Δ tu as gagnés cette semaine et ton niveau d'activité général. C'est fait pour qu'ils puissent t'aider à t'organiser, t'encourager et célébrer tes progrès avec toi — pas pour te surveiller !`
+    answer: `Tes parents peuvent voir ton tableau de bord, ton agenda (évaluations, révisions, événements, rappels), tes listes de mots et tes matières. Ils peuvent aussi voir combien de Δ tu as gagnés cette semaine et ton niveau d'activité général. C'est fait pour qu'ils puissent t'aider à t'organiser, t'encourager et célébrer tes progrès avec toi — pas pour te surveiller !`
   },
   {
     id: 'parents_pas_voir',
@@ -33,14 +33,14 @@ export const FAQ: FAQItem[] = [
     audience: 'child',
     tags: ['digoos', 'delta', 'monnaie', 'fonctionnent', 'c\'est quoi'],
     question: 'Comment fonctionnent les Δ ?',
-    answer: `Les Δ sont la monnaie d'ODIGO. Tu en gagnes en faisant des exercices, en utilisant le planificateur, et en ayant des jours, semaines et mois actifs. Tu peux les dépenser dans la Boutique pour personnaliser ton espace, jouer à des jeux, ou obtenir des récompenses créées par tes parents.`
+    answer: `Les Δ sont la monnaie d'ODIGO. Tu en gagnes en faisant des exercices, en utilisant mon agenda, et en ayant des jours, semaines et mois actifs. Tu peux les dépenser dans la Boutique pour personnaliser ton espace, jouer à des jeux, ou obtenir des récompenses créées par tes parents.`
   },
   {
     id: 'digoos_gagner',
     audience: 'child',
     tags: ['gagner', 'digoos', 'delta', 'comment', 'obtenir'],
     question: 'Comment gagner des Δ ?',
-    answer: `Tu gagnes des Δ en faisant des exercices (les 10 premiers de la journée rapportent 100%, du 11e au 20e c'est 80%, et à partir du 21e c'est 60%), en ajoutant des entrées dans ton planificateur, en cochant des révisions comme faites, et en réclamant tes récompenses de jours, semaines et mois actifs dans l'onglet Progrès. Tout est expliqué en détail dans la page Récompenses, onglet "Comment ça marche".`
+    answer: `Tu gagnes des Δ en faisant des exercices (les 10 premiers de la journée rapportent 100%, du 11e au 20e c'est 80%, et à partir du 21e c'est 60%), en ajoutant des entrées dans ton agenda, en cochant des révisions comme faites, et en réclamant tes récompenses de jours, semaines et mois actifs dans l'onglet Progrès. Tout est expliqué en détail dans la page Récompenses, onglet "Comment ça marche".`
   },
   {
     id: 'digoos_depenser',
@@ -54,14 +54,14 @@ export const FAQ: FAQItem[] = [
     audience: 'child',
     tags: ['jour actif', 'jour', 'actif', 'compte', 'journée'],
     question: 'Comment fonctionne un jour actif ?',
-    answer: `Un jour est actif si tu fais au moins 1 exercice ou 1 action dans le planificateur dans la journée. Un jour actif te rapporte 10 Δ à réclamer dans l'onglet Progrès et récompenses.`
+    answer: `Un jour est actif si tu fais au moins 1 exercice ou 1 action dans mon agenda dans la journée. Un jour actif te rapporte 10 Δ à réclamer dans l'onglet Progrès et récompenses.`
   },
   {
     id: 'semaine_active',
     audience: 'child',
     tags: ['semaine active', 'semaine', 'active', 'conditions'],
     question: 'Comment fonctionne une semaine active ?',
-    answer: `Une semaine est active si tu remplis 3 conditions : gagner au moins 300 Δ dans la semaine, avoir au moins 3 jours actifs, et ajouter au moins une entrée dans le planificateur. Une semaine active te rapporte 50 Δ à réclamer dans l'onglet Progrès et récompenses.`
+    answer: `Une semaine est active si tu remplis 3 conditions : gagner au moins 300 Δ dans la semaine, avoir au moins 3 jours actifs, et ajouter au moins une entrée dans mon agenda. Une semaine active te rapporte 50 Δ à réclamer dans l'onglet Progrès et récompenses.`
   },
   {
     id: 'mois_actif',
@@ -82,14 +82,14 @@ export const FAQ: FAQItem[] = [
     audience: 'child',
     tags: ['planificateur', 'modifier', 'éditer', 'changer', 'parents'],
     question: 'Que puis-je modifier dans le planificateur ?',
-    answer: `Tu peux ajouter, modifier et supprimer toutes tes entrées (évaluations, révisions, événements, rappels). Tu peux aussi cocher tes révisions comme faites, et saisir ta note obtenue après une évaluation. Ton planificateur t'appartient — tes parents peuvent y contribuer pour t'aider, mais c'est toi qui l'utilises au quotidien.`
+    answer: `Tu peux ajouter, modifier et supprimer toutes tes entrées (évaluations, révisions, événements, rappels). Tu peux aussi cocher tes révisions comme faites, et saisir ta note obtenue après une évaluation. Ton agenda t'appartient — tes parents peuvent y contribuer pour t'aider, mais c'est toi qui l'utilises au quotidien.`
   },
   {
     id: 'notes_parents',
     audience: 'child',
     tags: ['notes', 'parents', 'voient', 'visibles', 'cours'],
     question: 'Mes notes sont-elles visibles par mes parents ?',
-    answer: `Tes notes de cours (dans l'onglet Notes de chaque matière) sont privées, tes parents ne les voient pas. En revanche, les notes obtenues à tes évaluations (que tu saisis toi-même dans le planificateur) sont visibles par tes parents — c'est voulu pour qu'ils puissent suivre ta progression.`
+    answer: `Tes notes de cours (dans l'onglet Notes de chaque matière) sont privées, tes parents ne les voient pas. En revanche, les notes obtenues à tes évaluations (que tu saisis toi-même dans mon agenda) sont visibles par tes parents — c'est voulu pour qu'ils puissent suivre ta progression.`
   },
   // FAQ PARENTS
   {
@@ -110,7 +110,7 @@ export const FAQ: FAQItem[] = [
     id: 'parent_planificateur',
     audience: 'parent',
     tags: ['planificateur', 'modifier', 'éditer', 'accès', 'enfant'],
-    question: 'Que puis-je modifier dans le planificateur de mon enfant ?',
+    question: 'Que puis-je modifier dans l\'agenda de mon enfant ?',
     answer: `En mode vue enfant, vous pouvez ajouter, modifier et supprimer des évaluations, des révisions, des événements et des rappels. Vous pouvez aussi saisir ou modifier la note attendue et la note obtenue sur une évaluation. En revanche, vous ne pouvez pas cocher une révision comme "faite" à la place de votre enfant — cette action reste réservée à l'enfant, car c'est lui qui doit valider son propre travail.`
   },
   {

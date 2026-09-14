@@ -12,7 +12,7 @@ export interface NavItem { id: string; label: string; icon: ReactNode }
 
 export const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Tableau de bord', icon: <HomeIcon size={18} /> },
-  { id: 'planner', label: 'Planificateur', icon: <Calendar size={18} /> },
+  { id: 'planner', label: 'Mon agenda', icon: <Calendar size={18} /> },
   { id: 'subjects', label: 'Matières', icon: <BookOpen size={18} /> },
   { id: 'wordlists', label: 'Listes de mots', icon: <ListIcon size={18} /> },
   { id: 'exercises', label: 'Exercices', icon: <Target size={18} /> },
