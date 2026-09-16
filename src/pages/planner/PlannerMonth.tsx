@@ -48,7 +48,7 @@ export default function PlannerMonth({ calDate, items, onItemClick, onDayClick }
               style={{
                 border: '1px solid #f0f0f0', minHeight: '90px', padding: '0.3rem',
                 background: isWE ? '#fafafa' : 'white', opacity: isCurrentMonth ? 1 : 0.4,
-                position: 'relative', cursor: 'pointer',
+                position: 'relative', cursor: 'pointer', minWidth: 0,
               }}
             >
               <div style={{ marginBottom: '0.2rem' }}>

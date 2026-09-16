@@ -17,7 +17,7 @@ export default function CalendarItemChip({ item, onItemClick, compact, showTime,
   }
 
   return (
-    <div onClick={handleClick} className="calendar-item" style={{
+    <div onClick={handleClick} className="calendar-item" title={item.title} style={{
       background: PLANNER_COLORS[item.type],
       color: 'white',
       borderRadius: compact ? '0.25rem' : '0.4rem',
@@ -27,6 +27,8 @@ export default function CalendarItemChip({ item, onItemClick, compact, showTime,
       overflow: 'hidden',
       whiteSpace: 'nowrap',
       textOverflow: 'ellipsis',
+      maxWidth: '100%',
+      boxSizing: 'border-box',
       ...style,
     }}>
       {showTime && item.startTime && (
