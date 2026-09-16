@@ -19,14 +19,14 @@ export default function PlannerMonth({ calDate, items, onItemClick, onDayClick }
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--color-background)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', background: 'var(--color-background)' }}>
         {DAY_NAMES.map((name, i) => (
           <div key={name} style={{ textAlign: 'center', padding: '0.5rem', fontSize: '0.78rem', fontWeight: 'bold', color: i >= 5 ? '#888' : '#2a9d8f' }}>
             {name}
           </div>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
         {grid.map((day, idx) => {
           const ds = toDateStr(day)
           const isCurrentMonth = day.getMonth() === currentMonth
@@ -48,7 +48,7 @@ export default function PlannerMonth({ calDate, items, onItemClick, onDayClick }
               style={{
                 border: '1px solid #f0f0f0', minHeight: '90px', padding: '0.3rem',
                 background: isWE ? '#fafafa' : 'white', opacity: isCurrentMonth ? 1 : 0.4,
-                position: 'relative', cursor: 'pointer', minWidth: 0,
+                position: 'relative', cursor: 'pointer', minWidth: 0, overflow: 'hidden',
               }}
             >
               <div style={{ marginBottom: '0.2rem' }}>

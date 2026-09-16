@@ -186,11 +186,11 @@ export const exerciseCards: ExerciseCard[] = [
   // TEMP — prévisualisation LireHeure avant intégration définitive (étape 6)
   {
     id: 'lire-heure',
-    label: 'Lire l\'heure',
+    label: 'Dire l\'heure',
     icon: '🕐',
-    description: 'Lis l\'heure sur une horloge analogique',
+    description: 'Entraîne-toi à dire l\'heure dans la langue de ton choix',
     color: '#2a9d8f',
-    category: 'maths',
+    category: 'langues',
     isAI: false,
   },
 ]

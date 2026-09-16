@@ -25,17 +25,21 @@ export default function CalendarItemChip({ item, onItemClick, compact, showTime,
       fontSize: compact ? '0.68rem' : '0.8rem',
       cursor: 'pointer',
       overflow: 'hidden',
-      whiteSpace: 'nowrap',
-      textOverflow: 'ellipsis',
+      display: 'flex',
+      alignItems: 'center',
       maxWidth: '100%',
       boxSizing: 'border-box',
       ...style,
     }}>
       {showTime && item.startTime && (
-        <span style={{ opacity: 0.85, marginRight: '0.2rem' }}>{item.startTime.slice(0, 5)}</span>
+        <span style={{ opacity: 0.85, marginRight: '0.2rem', flexShrink: 0 }}>{item.startTime.slice(0, 5)}</span>
       )}
-      {item.title}
-      {isRecurringEvent(item) && <span style={{ fontSize: '0.65rem', marginLeft: '0.2rem', opacity: 0.85 }}>🔁</span>}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+        {item.title}
+      </span>
+      {isRecurringEvent(item) && (
+        <span style={{ fontSize: '0.65rem', marginLeft: '0.2rem', opacity: 0.85, flexShrink: 0 }}>🔁</span>
+      )}
     </div>
   )
 }

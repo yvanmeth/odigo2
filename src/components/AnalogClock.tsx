@@ -5,8 +5,11 @@ export interface AnalogClockProps {
   minute: number     // 0–59
   size?: number      // diamètre en px, défaut 240
   interactive?: boolean  // réservé pour la logique de drag (étape ultérieure)
-  animated?: boolean // transition CSS sur la rotation des aiguilles
-  minuteHandColor?: string // couleur de l'aiguille des minutes, défaut '#334155'
+  animated?: boolean     // transition 0.6s ease-in-out sur la rotation des aiguilles
+  minuteHandColor?: string  // couleur de l'aiguille des minutes, défaut '#e9c46a'
+  transitionMs?: number     // durée ms d'une transition linéaire (s'utilise à la place de animated)
+  minuteAngle?: number      // angle cumulatif de l'aiguille des minutes (override du calcul interne)
+  hourAngle?: number        // angle cumulatif de l'aiguille des heures   (override du calcul interne)
 }
 
 export default function AnalogClock({
@@ -15,15 +18,26 @@ export default function AnalogClock({
   size = 240,
   animated = false,
   minuteHandColor = '#e9c46a',
+  transitionMs,
+  minuteAngle,
+  hourAngle,
 }: AnalogClockProps) {
   const cx = size / 2
   const cy = size / 2
   const r  = size * 0.44
 
   // ── Angles (degrés, 0 = 12h, sens horaire) ─────────────────────────────────
-  const minuteAngle = minute * 6
+  // Si des angles cumulatifs sont fournis par le parent (ex. mode aiguilles de
+  // LireHeure), on les utilise directement — ils garantissent que la CSS
+  // interpole toujours dans le bon sens, y compris au passage 359°→0°.
+  // Sinon on recalcule l'angle absolu dans [0°, 360°).
+  const effectiveMinuteAngle = minuteAngle !== undefined
+    ? minuteAngle
+    : minute * 6
   // L'aiguille des heures avance de 0.5° par minute (30°/heure ÷ 60 min)
-  const hourAngle = (hour % 12) * 30 + minute * 0.5
+  const effectiveHourAngle = hourAngle !== undefined
+    ? hourAngle
+    : (hour % 12) * 30 + minute * 0.5
 
   // ── Longueurs des aiguilles ──────────────────────────────────────────────────
   const hourLen    = r * 0.55
@@ -47,12 +61,17 @@ export default function AnalogClock({
     return { x: cx + radius * Math.sin(rad), y: cy - radius * Math.cos(rad) }
   }
 
-  // ── Style d'aiguille avec rotation CSS (transition si animated) ─────────────
-  const handStyle = (angleDeg: number): CSSProperties => ({
-    transformOrigin: `${cx}px ${cy}px`,
-    transform: `rotate(${angleDeg}deg)`,
-    transition: animated ? 'transform 0.6s ease-in-out' : 'none',
-  })
+  // ── Style d'aiguille avec rotation CSS ──────────────────────────────────────
+  const handStyle = (angleDeg: number): CSSProperties => {
+    const transition = transitionMs !== undefined
+      ? `transform ${transitionMs}ms linear`
+      : animated ? 'transform 0.6s ease-in-out' : 'none'
+    return {
+      transformOrigin: `${cx}px ${cy}px`,
+      transform: `rotate(${angleDeg}deg)`,
+      transition,
+    }
+  }
 
   // ── Repères horaires (12 positions) ─────────────────────────────────────────
   const ticks = Array.from({ length: 12 }, (_, i) => {
@@ -118,7 +137,7 @@ export default function AnalogClock({
         stroke="#2a9d8f"
         strokeWidth={hourStroke}
         strokeLinecap="round"
-        style={handStyle(hourAngle)}
+        style={handStyle(effectiveHourAngle)}
       />
 
       {/* Aiguille des minutes — plus longue, plus fine */}
@@ -130,7 +149,7 @@ export default function AnalogClock({
         stroke={minuteHandColor}
         strokeWidth={minuteStroke}
         strokeLinecap="round"
-        style={handStyle(minuteAngle)}
+        style={handStyle(effectiveMinuteAngle)}
       />
 
       {/* Pivot central */}
