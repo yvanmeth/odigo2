@@ -183,4 +183,14 @@ export const exerciseCards: ExerciseCard[] = [
     category: 'histoire',
     isAI: false,
   },
+  // TEMP — prévisualisation LireHeure avant intégration définitive (étape 6)
+  {
+    id: 'lire-heure',
+    label: 'Lire l\'heure',
+    icon: '🕐',
+    description: 'Lis l\'heure sur une horloge analogique',
+    color: '#2a9d8f',
+    category: 'maths',
+    isAI: false,
+  },
 ]

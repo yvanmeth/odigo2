@@ -32,6 +32,7 @@ import CarteSuisse from '../CarteSuisse'
 import DefiHistoireGeo from '../DefiHistoireGeo'
 import ConjugaisonEtrangere from '../ConjugaisonEtrangere'
 import AnagrammeFrancais from '../AnagrammeFrancais'
+import LireHeure from '../LireHeure' // TEMP — prévisualisation
 import { formatDateDMY, toDateStr } from '../../lib/dates'
 import { switchToChildSession } from '../../lib/childSession'
 import Sidebar from './Sidebar'
@@ -556,6 +557,11 @@ export default function Dashboard({ session }: Props) {
               </button>
               <Cartes />
             </div>
+          )}
+
+          {/* TEMP — prévisualisation LireHeure avant intégration définitive (étape 6) */}
+          {activePage === 'exercises' && activeExercise === 'lire-heure' && (
+            <LireHeure onBack={() => setActiveExercise(null)} />
           )}
 
           {activePage === 'rewards' && (
