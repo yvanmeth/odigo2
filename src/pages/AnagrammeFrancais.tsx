@@ -145,7 +145,7 @@ export default function AnagrammeFrancais() {
       questions_correct: totalCorrect,
       metadata: { exercise: 'anagramme-francais', listId: selectedListId },
     })
-    const earned = await addDigoos(totalPoints, 'exercise')
+    const earned = await addDigoos(totalPoints, 'exercise', 'Anagramme français')
     setEarnedDigoos(earned)
     const isTop = await checkHighscore(totalPoints)
     if (isTop) setShowHighscore(true)

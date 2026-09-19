@@ -220,7 +220,7 @@ export default function Flashcards() {
   }
 
   const saveScore = async () => {
-    await addDigoos(digoosEarned, 'exercise')
+    await addDigoos(digoosEarned, 'exercise', 'Flashcards')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: totalCards,

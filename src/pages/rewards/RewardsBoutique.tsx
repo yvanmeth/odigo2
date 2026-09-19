@@ -96,7 +96,7 @@ export default function RewardsBoutique({
     setLoadingRewardId(reward.id)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    await deductDigoos(reward.cost)
+    await deductDigoos(reward.cost, 'reward', `Achat récompense IRL — ${reward.name}`)
     await supabase.from('irl_purchases').insert({
       child_id: user.id,
       reward_id: reward.id,

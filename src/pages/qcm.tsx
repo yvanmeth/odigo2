@@ -213,7 +213,7 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
       onGameEnd?.()
       return
     }
-    await addDigoos(5 + Math.floor(score / 10), 'exercise')
+    await addDigoos(5 + Math.floor(score / 10), 'exercise', 'QCM')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: wordsCompleted,

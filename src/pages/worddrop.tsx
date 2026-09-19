@@ -279,7 +279,7 @@ export default function WordDrop({ guestMode, guestListId, onGameEnd }: GuestPro
       return
     }
     const points = 5 + Math.floor(score / 10)
-    await addDigoos(points, 'exercise')
+    await addDigoos(points, 'exercise', 'WordDrop')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: wordsCompleted,

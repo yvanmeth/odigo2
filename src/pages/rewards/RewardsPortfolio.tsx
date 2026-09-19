@@ -260,7 +260,7 @@ export default function RewardsPortfolio({ irlPurchases }: RewardsPortfolioProps
       await supabase.from('user_cards').delete().eq('id', sellCard.userCardId)
     }
 
-    await addDigoos(amount, 'reward')
+    await addDigoos(amount, 'reward', `Vente carte — ${sellCard.cardName}`)
 
     await supabase.from('card_sales').insert({
       user_id: targetId, card_id: sellCard.cardId,

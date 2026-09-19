@@ -8,7 +8,8 @@ const getMultiplier = (exercisesToday: number): number => {
 
 export const addDigoos = async (
   amount: number,
-  source: 'exercise' | 'planner' | 'badge' | 'reward' = 'exercise',
+  source: 'exercise' | 'planner' | 'badge' | 'reward',
+  label: string,
 ): Promise<number> => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return 0
@@ -37,13 +38,16 @@ export const addDigoos = async (
     .eq('user_id', user.id)
     .maybeSingle()
 
+  let balanceAfter: number
   if (data) {
+    balanceAfter = (data.digoos || 0) + finalAmount
     await supabase.from('progress').update({
-      digoos: (data.digoos || 0) + finalAmount,
+      digoos: balanceAfter,
       digoos_this_week: (data.digoos_this_week || 0) + finalAmount,
       updated_at: new Date().toISOString(),
     }).eq('user_id', user.id)
   } else {
+    balanceAfter = finalAmount
     await supabase.from('progress').insert({
       user_id: user.id,
       digoos: finalAmount,
@@ -55,14 +59,23 @@ export const addDigoos = async (
     })
   }
 
-  if (typeof window !== 'undefined' && (window as any).triggerDigoosAnimation) {
-    (window as any).triggerDigoosAnimation(finalAmount)
+  await supabase.from('digoos_transactions').insert({
+    user_id: user.id,
+    amount: finalAmount,
+    balance_after: balanceAfter,
+    source,
+    label,
+  })
+
+  const w = window as Window & { triggerDigoosAnimation?: (n: number) => void }
+  if (typeof window !== 'undefined' && w.triggerDigoosAnimation) {
+    w.triggerDigoosAnimation(finalAmount)
   }
 
   return finalAmount
 }
 
-export const deductDigoos = async (amount: number) => {
+export const deductDigoos = async (amount: number, source: 'exercise' | 'planner' | 'badge' | 'reward', label: string) => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
@@ -74,10 +87,19 @@ export const deductDigoos = async (amount: number) => {
 
   if (!data) return
 
+  const balanceAfter = Math.max(0, (data.digoos || 0) - amount)
   await supabase.from('progress').update({
-    digoos: Math.max(0, (data.digoos || 0) - amount),
+    digoos: balanceAfter,
     updated_at: new Date().toISOString(),
   }).eq('user_id', user.id)
+
+  await supabase.from('digoos_transactions').insert({
+    user_id: user.id,
+    amount: -amount,
+    balance_after: balanceAfter,
+    source,
+    label,
+  })
 }
 
 export const addPlannerDigoos = async (
@@ -113,5 +135,13 @@ export const addPlannerDigoos = async (
     metadata: { actionType },
   })
 
-  return await addDigoos(amount, 'planner')
+  const LABELS: Record<string, string> = {
+    eval_added: 'Planificateur — évaluation ajoutée',
+    grade_received: 'Planificateur — note saisie',
+    revision_checked: 'Planificateur — révision cochée',
+    event_added: 'Planificateur — événement ajouté',
+    reminder_added: 'Planificateur — rappel ajouté',
+  }
+
+  return await addDigoos(amount, 'planner', LABELS[actionType])
 }

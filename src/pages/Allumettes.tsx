@@ -235,7 +235,7 @@ const Allumettes = () => {
 
   const handleStart = async () => {
     if (digoos < 1) return
-    await deductDigoos(1)
+    await deductDigoos(1, 'reward', 'Jeu des allumettes')
     setDigoos(prev => Math.max(0, prev - 1))
     isOptimalTurnRef.current = true
     startDraw(cloneBoard(INITIAL_BOARD))

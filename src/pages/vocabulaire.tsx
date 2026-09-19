@@ -230,7 +230,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
   const finaliser = async () => {
     if (guestMode) { onGameEnd?.(); return }
-    await addDigoos(digoosEarned, 'exercise')
+    await addDigoos(digoosEarned, 'exercise', 'Vocabulaire')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: resultats.length,

@@ -201,7 +201,11 @@ export default function Sidebar({
             )}
             {firstName && <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#333', marginBottom: '0.1rem' }}>{firstName}</div>}
             {activeTitle && <div style={{ fontSize: '0.75rem', color: PRIMARY, fontStyle: 'italic', marginBottom: '0.1rem' }}>{activeTitle}</div>}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center', marginTop: '0.5rem', padding: '0.3rem 0.75rem', background: '#fff8e0', borderRadius: '1rem', fontSize: '0.85rem', color: '#b8860b', fontWeight: 'bold' }}>
+            <div
+              onClick={() => { onNavigate('digoos-history'); onMobileClose() }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center', marginTop: '0.5rem', padding: '0.3rem 0.75rem', background: '#fff8e0', borderRadius: '1rem', fontSize: '0.85rem', color: '#b8860b', fontWeight: 'bold', cursor: 'pointer' }}
+              title="Voir l'historique Δ"
+            >
               {digoos.toLocaleString('fr-CH')} <Delta size={16} />
             </div>
           </div>
@@ -285,7 +289,13 @@ export default function Sidebar({
               {getInitials(firstName || 'U')[0]}
             </div>
           )}
-          <div style={{ fontSize: '0.85rem', color: '#b8860b', fontWeight: 'bold' }}>{digoos.toLocaleString('fr-CH')} <Delta size={14} /></div>
+          <div
+            onClick={() => onNavigate('digoos-history')}
+            style={{ fontSize: '0.85rem', color: '#b8860b', fontWeight: 'bold', cursor: 'pointer' }}
+            title="Voir l'historique Δ"
+          >
+            {digoos.toLocaleString('fr-CH')} <Delta size={14} />
+          </div>
         </div>
       ) : (
         <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-border)', textAlign: 'center' }}>
@@ -302,12 +312,17 @@ export default function Sidebar({
           {activeTitle && <div style={{ fontSize: '0.75rem', color: PRIMARY, fontStyle: 'italic', marginBottom: '0.1rem' }}>{activeTitle}</div>}
           <div style={{ fontSize: '0.75rem', color: '#888' }}>{dateStr}</div>
           <div style={{ fontSize: '1rem', fontWeight: 'bold', color: PRIMARY }}>{timeStr}</div>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center',
-            marginTop: '0.5rem', padding: '0.3rem 0.75rem',
-            background: '#fff8e0', borderRadius: '1rem',
-            fontSize: '0.85rem', color: '#b8860b', fontWeight: 'bold',
-          }}>
+          <div
+            onClick={() => onNavigate('digoos-history')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center',
+              marginTop: '0.5rem', padding: '0.3rem 0.75rem',
+              background: '#fff8e0', borderRadius: '1rem',
+              fontSize: '0.85rem', color: '#b8860b', fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+            title="Voir l'historique Δ"
+          >
             {digoos.toLocaleString('fr-CH')} <Delta size={16} />
           </div>
         </div>

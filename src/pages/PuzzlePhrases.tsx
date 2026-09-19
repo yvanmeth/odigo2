@@ -330,7 +330,7 @@ export default function PuzzlePhrases() {
       questions_correct: correctCount,
       metadata: { exercise: 'puzzlephrases', mode, listId: selectedListId },
     })
-    const earned = await addDigoos(pointsRef.current, 'exercise')
+    const earned = await addDigoos(pointsRef.current, 'exercise', 'Puzzle Phrases')
     setEarnedDigoos(earned)
     setTotalCorrect(correctCount)
     const isTop = await checkHighscore(pointsRef.current)

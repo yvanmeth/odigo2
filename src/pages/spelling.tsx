@@ -270,7 +270,7 @@ export default function Spelling() {
   }
 
   const saveScore = async () => {
-    await addDigoos(5 + Math.floor(score / 10), 'exercise')
+    await addDigoos(5 + Math.floor(score / 10), 'exercise', 'Épellation')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: wordsCompleted,

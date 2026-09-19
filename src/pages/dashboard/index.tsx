@@ -33,6 +33,7 @@ import DefiHistoireGeo from '../DefiHistoireGeo'
 import ConjugaisonEtrangere from '../ConjugaisonEtrangere'
 import AnagrammeFrancais from '../AnagrammeFrancais'
 import LireHeure from '../LireHeure' // TEMP — prévisualisation
+import DigoosHistory from '../DigoosHistory'
 import { formatDateDMY, toDateStr } from '../../lib/dates'
 import { switchToChildSession } from '../../lib/childSession'
 import Sidebar from './Sidebar'
@@ -428,7 +429,11 @@ export default function Dashboard({ session }: Props) {
             <Menu size={24} />
           </button>
           <img src="/logo-full.svg" style={{ height: '28px' }} alt="ODIGO" />
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#b8860b', fontWeight: 'bold', fontSize: '0.9rem' }}>
+          <div
+            onClick={() => { setActivePage('digoos-history'); setActiveExercise(null) }}
+            style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#b8860b', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer' }}
+            title="Voir l'historique Δ"
+          >
             {digoos} <Delta size={16} />
           </div>
         </div>
@@ -468,6 +473,8 @@ export default function Dashboard({ session }: Props) {
             ? exerciseCards.find(e => e.id === activeExercise)?.label
             : activePage === 'parent'
             ? 'Espace parent'
+            : activePage === 'digoos-history'
+            ? 'Historique Δ'
             : navItems.find(i => i.id === activePage)?.label}
         </h1>
 
@@ -575,7 +582,8 @@ export default function Dashboard({ session }: Props) {
           {activePage === 'missions' && <MissionsPage />}
           {activePage === 'settings' && <Settings onNavigate={setActivePage} />}
           {activePage === 'apropos' && <APropos />}
-          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'missions' && activePage !== 'rewards' && activePage !== 'settings' && activePage !== 'parent' && activePage !== 'apropos' && (
+          {activePage === 'digoos-history' && <DigoosHistory />}
+          {activePage !== 'dashboard' && activePage !== 'planner' && activePage !== 'subjects' && activePage !== 'wordlists' && activePage !== 'exercises' && activePage !== 'missions' && activePage !== 'rewards' && activePage !== 'settings' && activePage !== 'parent' && activePage !== 'apropos' && activePage !== 'digoos-history' && (
             <p style={{ color: '#aaa' }}>Contenu à venir...</p>
           )}
         </div>

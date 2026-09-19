@@ -58,7 +58,7 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
     const userId = progress?.user_id
     if (!userId || !progress) return
     playBadgeSound()
-    await addDigoos(10, 'badge')
+    await addDigoos(10, 'badge', `Badge — ${badge.label}`)
     const updatedClaimed = [...(progress.claimed_badges || []), badge.id]
     await supabase.from('progress').update({ claimed_badges: updatedClaimed }).eq('user_id', userId)
     onDigoosUpdate()
@@ -101,7 +101,7 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
     const newClaimed = [...(progress?.claimed_days || []), ...unclaimedDays]
     const totalAmount = unclaimedDays.length * DAY_REWARD
     await supabase.from('progress').update({ claimed_days: newClaimed }).eq('user_id', userId)
-    await addDigoos(totalAmount, 'reward')
+    await addDigoos(totalAmount, 'reward', unclaimedDays.length === 1 ? '1 jour actif' : `${unclaimedDays.length} jours actifs`)
     onDigoosUpdate()
     fetchActivityData()
   }
@@ -111,7 +111,7 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
     const newClaimed = [...(progress?.claimed_weeks || []), ...unclaimedWeeks]
     const totalAmount = unclaimedWeeks.length * WEEK_REWARD
     await supabase.from('progress').update({ claimed_weeks: newClaimed }).eq('user_id', userId)
-    await addDigoos(totalAmount, 'reward')
+    await addDigoos(totalAmount, 'reward', unclaimedWeeks.length === 1 ? '1 semaine active' : `${unclaimedWeeks.length} semaines actives`)
     onDigoosUpdate()
     fetchActivityData()
   }
@@ -121,7 +121,7 @@ export default function RewardsProgress({ progress, onDigoosUpdate }: RewardsPro
     const newClaimed = [...(progress?.claimed_months || []), ...unclaimedMonths]
     const totalAmount = unclaimedMonths.length * MONTH_REWARD
     await supabase.from('progress').update({ claimed_months: newClaimed }).eq('user_id', userId)
-    await addDigoos(totalAmount, 'reward')
+    await addDigoos(totalAmount, 'reward', unclaimedMonths.length === 1 ? '1 mois actif' : `${unclaimedMonths.length} mois actifs`)
     onDigoosUpdate()
     fetchActivityData()
   }

@@ -295,7 +295,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
   }, [current, questions.length])
 
   const finaliser = async () => {
-    await addDigoos(digoosEarned, 'exercise')
+    await addDigoos(digoosEarned, 'exercise', 'Conjugaison')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: questions.length,

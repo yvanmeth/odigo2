@@ -309,7 +309,7 @@ export default function Histoire() {
 
   const handleNewTitle = async () => {
     if (digoos < 1) return
-    await deductDigoos(1)
+    await deductDigoos(1, 'reward', 'Histoire — nouveau titre')
     setDigoos(prev => Math.max(0, prev - 1))
     setCurrentTitle(generateTitle())
   }
@@ -324,7 +324,7 @@ export default function Histoire() {
 
   const handleChoice = async (choiceIndex: number) => {
     if (loading) return
-    await deductDigoos(1)
+    await deductDigoos(1, 'reward', 'Histoire — choix narratif')
     setDigoos(prev => Math.max(0, prev - 1))
     setSpent(prev => prev + 1)
 
@@ -403,7 +403,7 @@ export default function Histoire() {
       const { correct } = JSON.parse(txt)
       if (correct) {
         const reward = attempts === 0 ? 3 : attempts === 1 ? 2 : 1
-        await addDigoos(reward, 'reward')
+        await addDigoos(reward, 'reward', 'Histoire — question finale')
         setDigoos(prev => prev + reward)
         setEarnedDigoos(reward)
         setGameState('question_done')

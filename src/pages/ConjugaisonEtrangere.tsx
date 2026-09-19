@@ -230,7 +230,7 @@ Réponds UNIQUEMENT en JSON valide :
       onGameEnd?.()
       return
     }
-    await addDigoos(digoosEarned, 'exercise')
+    await addDigoos(digoosEarned, 'exercise', 'Conjugaison étrangère')
     await logActivity({
       action_type: 'exercise_completed',
       questions_total: questions.length,

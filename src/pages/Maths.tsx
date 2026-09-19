@@ -149,7 +149,7 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
     })
     let points = totalCorrect
     if (finalStreak >= 5) points += 5
-    const earned = await addDigoos(points, 'exercise')
+    const earned = await addDigoos(points, 'exercise', 'Maths')
     setEarnedDigoos(earned)
     setGameState('result')
   }
