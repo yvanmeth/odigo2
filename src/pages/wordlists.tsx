@@ -14,6 +14,7 @@ interface WordList {
   list_type: string
   language: string
   share_code: string
+  subject_id?: string | null
   created_at: string
 }
 
@@ -59,6 +60,7 @@ export default function WordLists() {
   const [items, setItems] = useState<WordItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showNewList, setShowNewList] = useState(false)
+  const [langToSubjectId, setLangToSubjectId] = useState<Record<string, number>>({})
 
   // New list form
   const [newListName, setNewListName] = useState('')
@@ -105,11 +107,15 @@ export default function WordLists() {
   const fetchLists = async () => {
     setLoading(true)
     const tid = await getTargetId()
-    const { data } = await supabase
-      .from('word_lists')
-      .select('*')
-      .eq('user_id', tid)
-      .order('created_at', { ascending: false })
+    const [{ data }, { data: subjectData }] = await Promise.all([
+      supabase.from('word_lists').select('*').eq('user_id', tid).order('created_at', { ascending: false }),
+      supabase.from('subjects').select('id, name').in('name', LANGUAGES),
+    ])
+    if (subjectData) {
+      const map: Record<string, number> = {}
+      for (const s of subjectData) map[s.name] = s.id
+      setLangToSubjectId(map)
+    }
     if (data && data.length > 0) {
       setLists(data as WordList[])
       const { data: wdata } = await supabase
@@ -142,6 +148,7 @@ export default function WordLists() {
       name: newListName.trim(),
       list_type: newListType,
       language: newListLang,
+      subject_id: langToSubjectId[newListLang] != null ? String(langToSubjectId[newListLang]) : null,
     })
     setNewListName(''); setNewListType('vocabulaire'); setNewListLang('Anglais')
     setShowNewList(false)

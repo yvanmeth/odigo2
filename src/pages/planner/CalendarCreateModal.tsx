@@ -38,6 +38,8 @@ export default function CalendarCreateModal({ initialDate, initialTime, userId, 
   const [evalSubject, setEvalSubject] = useState('')
   const [evalTopic, setEvalTopic] = useState('')
   const [evalReadiness, setEvalReadiness] = useState('')
+  const [evalListId, setEvalListId] = useState('')
+  const [listsForSubject, setListsForSubject] = useState<{ id: string; name: string; list_type: string }[]>([])
 
   // Révision
   const [revEvalId, setRevEvalId] = useState('')
@@ -55,6 +57,20 @@ export default function CalendarCreateModal({ initialDate, initialTime, userId, 
   const [remTitle, setRemTitle] = useState('')
   const [remDescription, setRemDescription] = useState('')
   const [remFrequency, setRemFrequency] = useState<'each_login' | 'one_day' | 'one_week' | 'never'>('never')
+
+  useEffect(() => {
+    const doFetch = async () => {
+      setEvalListId('')
+      if (!evalSubject) { setListsForSubject([]); return }
+      const { data } = await supabase.from('word_lists')
+        .select('id, name, list_type')
+        .eq('user_id', userId)
+        .eq('subject_id', evalSubject)
+        .order('name')
+      setListsForSubject(data || [])
+    }
+    void doFetch()
+  }, [evalSubject, userId])
 
   useEffect(() => {
     if (evtRepeat && !evtRepeatUntil) {
@@ -92,6 +108,7 @@ export default function CalendarCreateModal({ initialDate, initialTime, userId, 
         user_id: userId, subject_id: subjectId, topic: evalTopic,
         evaluation_date: date, start_time: startTime || null, end_time: endTime || null,
         readiness: evalReadiness ? parseFloat(evalReadiness) : null,
+        list_id: evalListId || null,
       })
       await logActivity({ action_type: 'planner_entry', metadata: { type: 'evaluation' } })
       await addPlannerDigoos('eval_added')
@@ -171,6 +188,17 @@ export default function CalendarCreateModal({ initialDate, initialTime, userId, 
               <option value="">Choisir une matière</option>
               {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
+            {evalSubject && listsForSubject.length > 0 && (() => {
+              const multi = new Set(listsForSubject.map(l => l.list_type)).size > 1
+              return (
+                <select value={evalListId} onChange={e => setEvalListId(e.target.value)} style={inputStyle}>
+                  <option value="">Liste de mots (facultatif)</option>
+                  {listsForSubject.map(l => (
+                    <option key={l.id} value={l.id}>{l.name}{multi ? ` (${l.list_type})` : ''}</option>
+                  ))}
+                </select>
+              )
+            })()}
             <input type="text" placeholder="Sujet / Chapitre" value={evalTopic} onChange={e => setEvalTopic(e.target.value)} style={inputStyle} />
             <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
             <div style={{ display: 'flex', gap: '0.5rem' }}>

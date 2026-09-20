@@ -61,6 +61,8 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
   const [evalGrade, setEvalGrade] = useState('')
   const [evalStartTime, setEvalStartTime] = useState('')
   const [evalEndTime, setEvalEndTime] = useState('')
+  const [evalListId, setEvalListId] = useState('')
+  const [listsForSubject, setListsForSubject] = useState<{ id: string; name: string; list_type: string }[]>([])
 
   // Form — révisions
   const [revDate, setRevDate] = useState('')
@@ -130,6 +132,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
       setEvalReadiness(e.readiness !== null && e.readiness !== undefined ? String(e.readiness) : '')
       setEvalGrade(e.grade !== null && e.grade !== undefined ? String(e.grade) : '')
       setEvalStartTime(e.start_time || ''); setEvalEndTime(e.end_time || '')
+      setEvalListId(e.list_id || '')
       setActiveTab('evaluations'); setEditingId(e.id); setShowForm(true)
     } else if (pendingEditItem.type === 'revision') {
       const r = pendingEditItem.raw as Revision
@@ -151,6 +154,21 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
     setShowCreateModal(false)
     onPendingEditConsumed()
   }, [pendingEditItem])
+
+  useEffect(() => {
+    const doFetch = async () => {
+      if (!evalSubject) { setListsForSubject([]); return }
+      const { data } = await supabase.from('word_lists')
+        .select('id, name, list_type')
+        .eq('user_id', userId)
+        .eq('subject_id', evalSubject)
+        .order('name')
+      const lists = data || []
+      setListsForSubject(lists)
+      setEvalListId(prev => lists.some(l => l.id === prev) ? prev : '')
+    }
+    void doFetch()
+  }, [evalSubject, userId])
 
   useEffect(() => {
     if (evtRepeat && !evtRepeatUntil) {
@@ -182,6 +200,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
       readiness: evalReadiness ? parseFloat(evalReadiness) : null,
       grade: evalGrade ? parseFloat(evalGrade) : null,
       start_time: evalStartTime || null, end_time: evalEndTime || null,
+      list_id: evalListId || null,
     }
     if (editingId) {
       await supabase.from('evaluations').update(payload).eq('id', editingId)
@@ -194,7 +213,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
       showToast('Évaluation ajoutée')
     }
     setEvalDate(''); setEvalSubject(''); setEvalTopic(''); setEvalReadiness('')
-    setEvalGrade(''); setEvalStartTime(''); setEvalEndTime('')
+    setEvalGrade(''); setEvalStartTime(''); setEvalEndTime(''); setEvalListId('')
     closeForm(); onRefresh()
   }
 
@@ -410,6 +429,17 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
             <option value="">Choisir une matière</option>
             {subjects.map(s => <option key={s.id} value={s.id}>{s.emoji ? `${s.emoji} ${s.name}` : s.name}</option>)}
           </select>
+          {evalSubject && listsForSubject.length > 0 && (() => {
+            const multi = new Set(listsForSubject.map(l => l.list_type)).size > 1
+            return (
+              <select value={evalListId} onChange={e => setEvalListId(e.target.value)} style={inputStyle}>
+                <option value="">Liste de mots (facultatif)</option>
+                {listsForSubject.map(l => (
+                  <option key={l.id} value={l.id}>{l.name}{multi ? ` (${l.list_type})` : ''}</option>
+                ))}
+              </select>
+            )
+          })()}
           <input type="text" placeholder="Sujet / Chapitre" value={evalTopic} onChange={e => setEvalTopic(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Note attendue (0-6)" min="0" max="6" step="0.5" value={evalReadiness} onChange={e => setEvalReadiness(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Note obtenue (0-6)" min="0" max="6" step="0.5" value={evalGrade} onChange={e => setEvalGrade(e.target.value)} style={inputStyle} />
@@ -640,6 +670,7 @@ export default function PlannerList({ evaluations, revisions, events, reminders,
                   setEvalReadiness(e.readiness !== null && e.readiness !== undefined ? String(e.readiness) : '')
                   setEvalGrade(e.grade !== null && e.grade !== undefined ? String(e.grade) : '')
                   setEvalStartTime(e.start_time || ''); setEvalEndTime(e.end_time || '')
+                  setEvalListId(e.list_id || '')
                   setEditingId(e.id); setShowForm(true)
                 }} style={actionBtnStyle}><Pencil size={14} /></button>
                 <button onClick={() => onDelete('evaluations', e.id)} style={actionBtnStyle}><Trash2 size={14} /></button>

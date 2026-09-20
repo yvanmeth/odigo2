@@ -11,9 +11,10 @@ const SUBJECT_LANGUAGE_MAP: Record<string, string> = {
 
 interface SubjectWordlistsProps {
   subjectName: string
+  subjectId: number | string
 }
 
-export default function SubjectWordlists({ subjectName }: SubjectWordlistsProps) {
+export default function SubjectWordlists({ subjectName, subjectId }: SubjectWordlistsProps) {
   const subjectLanguage = SUBJECT_LANGUAGE_MAP[subjectName] || subjectName
   const [wordLists, setWordLists] = useState<WordListItem[]>([])
   const [wordCounts, setWordCounts] = useState<Record<string, number>>({})
@@ -57,7 +58,7 @@ export default function SubjectWordlists({ subjectName }: SubjectWordlistsProps)
     const tid = await getTargetId()
     if (!tid || !newListName.trim()) return
     const { data } = await supabase.from('word_lists').insert({
-      user_id: tid, language: subjectLanguage, name: newListName.trim(), list_type: newListType,
+      user_id: tid, language: subjectLanguage, name: newListName.trim(), list_type: newListType, subject_id: String(subjectId),
     }).select().single()
     if (data) {
       setWordLists(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))

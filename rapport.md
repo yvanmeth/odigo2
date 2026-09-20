@@ -1,63 +1,48 @@
-# Rapport — Ajustements Bilan (Niveau, subLabel, progression)
+# Rapport — Correction timing pendingEditItem / evalListId au montage de PlannerList
 
-> Build : ✅ `npm run build` — 0 erreur.
-> Lint : ✅ `npx eslint src/components/ExerciseBilan.tsx src/pages/Maths.tsx` — 0 erreur, 0 warning.
+> Build : ✅ `npm run build` — 0 erreur TypeScript, 0 erreur Vite.
+> Lint : ⚠️ 7 problèmes dans PlannerList.tsx — tous **pré-existants** (lignes 131, 154, 176, 183). Aucune erreur introduite.
 
 ---
 
-## 1. ExerciseBilan.tsx — ligne "Niveau" réorganisée
+## Fichier modifié
 
-`coeffLabel` (string | null) remplacé par `coeffInfo` ({ label, coeff } | null).
+**`src/pages/planner/PlannerList.tsx`** — une seule suppression dans l'effet `[evalSubject, userId]`
 
-**Avant :**
-```
-Niveau     ×0.8 (facile)
-```
+## Correction appliquée
 
-**Après :**
-```
-Niveau facile     × 0.8
-Niveau difficile  × 1.2
-```
-
-L'information de difficulté est maintenant dans la colonne gauche (avec le libellé sémantique), le coefficient seul à droite — plus lisible d'un coup d'œil.
-
-## 2. ExerciseBilan.tsx — prop subLabel
-
-Ajout de `subLabel?: string` dans `ExerciseBilanProps`.
-
-Logique d'affichage du titre :
+### Avant
 ```ts
-const exerciseLabel = subLabel ?? EXERCISE_LABELS[exercise] ?? exercise
+if (!evalSubject) { setListsForSubject([]); setEvalListId(''); return }
 ```
 
-Si `subLabel` est fourni, il remplace le label générique issu de `EXERCISE_LABELS`. Aucun changement de rendu pour les exercices qui ne passent pas encore `subLabel`.
+### Après
+```ts
+if (!evalSubject) { setListsForSubject([]); return }
+```
 
-## 3. Maths.tsx — subLabel passé au bilan
+---
 
-Le bilan reçoit désormais le nom réel du sous-mode joué :
+## Pourquoi cette suppression suffit
 
-| Sous-mode       | subLabel affiché |
-|----------------|-----------------|
-| calcul         | Calcul mental   |
-| multiplication | Multiplications |
-| division       | Divisions       |
-| equation       | Équations       |
-
-La valeur provient de `EXERCISE_INFO[selectedExercise].label`, déjà défini dans Maths.tsx — pas de duplication.
-
+`setEvalListId('')` dans la branche early-return n'est pas nécessaire parce que le sélecteur de liste est conditionné par :
 ```tsx
-subLabel={selectedExercise ? EXERCISE_INFO[selectedExercise].label : undefined}
+{evalSubject && listsForSubject.length > 0 && (...)}
 ```
+Quand `evalSubject` est vide, le sélecteur est déjà invisible — forcer `evalListId` à vide dans ce cas n'a aucun effet visible.
 
-## 4. Maths.tsx — barre de progression 100% à la question 10
+En revanche, ce `setEvalListId('')` causait un conflit de timing au premier montage de `PlannerList` (déclenché depuis la vue calendrier via `handleCalendarEdit`) :
 
-**Avant :** `const progress = (currentIndex / 10) * 100`
-→ question 10 (index 9) → 90%
+1. `PlannerList` monte avec `pendingEditItem` déjà non-null et `evalSubject = ''` (état initial)
+2. Les deux effets s'exécutent dans le même cycle de rendu, dans l'ordre de déclaration :
+   - Effet `pendingEditItem` → `setEvalListId("abc-uuid")` (queued)
+   - Effet `evalSubject` (initial, `evalSubject = ''`) → `setEvalListId('')` (queued, **écrasait** le précédent)
+3. Dernier appel gagnant : `evalListId = ''` — pré-remplissage perdu
 
-**Après :** `const progress = ((currentIndex + 1) / 10) * 100`
-→ question 1 (index 0) → 10%, question 10 (index 9) → 100%
+Après suppression : l'effet `evalSubject` sur le montage initial (avec `evalSubject = ''`) ne touche plus `evalListId`. Le batch ne contient que `setEvalListId("abc-uuid")` du `pendingEditItem` effect → valeur préservée.
 
-La barre atteint 100% dès l'affichage de la dernière question, avant même la validation.
-
-Aucun autre fichier n'utilise ce pattern de barre de progression (les autres exercices ont soit une progression différente, soit pas de barre).
+Le reset de `evalListId` lors d'un vrai changement de matière par l'utilisateur reste assuré par la ligne :
+```ts
+setEvalListId(prev => lists.some(l => l.id === prev) ? prev : '')
+```
+qui s'exécute après le chargement des listes (quand `evalSubject` est non-vide).

@@ -20,6 +20,7 @@ export interface Evaluation {
   end_time?: string
   readiness?: number | null
   grade?: number | null
+  list_id?: string | null
   created_at: string
 }
 
@@ -53,6 +54,7 @@ export interface WordList {
   language: string
   name: string
   list_type: string
+  subject_id?: string | null
   created_at: string
 }
 

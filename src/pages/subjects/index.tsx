@@ -57,7 +57,7 @@ export default function Subjects() {
             {subjectTab === 'evals' && <SubjectEvals subjectId={selectedSubject.id} />}
             {subjectTab === 'notes' && <SubjectNotes subjectId={selectedSubject.id} />}
             {subjectTab === 'postits' && <SubjectPostits subjectId={selectedSubject.id} />}
-            {subjectTab === 'wordlists' && hasWordlists && <SubjectWordlists subjectName={selectedSubject.name} />}
+            {subjectTab === 'wordlists' && hasWordlists && <SubjectWordlists subjectName={selectedSubject.name} subjectId={selectedSubject.id} />}
           </>
         )
       })()}
