@@ -28,11 +28,38 @@ const generateCalcul = (diff: Difficulty): Question => {
   return { text: `${big} - ${small}`, answer: big - small }
 }
 
+const MULT_TABLES: Record<Difficulty, number[]> = {
+  facile: [1, 2, 3, 4, 5, 6, 10],
+  moyen: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+  difficile: [4, 5, 6, 7, 8, 9, 11, 12],
+}
+
+const pickFrom = (arr: number[]) => arr[randomInt(0, arr.length - 1)]
+
 const generateMultiplication = (diff: Difficulty): Question => {
-  const tableMax = { facile: 5, moyen: 10, difficile: 12 }[diff]
-  const a = randomInt(1, tableMax)
-  const b = diff === 'difficile' ? randomInt(1, 99) : randomInt(1, tableMax)
+  const tables = MULT_TABLES[diff]
+  const a = pickFrom(tables)
+  const b = pickFrom(tables)
   return { text: `${a} × ${b}`, answer: a * b }
+}
+
+const generateMultiplicationBatch = (diff: Difficulty, count: number): Question[] => {
+  const tables = MULT_TABLES[diff]
+  const qs: Question[] = []
+  let prevKey = ''
+  for (let i = 0; i < count; i++) {
+    let a = pickFrom(tables)
+    let b = pickFrom(tables)
+    let attempts = 0
+    while (`${Math.min(a, b)}x${Math.max(a, b)}` === prevKey && attempts < 20) {
+      a = pickFrom(tables)
+      b = pickFrom(tables)
+      attempts++
+    }
+    prevKey = `${Math.min(a, b)}x${Math.max(a, b)}`
+    qs.push({ text: `${a} × ${b}`, answer: a * b })
+  }
+  return qs
 }
 
 const generateDivision = (diff: Difficulty): Question => {
@@ -115,8 +142,9 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
 
   const startGame = () => {
     if (!selectedExercise) return
-    const generator = GENERATORS[selectedExercise]
-    const qs = Array.from({ length: 10 }, () => generator(difficulty))
+    const qs = selectedExercise === 'multiplication'
+      ? generateMultiplicationBatch(difficulty, 10)
+      : Array.from({ length: 10 }, () => GENERATORS[selectedExercise](difficulty))
     setQuestions(qs)
     setCurrentIndex(0)
     setUserAnswer('')
