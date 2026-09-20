@@ -1,90 +1,74 @@
-# Rapport — Ordre ExerciseBilan / HighscoreModal dans Anagramme.tsx
+# Rapport — Investigation : sélecteur de liste dans le formulaire d'évaluation
 
-> Build : ✅ `npm run build` — 0 erreur TypeScript, 0 erreur Vite.
-> Lint : ⚠️ erreurs pré-existantes dans Anagramme.tsx (lignes 78, 80, 84, 98, 128 — patterns `set-state-in-effect` et `immutability` sur useEffect initial et `startGame`, inchangés depuis l'origine). **Aucune erreur introduite.**
-
----
-
-## Problème corrigé
-
-Avant ce correctif, deux boutons de `HighscoreModal` (`Rejouer`, `Quitter`) court-circuitaient `ExerciseBilan`, empêchant l'attribution des Δ si le score était un highscore.
+> Tâche : read-only. Aucun fichier modifié.
 
 ---
 
-## Changements appliqués
-
-### 1. `type GameState` — nouvel état `'highscore'`
+## 1. Requête exacte (identique dans PlannerList.tsx:161-164 et CalendarCreateModal.tsx:65-68)
 
 ```ts
-type GameState = 'select' | 'playing' | 'result' | 'highscore'
+const { data } = await supabase.from('word_lists')
+  .select('id, name, list_type')
+  .eq('user_id', userId)
+  .eq('subject_id', evalSubject)   // ← seul filtre de sélection
+  .order('name')
 ```
 
-### 2. `finaliser` — ExerciseBilan affiché immédiatement, checkHighscore en parallèle
-
-```ts
-const finaliser = async (totalPoints: number, totalCorrect: number) => {
-  if (guestMode) { onGameEnd?.(); return }
-  setShowHighscore(false)      // reset avant la vérification asynchrone
-  setGameState('result')       // ExerciseBilan apparaît sans délai
-  const [, isTop] = await Promise.all([
-    logActivity({ ... }),
-    checkHighscore(totalPoints),
-  ])
-  setShowHighscore(isTop)      // flag disponible quand l'utilisateur clique "Continuer"
-}
-```
-
-`logActivity` et `checkHighscore` s'exécutent en parallèle. `ExerciseBilan` s'affiche immédiatement sans attendre leur résultat. Quand l'utilisateur atteint le bouton "Continuer" d'ExerciseBilan (après les animations d'étoiles), le flag `showHighscore` est déjà résolu.
-
-### 3. `ExerciseBilan.onDone` — branchement conditionnel
-
-```tsx
-onDone={() => {
-  if (showHighscore) setGameState('highscore')
-  else { setGameState('select'); setWords([]) }
-}}
-```
-
-### 4. Bloc `'highscore'` — HighscoreModal en plein écran après ExerciseBilan
-
-```tsx
-if (gameState === 'highscore') {
-  return (
-    <HighscoreModal
-      exercise="anagramme"
-      listId={selectedListId}
-      listName={listName}
-      score={points}
-      onClose={()   => { setShowHighscore(false); setGameState('select'); setWords([]) }}
-      onDisable={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
-      onReplay={()  => { setShowHighscore(false); setGameState('select'); startGame() }}
-      onQuit={()    => { setShowHighscore(false); setGameState('select'); setWords([]) }}
-    />
-  )
-}
-```
-
-### 5. Suppression de l'ancien overlay HighscoreModal
-
-L'ancien `{showHighscore && <HighscoreModal ...>}` superposé à la vue `playing` est supprimé. HighscoreModal n'est plus rendu qu'en état `'highscore'`, jamais en superposition.
+**Filtre : `subject_id = evalSubject` uniquement.** Pas de filtre sur `list_type` ni sur `language`.
+Le type `'dictée'` n'est pas exclu. Si la liste avait un `subject_id` correspondant à la matière Français, elle apparaîtrait.
 
 ---
 
-## Flux complet résultant
+## 2. Où et quand `subject_id` est écrit sur `word_lists`
 
-```
-partie terminée
-  → finaliser()
-      ├─ setGameState('result')        → ExerciseBilan visible immédiatement
-      └─ Promise.all([logActivity, checkHighscore]) → setShowHighscore(isTop)
+Deux points d'écriture :
 
-  → utilisateur clique "Continuer" dans ExerciseBilan (addDigoos déjà appelé)
-      ├─ showHighscore = true  → setGameState('highscore') → HighscoreModal
-      │     ├─ Fermer    → select
-      │     ├─ Désactiver → select
-      │     ├─ Rejouer   → select + startGame()
-      │     └─ Quitter   → select
-      └─ showHighscore = false → select directement
+**SubjectWordlists.tsx:61** — création depuis Matières → Français → Listes de mots :
+```ts
+subject_id: String(subjectId)   // toujours renseigné, valeur correcte garantie
 ```
 
-Les Δ sont **toujours attribués** par ExerciseBilan, quel que soit le bouton cliqué ensuite dans HighscoreModal.
+**wordlists.tsx:151** — création depuis la page Listes de mots globale :
+```ts
+subject_id: langToSubjectId[newListLang] != null ? String(langToSubjectId[newListLang]) : null
+```
+Renseigné si `language = 'Français'` figure dans `LANGUAGES` (oui, ligne 30) **ET** qu'un subject `name = 'Français'` existe dans la table `subjects`. La map `langToSubjectId` est construite par :
+```ts
+supabase.from('subjects').select('id, name').in('name', LANGUAGES)
+// LANGUAGES = ['Anglais', 'Allemand', 'Grec', 'Espagnol', 'Arabe', 'Italien', 'Français']
+```
+
+Ces deux chemins n'existaient pas avant le commit `c0b7b59`. Toute liste créée avant ce commit a `subject_id = NULL`.
+
+---
+
+## 3. Deux scénarios possibles
+
+| Scénario | Cause | Symptôme visible |
+|---|---|---|
+| A — Migration **non appliquée** | Colonne `subject_id` absente en base → requête PostgREST en erreur → `data = null` → `listsForSubject = []` | Le sélecteur n'apparaît **jamais** pour aucune matière |
+| B — Migration **appliquée**, liste créée avant `c0b7b59` | `subject_id = NULL` sur "Première dictée en français" → ne correspond pas au filtre `.eq('subject_id', evalSubject)` | Le sélecteur peut apparaître pour d'autres listes récentes, mais pas pour cette liste-ci |
+
+---
+
+## 4. Conclusion
+
+Le filtre lui-même **n'est pas trop restrictif** — il ne discrimine ni `list_type` ni `language`.
+
+Le problème est dans les données :
+
+- **Scénario A** (migration non appliquée) : appliquer la migration SQL en priorité, puis vérifier.
+  ```sql
+  ALTER TABLE word_lists ADD COLUMN IF NOT EXISTS subject_id TEXT;
+  -- + GRANT + RLS policy si nécessaire
+  ```
+
+- **Scénario B** (liste créée avant le fix) : mettre à jour `subject_id` sur les listes existantes via l'UI (si un champ de réassignation existe) ou via SQL :
+  ```sql
+  -- Exemple : retrouver l'id du subject 'Français' et l'affecter
+  UPDATE word_lists
+  SET subject_id = (SELECT id FROM subjects WHERE name = 'Français' LIMIT 1)::text
+  WHERE language = 'Français' AND subject_id IS NULL;
+  ```
+
+**Pour distinguer les deux** : si le sélecteur apparaît pour une matière ayant une liste créée récemment (après `c0b7b59`) → scénario B. Si le sélecteur n'apparaît jamais → scénario A.
