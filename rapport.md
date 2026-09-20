@@ -1,48 +1,90 @@
-# Rapport — Correction timing pendingEditItem / evalListId au montage de PlannerList
+# Rapport — Ordre ExerciseBilan / HighscoreModal dans Anagramme.tsx
 
 > Build : ✅ `npm run build` — 0 erreur TypeScript, 0 erreur Vite.
-> Lint : ⚠️ 7 problèmes dans PlannerList.tsx — tous **pré-existants** (lignes 131, 154, 176, 183). Aucune erreur introduite.
+> Lint : ⚠️ erreurs pré-existantes dans Anagramme.tsx (lignes 78, 80, 84, 98, 128 — patterns `set-state-in-effect` et `immutability` sur useEffect initial et `startGame`, inchangés depuis l'origine). **Aucune erreur introduite.**
 
 ---
 
-## Fichier modifié
+## Problème corrigé
 
-**`src/pages/planner/PlannerList.tsx`** — une seule suppression dans l'effet `[evalSubject, userId]`
-
-## Correction appliquée
-
-### Avant
-```ts
-if (!evalSubject) { setListsForSubject([]); setEvalListId(''); return }
-```
-
-### Après
-```ts
-if (!evalSubject) { setListsForSubject([]); return }
-```
+Avant ce correctif, deux boutons de `HighscoreModal` (`Rejouer`, `Quitter`) court-circuitaient `ExerciseBilan`, empêchant l'attribution des Δ si le score était un highscore.
 
 ---
 
-## Pourquoi cette suppression suffit
+## Changements appliqués
 
-`setEvalListId('')` dans la branche early-return n'est pas nécessaire parce que le sélecteur de liste est conditionné par :
+### 1. `type GameState` — nouvel état `'highscore'`
+
+```ts
+type GameState = 'select' | 'playing' | 'result' | 'highscore'
+```
+
+### 2. `finaliser` — ExerciseBilan affiché immédiatement, checkHighscore en parallèle
+
+```ts
+const finaliser = async (totalPoints: number, totalCorrect: number) => {
+  if (guestMode) { onGameEnd?.(); return }
+  setShowHighscore(false)      // reset avant la vérification asynchrone
+  setGameState('result')       // ExerciseBilan apparaît sans délai
+  const [, isTop] = await Promise.all([
+    logActivity({ ... }),
+    checkHighscore(totalPoints),
+  ])
+  setShowHighscore(isTop)      // flag disponible quand l'utilisateur clique "Continuer"
+}
+```
+
+`logActivity` et `checkHighscore` s'exécutent en parallèle. `ExerciseBilan` s'affiche immédiatement sans attendre leur résultat. Quand l'utilisateur atteint le bouton "Continuer" d'ExerciseBilan (après les animations d'étoiles), le flag `showHighscore` est déjà résolu.
+
+### 3. `ExerciseBilan.onDone` — branchement conditionnel
+
 ```tsx
-{evalSubject && listsForSubject.length > 0 && (...)}
+onDone={() => {
+  if (showHighscore) setGameState('highscore')
+  else { setGameState('select'); setWords([]) }
+}}
 ```
-Quand `evalSubject` est vide, le sélecteur est déjà invisible — forcer `evalListId` à vide dans ce cas n'a aucun effet visible.
 
-En revanche, ce `setEvalListId('')` causait un conflit de timing au premier montage de `PlannerList` (déclenché depuis la vue calendrier via `handleCalendarEdit`) :
+### 4. Bloc `'highscore'` — HighscoreModal en plein écran après ExerciseBilan
 
-1. `PlannerList` monte avec `pendingEditItem` déjà non-null et `evalSubject = ''` (état initial)
-2. Les deux effets s'exécutent dans le même cycle de rendu, dans l'ordre de déclaration :
-   - Effet `pendingEditItem` → `setEvalListId("abc-uuid")` (queued)
-   - Effet `evalSubject` (initial, `evalSubject = ''`) → `setEvalListId('')` (queued, **écrasait** le précédent)
-3. Dernier appel gagnant : `evalListId = ''` — pré-remplissage perdu
-
-Après suppression : l'effet `evalSubject` sur le montage initial (avec `evalSubject = ''`) ne touche plus `evalListId`. Le batch ne contient que `setEvalListId("abc-uuid")` du `pendingEditItem` effect → valeur préservée.
-
-Le reset de `evalListId` lors d'un vrai changement de matière par l'utilisateur reste assuré par la ligne :
-```ts
-setEvalListId(prev => lists.some(l => l.id === prev) ? prev : '')
+```tsx
+if (gameState === 'highscore') {
+  return (
+    <HighscoreModal
+      exercise="anagramme"
+      listId={selectedListId}
+      listName={listName}
+      score={points}
+      onClose={()   => { setShowHighscore(false); setGameState('select'); setWords([]) }}
+      onDisable={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
+      onReplay={()  => { setShowHighscore(false); setGameState('select'); startGame() }}
+      onQuit={()    => { setShowHighscore(false); setGameState('select'); setWords([]) }}
+    />
+  )
+}
 ```
-qui s'exécute après le chargement des listes (quand `evalSubject` est non-vide).
+
+### 5. Suppression de l'ancien overlay HighscoreModal
+
+L'ancien `{showHighscore && <HighscoreModal ...>}` superposé à la vue `playing` est supprimé. HighscoreModal n'est plus rendu qu'en état `'highscore'`, jamais en superposition.
+
+---
+
+## Flux complet résultant
+
+```
+partie terminée
+  → finaliser()
+      ├─ setGameState('result')        → ExerciseBilan visible immédiatement
+      └─ Promise.all([logActivity, checkHighscore]) → setShowHighscore(isTop)
+
+  → utilisateur clique "Continuer" dans ExerciseBilan (addDigoos déjà appelé)
+      ├─ showHighscore = true  → setGameState('highscore') → HighscoreModal
+      │     ├─ Fermer    → select
+      │     ├─ Désactiver → select
+      │     ├─ Rejouer   → select + startGame()
+      │     └─ Quitter   → select
+      └─ showHighscore = false → select directement
+```
+
+Les Δ sont **toujours attribués** par ExerciseBilan, quel que soit le bouton cliqué ensuite dans HighscoreModal.

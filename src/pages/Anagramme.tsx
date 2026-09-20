@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
-import { Delta } from '../components/Delta'
 import { EmptyState } from '../components/EmptyState'
 import HighscoreModal from '../components/HighscoreModal'
+import ExerciseBilan from '../components/ExerciseBilan'
+import type { Difficulty } from '../lib/exerciseBilan'
+import { hasRevisionBonusForList } from '../services/revisionBonus'
 
-type GameState = 'select' | 'playing' | 'result'
+type GameState = 'select' | 'playing' | 'result' | 'highscore'
 
 interface WordList {
   id: string
@@ -29,7 +30,7 @@ interface BankItem {
 
 type PlacedItem = { letter: string; bankId: string } | null
 
-const TOTAL_WORDS = 15
+const TOTAL_WORDS = 10
 const PRIMARY = '#2a9d8f'
 
 const shuffleLetters = (word: string): string[] => {
@@ -54,6 +55,7 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedListId, setSelectedListId] = useState('')
+  const [difficulty, setDifficulty] = useState<Difficulty>('moyen')
   const [loading, setLoading] = useState(false)
   const [words, setWords] = useState<AnagramWord[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -65,7 +67,7 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
   const [streak, setStreak] = useState(0)
   const [points, setPoints] = useState(0)
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
-  const [earnedDigoos, setEarnedDigoos] = useState(0)
+  const [hasRevisionBonus, setHasRevisionBonus] = useState(false)
   const [showHighscore, setShowHighscore] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
 
@@ -97,10 +99,27 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedListId])
 
-  const initWord = (word: AnagramWord) => {
-    setBank(word.shuffled.map((letter, i) => ({ letter, id: `${i}-${letter}`, used: false })))
-    setPlaced(new Array(word.target.length).fill(null))
-    setHintFirst(false)
+  const initWord = (word: AnagramWord, diff: Difficulty, shuffledLetters?: string[]) => {
+    const letters = shuffledLetters ?? word.shuffled
+    const newBank: BankItem[] = letters.map((letter, i) => ({ letter, id: `${i}-${letter}-${Date.now()}`, used: false }))
+    const newPlaced: PlacedItem[] = new Array(word.target.length).fill(null)
+
+    if (diff === 'facile') {
+      const firstLetter = word.target[0].toUpperCase()
+      const itemIdx = newBank.findIndex(b => b.letter === firstLetter && !b.used)
+      if (itemIdx !== -1) {
+        newBank[itemIdx] = { ...newBank[itemIdx], used: true }
+        newPlaced[0] = { letter: firstLetter, bankId: newBank[itemIdx].id }
+        setHintFirst(true)
+      } else {
+        setHintFirst(false)
+      }
+    } else {
+      setHintFirst(false)
+    }
+
+    setBank(newBank)
+    setPlaced(newPlaced)
     setAttempts(0)
     setFeedback(null)
     validatingRef.current = false
@@ -110,19 +129,25 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
     if (!selectedListId || loading) return
     setLoading(true)
 
-    console.log('Loading guest list:', selectedListId)
-    const { data: rawItems, error: wordError } = await supabase
-      .from('word_items')
-      .select('source_word, target_word')
-      .eq('list_id', selectedListId)
-    console.log('Guest words result:', rawItems?.length, 'error:', wordError)
-
+    const [revBonus, { data: rawItems }] = await Promise.all([
+      guestMode ? Promise.resolve(false) : hasRevisionBonusForList(selectedListId),
+      supabase.from('word_items').select('source_word, target_word').eq('list_id', selectedListId),
+    ])
+    setHasRevisionBonus(revBonus)
     setLoading(false)
 
-    const items = ((rawItems || []) as { source_word: string; target_word: string }[])
+    let items = ((rawItems || []) as { source_word: string; target_word: string }[])
       .filter(w => w.source_word && w.target_word)
 
     if (items.length === 0) return
+
+    if (difficulty === 'facile') {
+      const short = items.filter(w => w.source_word.length <= 5)
+      if (short.length >= TOTAL_WORDS) items = short
+    } else if (difficulty === 'difficile') {
+      const long = items.filter(w => w.source_word.length >= 6)
+      if (long.length >= TOTAL_WORDS) items = long
+    }
 
     const picked = Array.from({ length: TOTAL_WORDS }, () =>
       items[Math.floor(Math.random() * items.length)]
@@ -139,8 +164,7 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
     setResults([])
     setStreak(0)
     setPoints(0)
-    setEarnedDigoos(0)
-    initWord(anagramWords[0])
+    initWord(anagramWords[0], difficulty)
     setGameState('playing')
   }
 
@@ -161,17 +185,18 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
       onGameEnd?.()
       return
     }
-    await logActivity({
-      action_type: 'exercise_completed',
-      questions_total: TOTAL_WORDS,
-      questions_correct: totalCorrect,
-      metadata: { exercise: 'anagramme', listId: selectedListId },
-    })
-    const earned = await addDigoos(totalPoints, 'exercise', 'Anagramme')
-    setEarnedDigoos(earned)
-    const isTop = await checkHighscore(totalPoints)
-    if (isTop) setShowHighscore(true)
-    else setGameState('result')
+    setShowHighscore(false)
+    setGameState('result')
+    const [, isTop] = await Promise.all([
+      logActivity({
+        action_type: 'exercise_completed',
+        questions_total: TOTAL_WORDS,
+        questions_correct: totalCorrect,
+        metadata: { exercise: 'anagramme', listId: selectedListId },
+      }),
+      checkHighscore(totalPoints),
+    ])
+    setShowHighscore(isTop)
   }
 
   const validateWord = (currentPlaced: PlacedItem[]) => {
@@ -200,7 +225,7 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
           finaliser(points + gain, results.filter(Boolean).length + 1)
         } else {
           setCurrentIndex(nextIdx)
-          initWord(words[nextIdx])
+          initWord(words[nextIdx], difficulty)
         }
       }, 1000)
     } else {
@@ -212,12 +237,7 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
         setFeedback(null)
         validatingRef.current = false
         const reshuffled = shuffleLetters(cw.target)
-        setBank(reshuffled.map((l, i) => ({
-          letter: l,
-          id: `${i}-${l}-${Date.now()}`,
-          used: false,
-        })))
-        setPlaced(new Array(cw.target.length).fill(null))
+        initWord(cw, difficulty, reshuffled)
       }, 800)
     }
   }
@@ -297,7 +317,7 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
       finaliser(points, newResults.filter(Boolean).length)
     } else {
       setCurrentIndex(nextIdx)
-      initWord(words[nextIdx])
+      initWord(words[nextIdx], difficulty)
     }
   }
 
@@ -319,7 +339,7 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
   }, [gameState, bank, feedback])
 
   const currentWord = words[currentIndex]
-  const progress = (currentIndex / TOTAL_WORDS) * 100
+  const progress = ((currentIndex + 1) / TOTAL_WORDS) * 100
 
   if (gameState === 'select') {
     if (guestMode) return <div style={{ textAlign: 'center', padding: '3rem', color: '#888' }}>Chargement...</div>
@@ -347,6 +367,35 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
               <option value="">-- Sélectionner --</option>
               {lists.map(l => <option key={l.id} value={l.id}>{l.name} — {l.language} ({l.list_type})</option>)}
             </select>
+
+            <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+              Difficulté
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              {(['facile', 'moyen', 'difficile'] as const).map(d => (
+                <button
+                  key={d}
+                  onClick={() => setDifficulty(d)}
+                  style={{
+                    flex: 1, padding: '0.5rem',
+                    background: difficulty === d ? PRIMARY : 'white',
+                    color: difficulty === d ? 'white' : '#555',
+                    border: `1px solid ${difficulty === d ? PRIMARY : '#ddd'}`,
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer', fontSize: '0.85rem',
+                    fontWeight: difficulty === d ? 'bold' : 'normal',
+                  }}
+                >
+                  {d === 'facile' ? '😊 Facile' : d === 'moyen' ? '😐 Moyen' : '💪 Difficile'}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#aaa', marginBottom: '1.5rem' }}>
+              {difficulty === 'facile' ? 'Mots courts (≤ 5 lettres) · 1ère lettre offerte' :
+               difficulty === 'difficile' ? 'Mots longs (≥ 6 lettres)' :
+               'Tous les mots de la liste'}
+            </div>
+
             <button
               onClick={startGame}
               disabled={!selectedListId || loading}
@@ -385,54 +434,39 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
   }
 
   if (gameState === 'result' && !guestMode) {
-    const totalCorrect = results.filter(Boolean).length
     return (
-      <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-        <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎉</div>
-        <h2 style={{ color: PRIMARY, marginBottom: '0.5rem' }}>Partie terminée !</h2>
-        <div style={{ fontSize: '1.3rem', color: '#555', marginBottom: '1rem' }}>
-          {totalCorrect} / {TOTAL_WORDS} mots trouvés
-        </div>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-          background: '#fff8e0', color: '#b8860b',
-          padding: '0.5rem 1.2rem', borderRadius: '1rem',
-          fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '2rem',
-        }}>
-          +{earnedDigoos} <Delta size={20} />
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-          <button
-            onClick={() => { setGameState('select'); setWords([]) }}
-            style={{
-              padding: '0.75rem 1.5rem', background: PRIMARY, color: 'white',
-              border: 'none', borderRadius: '0.5rem', cursor: 'pointer',
-              fontSize: '1rem', fontWeight: 'bold',
-            }}
-          >
-            🔄 Rejouer
-          </button>
-        </div>
-      </div>
+      <ExerciseBilan
+        exercise="anagramme"
+        errors={TOTAL_WORDS - results.filter(Boolean).length}
+        difficulty={difficulty}
+        hasRevisionBonus={hasRevisionBonus}
+        onDone={() => {
+          if (showHighscore) setGameState('highscore')
+          else { setGameState('select'); setWords([]) }
+        }}
+      />
     )
   }
 
   const listName = lists.find(l => l.id === selectedListId)?.name ?? ''
 
-  return (
-    <>
-    {showHighscore && (
+  if (gameState === 'highscore') {
+    return (
       <HighscoreModal
         exercise="anagramme"
         listId={selectedListId}
         listName={listName}
         score={points}
-        onClose={() => { setShowHighscore(false); setGameState('result') }}
-        onDisable={() => { setShowHighscore(false); setGameState('result') }}
-        onReplay={() => { setShowHighscore(false); startGame() }}
+        onClose={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
+        onDisable={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
+        onReplay={() => { setShowHighscore(false); setGameState('select'); startGame() }}
         onQuit={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
       />
-    )}
+    )
+  }
+
+  return (
+    <>
     <div style={{ maxWidth: '500px', margin: '0 auto' }}>
       {/* Progression */}
       <div style={{ marginBottom: '1.5rem' }}>
