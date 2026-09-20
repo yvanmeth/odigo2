@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { Delta } from '../components/Delta'
-import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
+import ExerciseBilan from '../components/ExerciseBilan'
 
 type MathExercise = 'calcul' | 'multiplication' | 'division' | 'equation'
 type Difficulty = 'facile' | 'moyen' | 'difficile'
@@ -110,9 +109,7 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
   const [currentIndex, setCurrentIndex] = useState(0)
   const [userAnswer, setUserAnswer] = useState('')
   const [results, setResults] = useState<boolean[]>([])
-  const [streak, setStreak] = useState(0)
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
-  const [earnedDigoos, setEarnedDigoos] = useState(0)
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -124,9 +121,7 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
     setCurrentIndex(0)
     setUserAnswer('')
     setResults([])
-    setStreak(0)
     setFeedback(null)
-    setEarnedDigoos(0)
     setGameState('playing')
   }
 
@@ -135,7 +130,7 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100) }, [currentIndex, gameState])
 
-  const finaliser = async (finalResults: boolean[], finalStreak: number) => {
+  const finaliser = async (finalResults: boolean[]) => {
     if (guestMode) {
       onGameEnd?.()
       return
@@ -147,10 +142,6 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
       questions_correct: totalCorrect,
       metadata: { exercise: 'maths', subExercise: selectedExercise, difficulty },
     })
-    let points = totalCorrect
-    if (finalStreak >= 5) points += 5
-    const earned = await addDigoos(points, 'exercise', 'Maths')
-    setEarnedDigoos(earned)
     setGameState('result')
   }
 
@@ -158,11 +149,9 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
     if (feedback || !userAnswer) return
     const correct = parseInt(userAnswer) === questions[currentIndex].answer
     const newResults = [...results, correct]
-    const newStreak = correct ? streak + 1 : 0
 
     setFeedback(correct ? 'correct' : 'incorrect')
     setResults(newResults)
-    setStreak(newStreak)
 
     setTimeout(() => {
       setFeedback(null)
@@ -170,20 +159,9 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
       if (currentIndex + 1 < 10) {
         setCurrentIndex(prev => prev + 1)
       } else {
-        finaliser(newResults, newStreak)
+        finaliser(newResults)
       }
     }, 1200)
-  }
-
-  const resetToSelect = () => {
-    setQuestions([])
-    setCurrentIndex(0)
-    setUserAnswer('')
-    setResults([])
-    setStreak(0)
-    setFeedback(null)
-    setEarnedDigoos(0)
-    setGameState('select')
   }
 
   const btnStyle = (active: boolean, color = '#2a9d8f'): React.CSSProperties => ({
@@ -289,14 +267,13 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
   // ── JEU ───────────────────────────────────────────────────────────────
   if (gameState === 'playing' && questions.length > 0) {
     const question = questions[currentIndex]
-    const progress = (currentIndex / 10) * 100
+    const progress = ((currentIndex + 1) / 10) * 100
 
     return (
       <div style={{ maxWidth: '480px', margin: '0 auto' }}>
         {/* En-tête */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', fontSize: '0.9rem', color: '#888' }}>
           <span>Question {currentIndex + 1} / 10</span>
-          {streak >= 3 && <span style={{ color: '#e76f51', fontWeight: 'bold' }}>🔥 Série ×{streak}</span>}
         </div>
 
         {/* Barre de progression */}
@@ -373,51 +350,18 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
     )
   }
 
-  // ── RÉSULTAT ──────────────────────────────────────────────────────────
+  // ── BILAN ─────────────────────────────────────────────────────────────
   if (gameState === 'result') {
-    const totalCorrect = results.filter(Boolean).length
-    const pct = Math.round((totalCorrect / 10) * 100)
-    const emoji = pct === 100 ? '🏆' : pct >= 80 ? '🎉' : pct >= 60 ? '😊' : '💪'
-
+    const errors = 10 - results.filter(Boolean).length
     return (
-      <div style={{ maxWidth: '420px', margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>{emoji}</div>
-        <h2 style={{ color: '#2a9d8f', marginBottom: '0.5rem' }}>Série terminée !</h2>
-        <p style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#333', marginBottom: '0.5rem' }}>
-          {totalCorrect}/10 bonnes réponses
-        </p>
-
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-          background: '#fff8e0', color: '#b8860b',
-          fontWeight: 'bold', fontSize: '1.2rem',
-          borderRadius: '1rem', padding: '0.4rem 1rem',
-          marginBottom: '2rem',
-        }}>
-          +{earnedDigoos} <Delta size={20} />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <button
-            onClick={resetToSelect}
-            style={{ padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.75rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold' }}
-          >
-            🔄 Rejouer
-          </button>
-          <button
-            onClick={() => onBack ? onBack() : setGameState('menu')}
-            style={{ padding: '0.75rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.75rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold' }}
-          >
-            ← Autre exercice
-          </button>
-          <button
-            onClick={() => onBack ? onBack() : (setSelectedExercise(null), setGameState('menu'))}
-            style={{ padding: '0.75rem', background: 'none', color: '#aaa', border: '1px solid #ddd', borderRadius: '0.75rem', cursor: 'pointer', fontSize: '0.9rem' }}
-          >
-            Quitter
-          </button>
-        </div>
-      </div>
+      <ExerciseBilan
+        exercise="maths"
+        errors={errors}
+        difficulty={difficulty}
+        hasRevisionBonus={false}
+        subLabel={selectedExercise ? EXERCISE_INFO[selectedExercise].label : undefined}
+        onDone={() => setGameState('select')}
+      />
     )
   }
 

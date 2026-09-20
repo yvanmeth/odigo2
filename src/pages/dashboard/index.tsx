@@ -571,6 +571,7 @@ export default function Dashboard({ session }: Props) {
             <LireHeure onBack={() => setActiveExercise(null)} />
           )}
 
+
           {activePage === 'rewards' && (
             <Rewards
               onNavigate={(page, exercise) => {
