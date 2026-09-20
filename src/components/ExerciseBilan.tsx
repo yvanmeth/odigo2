@@ -12,6 +12,7 @@ export interface ExerciseBilanProps {
   hasRevisionBonus: boolean
   onDone: () => void
   subLabel?: string
+  listName?: string
 }
 
 // Animation steps:
@@ -44,6 +45,7 @@ export default function ExerciseBilan({
   hasRevisionBonus,
   onDone,
   subLabel,
+  listName,
 }: ExerciseBilanProps) {
   const [step, setStep] = useState(0)
   const [golden, setGolden] = useState(false)
@@ -175,7 +177,7 @@ export default function ExerciseBilan({
     const label = EXERCISE_LABELS[exercise] ?? exercise
     if (uid) {
       addDigoos(bilan.total, 'exercise', label).catch(() => {})
-      void supabase.from('exercise_results').insert({
+      supabase.from('exercise_results').insert({
         user_id: uid,
         exercise,
         errors,
@@ -183,7 +185,8 @@ export default function ExerciseBilan({
         is_perfect: bilan.isPerfect,
         difficulty,
         digoos_earned: bilan.total,
-      })
+        list_name: listName ?? null,
+      }).then(() => {}, () => {})
     }
     onDone()
   }

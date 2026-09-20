@@ -440,6 +440,7 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
         errors={TOTAL_WORDS - results.filter(Boolean).length}
         difficulty={difficulty}
         hasRevisionBonus={hasRevisionBonus}
+        listName={lists.find(l => l.id === selectedListId)?.name}
         onDone={() => {
           if (showHighscore) setGameState('highscore')
           else { setGameState('select'); setWords([]) }
