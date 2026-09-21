@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Delta } from '../components/Delta'
 import { supabase } from '../lib/supabase'
-import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { EmptyState } from '../components/EmptyState'
 import HighscoreModal from '../components/HighscoreModal'
+import ExerciseBilan from '../components/ExerciseBilan'
+import { hasRevisionBonusForList } from '../services/revisionBonus'
 import { callClaude } from '../lib/claude'
 
 interface WordList {
@@ -19,7 +19,7 @@ interface Question {
   reponses: string[] // toutes les variantes acceptables
 }
 
-type GameState = 'select' | 'loading' | 'playing' | 'result'
+type GameState = 'select' | 'loading' | 'playing' | 'result' | 'highscore'
 
 const TEMPS = [
   { id: 'indicatif présent',          label: 'Indicatif présent' },
@@ -35,8 +35,6 @@ const TEMPS = [
   { id: 'subjonctif passé',           label: 'Subjonctif passé' },
   { id: 'impératif présent',          label: 'Impératif présent' },
 ]
-
-const NB_QUESTIONS = [5, 8, 10, 15]
 
 // Affichage lisible de la personne
 const PERSONNE_LABEL: Record<string, string> = {
@@ -69,8 +67,17 @@ const parseReponse = (input: string): { pronom: string | null; forme: string } =
   if (parts.length === 1) return { pronom: null, forme: parts[0] }
   const firstWord = parts[0].toLowerCase().replace(/'/g, "'")
   const allPronoms = Object.values(PRONOMS).flat()
+  // Cas 1 : premier token est exactement un pronom ("je", "j'", "tu", ...)
   if (allPronoms.includes(firstWord) || firstWord.endsWith("'")) {
     return { pronom: firstWord, forme: parts.slice(1).join(' ') }
+  }
+  // Cas 2 : pronom contracté collé au verbe — "j'aurai" → pronom "j'", verbe "aurai"
+  const apoIdx = firstWord.indexOf("'")
+  if (apoIdx !== -1) {
+    const candidatePronom = firstWord.slice(0, apoIdx + 1)
+    if (allPronoms.includes(candidatePronom) || candidatePronom.endsWith("'")) {
+      return { pronom: candidatePronom, forme: [firstWord.slice(apoIdx + 1), ...parts.slice(1)].join(' ') }
+    }
   }
   return { pronom: null, forme: trimmed }
 }
@@ -114,19 +121,39 @@ const longestCommonPrefix = (strs: string[]): string => {
   return prefix
 }
 
+const shuffle = <T,>(arr: T[]): T[] => {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+// "je" → "j'" devant voyelle ou h (muet dans la grande majorité des verbes courants)
+const contracterJe = (forme: string): string => {
+  if (/^[aeéèêëiîïoôuûüyh]/i.test(forme)) return `j'${forme}`
+  return `je ${forme}`
+}
+
 // Construit un affichage compact ex: ["suis allé","suis allée"] → "je suis allé(e)"
 // base = plus long préfixe commun ; suffixes non-vides entre parenthèses
 const buildReponsesAffichage = (reponses: string[], personne: string, temps?: string): string => {
   if (reponses.length === 0) return ''
   const isImperatif = temps?.toLowerCase().includes('impératif') ?? false
   const pronomAttendu = isImperatif ? '' : (PRONOMS[personne]?.[0] ?? '')
-  if (reponses.length === 1) {
-    return pronomAttendu ? `${pronomAttendu} ${reponses[0]}` : reponses[0]
+
+  const afficherAvecPronom = (forme: string): string => {
+    if (!pronomAttendu) return forme
+    if (personne === 'je') return contracterJe(forme)
+    return `${pronomAttendu} ${forme}`
   }
+
+  if (reponses.length === 1) return afficherAvecPronom(reponses[0])
   const base = longestCommonPrefix(reponses)
   const uniqueSuffixes = [...new Set(reponses.map(r => r.slice(base.length)))].filter(s => s !== '')
   const compact = uniqueSuffixes.length > 0 ? `${base}(${uniqueSuffixes.join('/')})` : base
-  return pronomAttendu ? `${pronomAttendu} ${compact}` : compact
+  return afficherAvecPronom(compact)
 }
 
 export default function Conjugaison() {
@@ -134,7 +161,6 @@ export default function Conjugaison() {
   const [lists, setLists] = useState<WordList[]>([])
   const [loadingLists, setLoadingLists] = useState(true)
   const [selectedList, setSelectedList] = useState('')
-  const [nbQ, setNbQ] = useState(8)
   const [tempsChoisis, setTempsChoisis] = useState<string[]>(TEMPS.map(t => t.id)) // tous par défaut
   const [questions, setQuestions] = useState<Question[]>([])
   const [current, setCurrent] = useState(0)
@@ -151,10 +177,10 @@ export default function Conjugaison() {
   }[]>([])
   const [streak, setStreak] = useState(0)
   const [score, setScore] = useState(0)
-  const [digoosEarned, setDigoosEarned] = useState(0)
   const [error, setError] = useState('')
   const [showHighscore, setShowHighscore] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [hasRevisionBonus, setHasRevisionBonus] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -199,10 +225,11 @@ export default function Conjugaison() {
     setError('')
     setGameState('loading')
 
-    const { data } = await supabase
-      .from('word_items')
-      .select('source_word')
-      .eq('list_id', selectedList)
+    const [revBonus, { data }] = await Promise.all([
+      hasRevisionBonusForList(selectedList),
+      supabase.from('word_items').select('source_word').eq('list_id', selectedList),
+    ])
+    setHasRevisionBonus(revBonus)
 
     const verbes = (data || [])
       .map((w: any) => w.source_word?.trim())
@@ -216,7 +243,7 @@ export default function Conjugaison() {
 
     const prompt = `Tu es un générateur de questions de conjugaison française pour un élève de 11P (16-17 ans, Genève).
 
-Génère exactement ${nbQ} questions à partir de ces verbes : ${verbes.join(', ')}.
+Génère exactement 10 questions à partir de ces verbes : ${verbes.join(', ')}.
 Temps à utiliser : ${tempsChoisis.join(', ')}.
 
 Règles :
@@ -234,6 +261,7 @@ Règles :
   - Pour "il" → allé, "elle" → allée, "ils" → allés, "elles" → allées (mais personne = "il/elle" ou "ils/elles")
     → donc inclure les deux genres
 - La valeur "personne" doit être l'une de ces valeurs exactes : je, tu, il/elle, nous, vous, ils/elles (ou tu/nous/vous pour l'impératif)
+- IMPORTANT : mélange les questions dans un ordre totalement imprévisible — ne regroupe pas les verbes ensemble, ne suis pas l'ordre des temps ni l'ordre grammatical des personnes (1ère, 2e, 3e). L'ordre doit être aléatoire et varié.
 
 Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises markdown :
 [{"verbe":"infinitif","temps":"temps exact","personne":"personne","reponses":["forme1","forme2"]}]`
@@ -241,14 +269,13 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
     try {
       const txt = await callClaude(prompt, 2000)
       const parsed: Question[] = JSON.parse(txt)
-      setQuestions(parsed)
+      setQuestions(shuffle(parsed))
       setCurrent(0)
       setReponse('')
       setFeedback(null)
       setResultats([])
       setStreak(0)
       setScore(0)
-      setDigoosEarned(0)
       setGameState('playing')
     } catch {
       setError("Erreur lors de la génération des questions. Vérifie ta connexion et réessaie.")
@@ -263,11 +290,9 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
     const newStreak = result.correct ? streak + 1 : 0
     const points = result.correct ? 10 + (newStreak >= 3 ? 5 : 0) : 0
-    const digoos = result.correct ? 1 : 0
 
     setStreak(newStreak)
     setScore(prev => prev + points)
-    setDigoosEarned(prev => prev + digoos)
     setFeedback({
       correct: result.correct,
       erreurPronom: result.erreurPronom,
@@ -285,38 +310,54 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
   }, [reponse, feedback, questions, current, streak])
 
   const suivant = useCallback(() => {
+    if (!feedback) return
     if (current + 1 >= questions.length) {
+      // eslint-disable-next-line react-hooks/immutability
       finaliser()
     } else {
       setCurrent(prev => prev + 1)
       setReponse('')
       setFeedback(null)
     }
-  }, [current, questions.length])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, questions.length, feedback])
 
   const finaliser = async () => {
-    await addDigoos(digoosEarned, 'exercise', 'Conjugaison')
-    await logActivity({
-      action_type: 'exercise_completed',
-      questions_total: questions.length,
-      questions_correct: resultats.filter(r => r.correct).length,
-      metadata: { exercise: 'conjugaison' },
-    })
-    const isTop = await checkHighscore(score)
-    if (isTop) setShowHighscore(true)
-    else setGameState('result')
+    setShowHighscore(false)
+    setGameState('result')
+    const [, isTop] = await Promise.all([
+      logActivity({
+        action_type: 'exercise_completed',
+        questions_total: questions.length,
+        questions_correct: resultats.filter(r => r.correct).length,
+        metadata: { exercise: 'conjugaison' },
+      }),
+      checkHighscore(score),
+    ])
+    setShowHighscore(isTop)
   }
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      e.stopPropagation()
       if (!feedback) valider()
       else suivant()
     }
   }
 
+  // Quand le feedback est affiché, l'input est disabled — Enter ne remonte plus depuis lui.
+  // On écoute directement sur document pour que Entrée déclenche "Suivant".
+  useEffect(() => {
+    if (!feedback) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Enter') suivant() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [feedback, suivant])
+
   const q = questions[current]
   const correctCount = resultats.filter(r => r.correct).length
   const tousCoches = tempsChoisis.length === TEMPS.length
+  const listName = lists.find(l => l.id === selectedList)?.name ?? ''
 
   const buildFeedbackMessage = () => {
     if (!feedback) return null
@@ -361,17 +402,6 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
             </select>
           </div>
 
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Nombre de questions</label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              {NB_QUESTIONS.map(n => (
-                <button key={n} onClick={() => setNbQ(n)}
-                  style={{ flex: 1, padding: '0.6rem', background: nbQ === n ? '#2a9d8f' : 'var(--color-border)', color: nbQ === n ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: nbQ === n ? 'bold' : 'normal' }}
-                >{n}</button>
-              ))}
-            </div>
-          </div>
-
           <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
               Temps <span style={{ color: '#aaa', fontWeight: 'normal' }}>({tempsChoisis.length}/{TEMPS.length} sélectionné{tempsChoisis.length > 1 ? 's' : ''})</span>
@@ -405,86 +435,81 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
             </button>
           )}
         </div>
+
+        {showLeaderboard && (
+          <HighscoreModal
+            exercise="conjugaison"
+            listId={selectedList}
+            listName={listName}
+            score={0}
+            initialPhase="leaderboard"
+            onClose={() => setShowLeaderboard(false)}
+            onDisable={() => setShowLeaderboard(false)}
+            onReplay={() => { setShowLeaderboard(false); genererQuestions() }}
+            onQuit={() => setShowLeaderboard(false)}
+          />
+        )}
       </div>
     )
   }
 
   // ---- ÉCRAN RÉSULTAT ----
   if (gameState === 'result') {
-    const pct = Math.round((correctCount / questions.length) * 100)
     return (
-      <div style={{ maxWidth: '560px' }}>
-        <h2 style={{ color: '#2a9d8f', fontSize: '1.8rem', marginBottom: '0.25rem', textAlign: 'center' }}>Exercice terminé !</h2>
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2a9d8f' }}>{score} pts</div>
-          <div style={{ color: '#888', fontSize: '0.9rem' }}>{correctCount}/{questions.length} correctes · {pct}%</div>
-          <div style={{ color: '#e9c46a', fontWeight: 'bold', marginTop: '0.25rem' }}>+{digoosEarned} <Delta size={20} /> gagnés</div>
-        </div>
-
-        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1.5rem' }}>
-          <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
-          {resultats.map((r, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem', gap: '0.5rem' }}>
-              <span style={{ color: '#555', minWidth: '70px' }}><strong>{r.verbe}</strong></span>
-              <span style={{ color: '#888', fontSize: '0.78rem', flex: 1 }}>{r.temps} · {PERSONNE_LABEL[r.personne] || r.personne}</span>
-              <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold', textAlign: 'right' }}>
-                {r.correct ? `✓ ${r.reponsesAffichage}` : `✗ ${r.donnee} → ${r.reponsesAffichage}`}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-          <button onClick={() => { setGameState('select'); setQuestions([]) }}
-            style={{ padding: '0.75rem 2rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}
-          >Changer de liste</button>
-          <button onClick={genererQuestions}
-            style={{ padding: '0.75rem 2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}
-          >Recommencer</button>
+      <div>
+        <ExerciseBilan
+          exercise="conjugaison"
+          errors={questions.length - correctCount}
+          difficulty="moyen"
+          hasRevisionBonus={hasRevisionBonus}
+          listName={listName || undefined}
+          onDone={() => {
+            if (showHighscore) setGameState('highscore')
+            else { setGameState('select'); setQuestions([]) }
+          }}
+        />
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+            <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
+            {resultats.map((r, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem', gap: '0.5rem' }}>
+                <span style={{ color: '#555', minWidth: '70px' }}><strong>{r.verbe}</strong></span>
+                <span style={{ color: '#888', fontSize: '0.78rem', flex: 1 }}>{r.temps} · {PERSONNE_LABEL[r.personne] || r.personne}</span>
+                <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold', textAlign: 'right' }}>
+                  {r.correct ? `✓ ${r.reponsesAffichage}` : `✗ ${r.donnee} → ${r.reponsesAffichage}`}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )
   }
 
-  // ---- ÉCRAN JEU ----
-  const listName = lists.find(l => l.id === selectedList)?.name ?? ''
-
-  return (
-    <>
-    {showHighscore && (
+  // ---- ÉCRAN HIGHSCORE ----
+  if (gameState === 'highscore') {
+    return (
       <HighscoreModal
         exercise="conjugaison"
         listId={selectedList}
         listName={listName}
         score={score}
-        onClose={() => { setShowHighscore(false); setGameState('result') }}
-        onDisable={() => { setShowHighscore(false); setGameState('result') }}
-        onReplay={() => { setShowHighscore(false); genererQuestions() }}
+        onClose={() => { setShowHighscore(false); setGameState('select'); setQuestions([]) }}
+        onDisable={() => { setShowHighscore(false); setGameState('select'); setQuestions([]) }}
+        onReplay={() => { setShowHighscore(false); setGameState('select'); genererQuestions() }}
         onQuit={() => { setShowHighscore(false); setGameState('select'); setQuestions([]) }}
       />
-    )}
-    {showLeaderboard && (
-      <HighscoreModal
-        exercise="conjugaison"
-        listId={selectedList}
-        listName={listName}
-        score={0}
-        initialPhase="leaderboard"
-        onClose={() => setShowLeaderboard(false)}
-        onDisable={() => setShowLeaderboard(false)}
-        onReplay={() => { setShowLeaderboard(false); genererQuestions() }}
-        onQuit={() => setShowLeaderboard(false)}
-      />
-    )}
+    )
+  }
+
+  // ---- ÉCRAN JEU ----
+  return (
     <div style={{ maxWidth: '520px', margin: '0 auto' }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div style={{ fontSize: '0.9rem', color: '#888' }}>
           {current + 1} / {questions.length}
           {streak >= 3 && <span style={{ color: '#e9c46a', marginLeft: '0.5rem' }}>🔥 {streak}</span>}
-        </div>
-        <div style={{ fontSize: '0.85rem', color: '#e9c46a', fontWeight: 'bold' }}>
-          {score} pts · +{digoosEarned} <Delta size={20} />
         </div>
       </div>
 
@@ -555,6 +580,5 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
         Entrée pour valider · Entrée pour passer
       </div>
     </div>
-    </>
   )
 }
