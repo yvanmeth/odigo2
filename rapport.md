@@ -1,35 +1,60 @@
-# Rapport — Correction bug stopPropagation dans vocabulaire.tsx
+# Rapport — Renommage exercice "Vocabulaire" → "Dictée"
 
-## Modification effectuée
+## Modifications effectuées
 
-Ajout de `e.stopPropagation()` dans `handleKey`, juste après la détection de la touche Entrée :
-
+### 1. `src/lib/exerciseBilan.ts` — ligne 52
 ```ts
-// src/pages/vocabulaire.tsx
-const handleKey = (e: React.KeyboardEvent) => {
-  if (e.key === 'Enter') {
-    e.stopPropagation()          // ← ajouté
-    if (!feedback) valider()
-    else suivant()
-  }
-}
+// Avant
+vocabulaire: 'Vocabulaire',
+// Après
+vocabulaire: 'Dictée',
 ```
+Affecte : bilan ExerciseBilan, historique ParentExerciseHistory, tout composant lisant EXERCISE_LABELS['vocabulaire'].
 
-## Effet
+---
 
-L'événement natif `keydown` ne remonte plus jusqu'à `document` quand il est traité par l'input. Le listener document (qui gère "Entrée = Suivant" pendant l'affichage du feedback) ne reçoit plus les events originant de l'input actif.
+### 2. `src/pages/dashboard/types.tsx` — lignes 80–82
+```ts
+// Avant
+label: 'Vocabulaire',
+icon: '📝',
+description: 'Complète les phrases à trou avec le bon mot.',
 
-Chemins après correction :
+// Après
+label: 'Dictée',
+icon: '📝',
+description: 'Apprends à orthographier tes listes de mots',
+```
+Affecte : carte dans la grille des exercices.
 
-| Situation | Input | handleKey | stopPropagation | Listener document |
-|---|---|---|---|---|
-| Saisie active, Entrée | enabled | fire | bloque la propagation | ❌ ne reçoit pas |
-| Feedback affiché, Entrée | disabled | ne fire pas | non appelé | ✅ reçoit → suivant() |
+---
+
+### 3. `src/pages/vocabulaire.tsx` — ligne 280
+```tsx
+// Avant
+<h2 style={{ color: '#2a9d8f', marginBottom: '1.5rem' }}>📝 Vocabulaire</h2>
+// Après
+<h2 style={{ color: '#2a9d8f', marginBottom: '1.5rem' }}>📝 Dictée</h2>
+```
+Affecte : titre de l'écran de sélection de l'exercice.
+
+---
+
+## Éléments non touchés (comme spécifié)
+
+- Clé `vocabulaire` dans EXERCISE_LABELS
+- `id: 'vocabulaire'` dans exerciseCards
+- Nom du composant `Vocabulaire`, imports, JSX
+- `exercise: 'vocabulaire'` dans les appels ExerciseBilan/logActivity
+- Labels du type de liste "Vocabulaire" dans wordlists.tsx, SubjectWordlists.tsx, subjects/types.ts
+
+---
 
 ## Build et lint
 
 ```
 ✓ Build : succès
+✓ Lint exerciseBilan.ts : aucune erreur
+✓ Lint types.tsx : aucune erreur
 ✓ Lint vocabulaire.tsx : 3 erreurs pré-existantes inchangées (lignes 89, 91, 128)
-  Aucune erreur nouvelle.
 ```

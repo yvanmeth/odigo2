@@ -49,7 +49,7 @@ export const EXERCISE_LABELS: Record<string, string> = {
   anagramme: 'Anagramme',
   'anagramme-francais': 'Anagramme français',
   conjugaison: 'Conjugaison',
-  vocabulaire: 'Vocabulaire',
+  vocabulaire: 'Dictée',
   'conjugaison-etrangere': 'Conjugaison étrangère',
   qcm: 'QCM',
   spelling: 'Épellation',

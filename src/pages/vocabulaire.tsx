@@ -277,7 +277,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
   if (gameState === 'select' || gameState === 'loading') {
     return (
       <div>
-        <h2 style={{ color: '#2a9d8f', marginBottom: '1.5rem' }}>📝 Vocabulaire</h2>
+        <h2 style={{ color: '#2a9d8f', marginBottom: '1.5rem' }}>📝 Dictée</h2>
         <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', maxWidth: '520px' }}>
 
           <div style={{ marginBottom: '1.5rem' }}>

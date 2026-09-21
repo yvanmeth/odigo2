@@ -77,9 +77,9 @@ export const exerciseCards: ExerciseCard[] = [
   },
   {
     id: 'vocabulaire',
-    label: 'Vocabulaire',
+    label: 'Dictée',
     icon: '📝',
-    description: 'Complète les phrases à trou avec le bon mot.',
+    description: 'Apprends à orthographier tes listes de mots',
     color: '#4CAF50',
     category: 'francais',
     isAI: true,
