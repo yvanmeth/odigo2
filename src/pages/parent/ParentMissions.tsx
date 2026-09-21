@@ -102,6 +102,7 @@ export default function ParentMissions({ children, irlRewardsList }: ParentMissi
       const { error: digoosError } = await supabase.rpc('add_digoos_to_user', {
         target_user_id: mission.child_id,
         amount: mission.reward_amount,
+        transaction_label: `Mission accomplie — ${mission.name}`,
       })
       if (digoosError) {
         console.error('Erreur credit digoos:', digoosError)

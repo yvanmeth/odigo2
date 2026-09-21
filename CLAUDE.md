@@ -338,3 +338,4 @@ Voir section 3 pour la liste — en résumé : `Companion` (chatbot Odigo, FAQ +
 - **Vérifier `npm run build` et `npm run lint`** après toute modification de code avant de considérer une tâche terminée.
 - **Texte en français** partout dans l'UI, les commentaires et les messages d'erreur.
 - Déploiement : `git commit` + `git push` sur `main` → Netlify déploie automatiquement.
+- **Avant d'intégrer un exercice au système ExerciseBilan** (chantier Bilan/Δ), consulter `checklist-integration-exercice-bilan.md` à la racine du projet — liste les points à vérifier (nombre de questions, calcul d'erreurs, difficulté, HighscoreModal, Bonus Révision, etc.) et les pièges déjà rencontrés lors des intégrations précédentes.

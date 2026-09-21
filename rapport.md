@@ -1,87 +1,35 @@
-# Rapport — Correction bug ExerciseBilan + audit `void supabase.*`
+# Rapport — Correction bug stopPropagation dans vocabulaire.tsx
 
----
+## Modification effectuée
 
-## 1. Correction appliquée
+Ajout de `e.stopPropagation()` dans `handleKey`, juste après la détection de la touche Entrée :
 
-**Fichier modifié** : `src/components/ExerciseBilan.tsx` ligne 180
-
-### Avant (bug)
 ```ts
-void supabase.from('exercise_results').insert({
-  user_id: uid,
-  exercise,
-  errors,
-  stars: bilan.stars,
-  is_perfect: bilan.isPerfect,
-  difficulty,
-  digoos_earned: bilan.total,
-  list_name: listName ?? null,
-})
+// src/pages/vocabulaire.tsx
+const handleKey = (e: React.KeyboardEvent) => {
+  if (e.key === 'Enter') {
+    e.stopPropagation()          // ← ajouté
+    if (!feedback) valider()
+    else suivant()
+  }
+}
 ```
 
-### Après (fix)
-```ts
-supabase.from('exercise_results').insert({
-  user_id: uid,
-  exercise,
-  errors,
-  stars: bilan.stars,
-  is_perfect: bilan.isPerfect,
-  difficulty,
-  digoos_earned: bilan.total,
-  list_name: listName ?? null,
-}).then(() => {}, () => {})
+## Effet
+
+L'événement natif `keydown` ne remonte plus jusqu'à `document` quand il est traité par l'input. Le listener document (qui gère "Entrée = Suivant" pendant l'affichage du feedback) ne reçoit plus les events originant de l'input actif.
+
+Chemins après correction :
+
+| Situation | Input | handleKey | stopPropagation | Listener document |
+|---|---|---|---|---|
+| Saisie active, Entrée | enabled | fire | bloque la propagation | ❌ ne reçoit pas |
+| Feedback affiché, Entrée | disabled | ne fire pas | non appelé | ✅ reçoit → suivant() |
+
+## Build et lint
+
 ```
-
-### Pourquoi `.then(() => {}, () => {})` et pas `.catch(() => {})`
-
-`PostgrestFilterBuilder` (le type retourné par `.insert()`) n'expose pas de méthode `.catch()` — TypeScript refusait la compilation avec :
+✓ Build : succès
+✓ Lint vocabulaire.tsx : 3 erreurs pré-existantes inchangées (lignes 89, 91, 128)
+  Aucune erreur nouvelle.
 ```
-error TS2551: Property 'catch' does not exist on type 'PostgrestFilterBuilder<...>'. Did you mean 'match'?
-```
-
-Il implémente `PromiseLike<T>` (uniquement `.then()`), pas `Promise<T>`.
-`.then(() => {}, () => {})` — deux no-ops pour onfulfilled et onrejected — est syntaxiquement correct, déclenche le fetch HTTP (confirmé dans le source de `@supabase/postgrest-js` : le fetch est initié à l'intérieur de `then()`), et ignore silencieusement les erreurs.
-
----
-
-## 2. Audit : autres appels `void supabase.*` dans le projet
-
-Recherche exhaustive (`grep -rn "void supabase\." src/`) :
-
-**Résultat : aucun autre `void supabase.*` trouvé.**
-
-Le bug était isolé à ExerciseBilan.tsx.
-
----
-
-## 3. Audit élargi : appels Supabase sans `await` ni `.then()`/`.catch()`
-
-Toutes les autres occurrences de `.insert()`, `.update()`, `.upsert()`, `.delete()` dans `src/` utilisent **`await`** :
-
-| Fichier | Pattern | Statut |
-|---|---|---|
-| `services/digoos.ts` | `await supabase.from('progress').update(...)` etc. | ✅ |
-| `services/activity.ts` | `await supabase.from('daily_activity').insert(...)` | ✅ |
-| `pages/wordlists.tsx` | `await supabase.from('word_items').insert(...)` etc. | ✅ |
-| `pages/settings.tsx` | `await supabase.from('profiles').upsert(...)` etc. | ✅ |
-| `pages/planner/PlannerList.tsx` | `await supabase.from('evaluations').insert(...)` etc. | ✅ |
-| `pages/planner/CalendarCreateModal.tsx` | `await supabase.from('events').insert(...)` etc. | ✅ |
-| `pages/rewards/*.tsx` | `await supabase.from('progress').update(...)` etc. | ✅ |
-| `pages/subjects/*.tsx` | `await supabase.from('notes').insert(...)` etc. | ✅ |
-| `pages/parent/*.tsx` | `await supabase.from('missions').update(...)` etc. | ✅ |
-| `pages/dashboard/index.tsx` | `await supabase.from('profiles').upsert(...)` etc. | ✅ |
-
-**Aucun autre appel en souffrance identifié.**
-
----
-
-## 4. Build et lint
-
-| Commande | Résultat |
-|---|---|
-| `npm run build` | ✅ Succès — 2133 modules transformés, aucune erreur TypeScript |
-| `npm run lint` | ✅ Aucune erreur nouvelle — les erreurs existantes (`react-hooks/immutability`, `react-hooks/set-state-in-effect`, etc.) sont toutes pré-existantes et sans rapport avec cette modification |
-
-**ExerciseBilan.tsx : zéro erreur lint.**
