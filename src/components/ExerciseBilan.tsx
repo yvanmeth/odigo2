@@ -13,6 +13,7 @@ export interface ExerciseBilanProps {
   onDone: () => void
   subLabel?: string
   listName?: string
+  blocksPerfect?: boolean
 }
 
 // Animation steps:
@@ -46,6 +47,7 @@ export default function ExerciseBilan({
   onDone,
   subLabel,
   listName,
+  blocksPerfect,
 }: ExerciseBilanProps) {
   const [step, setStep] = useState(0)
   const [golden, setGolden] = useState(false)
@@ -123,7 +125,7 @@ export default function ExerciseBilan({
         }
       }
 
-      const result = calcBilan({ errors, difficulty, hasRevisionBonus, dailySumBefore })
+      const result = calcBilan({ errors, difficulty, hasRevisionBonus, dailySumBefore, blocksPerfect })
       setBilan(result)
       startAnimation(result)
     }

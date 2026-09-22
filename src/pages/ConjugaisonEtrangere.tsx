@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Delta } from '../components/Delta'
 import { supabase } from '../lib/supabase'
-import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { EmptyState } from '../components/EmptyState'
 import HighscoreModal from '../components/HighscoreModal'
+import ExerciseBilan from '../components/ExerciseBilan'
+import { hasRevisionBonusForList } from '../services/revisionBonus'
 import { callClaude } from '../lib/claude'
 
 interface WordList {
@@ -20,7 +20,7 @@ interface Question {
   reponses: string[]
 }
 
-type GameState = 'select' | 'loading' | 'playing' | 'result'
+type GameState = 'select' | 'loading' | 'playing' | 'result' | 'highscore'
 
 const CONJUGAISON_CONFIG: Record<string, { tenses: string[]; pronouns: boolean }> = {
   'Anglais':  { tenses: ['Present simple', 'Past simple', 'Future (will)', 'Present continuous'], pronouns: true },
@@ -32,15 +32,16 @@ const CONJUGAISON_CONFIG: Record<string, { tenses: string[]; pronouns: boolean }
 }
 const DEFAULT_CONFIG = { tenses: ['Présent', 'Passé', 'Futur'], pronouns: true }
 
-const NB_QUESTIONS = [5, 8, 10, 15]
-
 const PRONOUNS = [
   'i ', 'you ', 'he ', 'she ', 'it ', 'we ', 'they ',
   'ich ', 'du ', 'er ', 'sie ', 'es ', 'wir ', 'ihr ',
 ]
 
+// "ß" et "ss" sont traités comme équivalents (allemand) — sans risque pour les autres
+// langues gérées, qui n'utilisent pas "ß". Appliqué aux deux côtés de la comparaison,
+// donc symétrique : "aßen" accepte "assen" et inversement.
 const normalizeAnswer = (answer: string): string =>
-  answer.trim().toLowerCase().replace(/\s+/g, ' ')
+  answer.trim().toLowerCase().replace(/ß/g, 'ss').replace(/\s+/g, ' ')
 
 const matchesExpected = (normalUser: string, normalExpected: string): boolean => {
   if (normalUser === normalExpected) return true
@@ -71,6 +72,15 @@ const checkAnswer = (userAnswer: string, q: Question): boolean => {
   return q.reponses.some(r => matchesExpected(normalUser, normalizeAnswer(r)))
 }
 
+const shuffle = <T,>(arr: T[]): T[] => {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 interface GuestProps {
   guestMode?: boolean
   guestListId?: string
@@ -84,7 +94,7 @@ export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLang
   const [loadingLists, setLoadingLists] = useState(true)
   const [selectedList, setSelectedList] = useState('')
   const [listLanguage, setListLanguage] = useState('')
-  const [nbQ, setNbQ] = useState(8)
+  const [listName, setListName] = useState('')
   const [questions, setQuestions] = useState<Question[]>([])
   const [current, setCurrent] = useState(0)
   const [reponse, setReponse] = useState('')
@@ -92,11 +102,11 @@ export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLang
   const [resultats, setResultats] = useState<{ verbe: string; temps: string; personne: string; correct: boolean; reponsesAffichage: string; donnee: string }[]>([])
   const [streak, setStreak] = useState(0)
   const [score, setScore] = useState(0)
-  const [digoosEarned, setDigoosEarned] = useState(0)
   const [selectedTenses, setSelectedTenses] = useState<string[]>([])
   const [error, setError] = useState('')
   const [showHighscore, setShowHighscore] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [hasRevisionBonus, setHasRevisionBonus] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -151,9 +161,12 @@ export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLang
     setError('')
     setGameState('loading')
 
-    console.log('Loading guest list:', selectedList)
-    const { data, error: wordError } = await supabase.from('word_items').select('source_word').eq('list_id', selectedList)
-    console.log('Guest words result:', data?.length, 'error:', wordError)
+    const [revBonus, { data }] = await Promise.all([
+      hasRevisionBonusForList(selectedList),
+      supabase.from('word_items').select('source_word').eq('list_id', selectedList),
+    ])
+    setHasRevisionBonus(revBonus)
+
     const verbes = (data || []).map((w: any) => w.source_word?.trim()).filter(Boolean)
 
     if (verbes.length === 0) {
@@ -170,7 +183,7 @@ export default function ConjugaisonEtrangere({ guestMode, guestListId, guestLang
 
     const prompt = `Tu génères des questions de conjugaison en ${listLanguage} pour un élève de 11 ans (7P, Genève).
 
-Génère exactement ${nbQ} questions à partir de ces verbes : ${verbes.join(', ')}.
+Génère exactement 10 questions à partir de ces verbes : ${verbes.join(', ')}.
 Temps à utiliser : ${tensesStr}.
 
 Règles :
@@ -179,6 +192,7 @@ Règles :
 - Pour chaque question, fournis TOUTES les formes acceptables dans "reponses"
 - La valeur "personne" doit être la personne grammaticale dans la langue cible (ex: "I", "you", "he/she" pour anglais; "io", "tu", "lui/lei" pour italien; ou un numéro 1/2/3 + singulier/pluriel si la langue le demande)
 - Si la langue n'a pas de pronom obligatoire, "personne" peut être "1ère pers. sing." etc. en français
+- IMPORTANT : mélange les questions dans un ordre totalement imprévisible — ne regroupe pas les verbes ensemble, ne suis pas l'ordre des temps.
 
 Réponds UNIQUEMENT en JSON valide :
 [{"verbe":"infinitif","temps":"temps","personne":"personne","reponses":["forme1","forme2"]}]`
@@ -186,14 +200,13 @@ Réponds UNIQUEMENT en JSON valide :
     try {
       const txt = await callClaude(prompt, 2000)
       const parsed: Question[] = JSON.parse(txt)
-      setQuestions(parsed)
+      setQuestions(shuffle(parsed))
       setCurrent(0)
       setReponse('')
       setFeedback(null)
       setResultats([])
       setStreak(0)
       setScore(0)
-      setDigoosEarned(0)
       setGameState('playing')
     } catch {
       setError('Erreur lors de la génération des questions. Vérifie ta connexion et réessaie.')
@@ -209,45 +222,59 @@ Réponds UNIQUEMENT en JSON valide :
     const points = correct ? 10 + (newStreak >= 3 ? 5 : 0) : 0
     setStreak(newStreak)
     setScore(prev => prev + points)
-    setDigoosEarned(prev => prev + (correct ? 1 : 0))
     const reponsesAffichage = q.reponses.join(' / ')
     setFeedback({ correct, reponsesAffichage })
     setResultats(prev => [...prev, { verbe: q.verbe, temps: q.temps, personne: q.personne, correct, reponsesAffichage, donnee: reponse.trim() }])
   }, [reponse, feedback, questions, current, streak])
 
   const suivant = useCallback(() => {
+    if (!feedback) return
     if (current + 1 >= questions.length) {
+      // eslint-disable-next-line react-hooks/immutability
       finaliser()
     } else {
       setCurrent(prev => prev + 1)
       setReponse('')
       setFeedback(null)
     }
-  }, [current, questions.length])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, questions.length, feedback])
 
   const finaliser = async () => {
     if (guestMode) {
       onGameEnd?.()
       return
     }
-    await addDigoos(digoosEarned, 'exercise', 'Conjugaison étrangère')
-    await logActivity({
-      action_type: 'exercise_completed',
-      questions_total: questions.length,
-      questions_correct: resultats.filter(r => r.correct).length,
-      metadata: { exercise: 'conjugaison-etrangere', language: listLanguage },
-    })
-    const isTop = await checkHighscore(score)
-    if (isTop) setShowHighscore(true)
-    else setGameState('result')
+    setShowHighscore(false)
+    setGameState('result')
+    const [, isTop] = await Promise.all([
+      logActivity({
+        action_type: 'exercise_completed',
+        questions_total: questions.length,
+        questions_correct: resultats.filter(r => r.correct).length,
+        metadata: { exercise: 'conjugaison-etrangere', language: listLanguage },
+      }),
+      checkHighscore(score),
+    ])
+    setShowHighscore(isTop)
   }
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      e.stopPropagation()
       if (!feedback) valider()
       else suivant()
     }
   }
+
+  // Quand le feedback est affiché, l'input est disabled — Enter ne remonte plus depuis lui.
+  // On écoute directement sur document pour que Entrée déclenche "Suivant".
+  useEffect(() => {
+    if (!feedback) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Enter') suivant() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [feedback, suivant])
 
   const q = questions[current]
   const correctCount = resultats.filter(r => r.correct).length
@@ -281,7 +308,7 @@ Réponds UNIQUEMENT en JSON valide :
               onChange={e => {
                 setSelectedList(e.target.value)
                 const l = lists.find(x => x.id === e.target.value)
-                if (l) setListLanguage(l.language)
+                if (l) { setListLanguage(l.language); setListName(l.name) }
               }}
               style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
             >
@@ -319,17 +346,6 @@ Réponds UNIQUEMENT en JSON valide :
             </div>
           )}
 
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Nombre de questions</label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              {NB_QUESTIONS.map(n => (
-                <button key={n} onClick={() => setNbQ(n)}
-                  style={{ flex: 1, padding: '0.6rem', background: nbQ === n ? '#2a9d8f' : 'var(--color-border)', color: nbQ === n ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: nbQ === n ? 'bold' : 'normal' }}
-                >{n}</button>
-              ))}
-            </div>
-          </div>
-
           {error && <p style={{ color: '#e63946', fontSize: '0.85rem', marginBottom: '1rem' }}>{error}</p>}
 
           <button onClick={genererQuestions} disabled={!selectedList || selectedTenses.length === 0 || gameState === 'loading'}
@@ -348,7 +364,7 @@ Réponds UNIQUEMENT en JSON valide :
           <HighscoreModal
             exercise="conjugaison-etrangere"
             listId={selectedList}
-            listName={lists.find(l => l.id === selectedList)?.name ?? ''}
+            listName={listName}
             score={0}
             initialPhase="leaderboard"
             onClose={() => setShowLeaderboard(false)}
@@ -362,57 +378,53 @@ Réponds UNIQUEMENT en JSON valide :
   }
 
   if (gameState === 'result' && !guestMode) {
-    const pct = Math.round((correctCount / questions.length) * 100)
     return (
-      <div style={{ maxWidth: '560px' }}>
-        <h2 style={{ color: '#2a9d8f', fontSize: '1.8rem', marginBottom: '0.25rem', textAlign: 'center' }}>Exercice terminé !</h2>
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2a9d8f' }}>{score} pts</div>
-          <div style={{ color: '#888', fontSize: '0.9rem' }}>{correctCount}/{questions.length} correctes · {pct}%</div>
-          <div style={{ color: '#e9c46a', fontWeight: 'bold', marginTop: '0.25rem' }}>+{digoosEarned} <Delta size={20} /> gagnés</div>
-        </div>
-
-        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1.5rem' }}>
-          <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
-          {resultats.map((r, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem', gap: '0.5rem' }}>
-              <span style={{ color: '#555', minWidth: '70px' }}><strong>{r.verbe}</strong></span>
-              <span style={{ color: '#888', fontSize: '0.78rem', flex: 1 }}>{r.temps} · {r.personne}</span>
-              <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold', textAlign: 'right' }}>
-                {r.correct ? `✓ ${r.reponsesAffichage}` : `✗ ${r.donnee} → ${r.reponsesAffichage}`}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-          <button onClick={() => { setGameState('select'); setQuestions([]) }}
-            style={{ padding: '0.75rem 2rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}
-          >Changer de liste</button>
-          <button onClick={genererQuestions}
-            style={{ padding: '0.75rem 2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}
-          >Recommencer</button>
+      <div>
+        <ExerciseBilan
+          exercise="conjugaison-etrangere"
+          errors={questions.length - correctCount}
+          difficulty="moyen"
+          hasRevisionBonus={hasRevisionBonus}
+          listName={listName || undefined}
+          onDone={() => {
+            if (showHighscore) setGameState('highscore')
+            else { setGameState('select'); setQuestions([]) }
+          }}
+        />
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+            <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
+            {resultats.map((r, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem', gap: '0.5rem' }}>
+                <span style={{ color: '#555', minWidth: '70px' }}><strong>{r.verbe}</strong></span>
+                <span style={{ color: '#888', fontSize: '0.78rem', flex: 1 }}>{r.temps} · {r.personne}</span>
+                <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold', textAlign: 'right' }}>
+                  {r.correct ? `✓ ${r.reponsesAffichage}` : `✗ ${r.donnee} → ${r.reponsesAffichage}`}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )
   }
 
-  const listName = lists.find(l => l.id === selectedList)?.name ?? ''
-
-  return (
-    <>
-    {showHighscore && (
+  if (gameState === 'highscore') {
+    return (
       <HighscoreModal
         exercise="conjugaison-etrangere"
         listId={selectedList}
         listName={listName}
         score={score}
-        onClose={() => { setShowHighscore(false); setGameState('result') }}
-        onDisable={() => { setShowHighscore(false); setGameState('result') }}
-        onReplay={() => { setShowHighscore(false); genererQuestions() }}
+        onClose={() => { setShowHighscore(false); setGameState('select'); setQuestions([]) }}
+        onDisable={() => { setShowHighscore(false); setGameState('select'); setQuestions([]) }}
+        onReplay={() => { setShowHighscore(false); setGameState('select'); genererQuestions() }}
         onQuit={() => { setShowHighscore(false); setGameState('select'); setQuestions([]) }}
       />
-    )}
+    )
+  }
+
+  return (
     <div style={{ maxWidth: '520px', margin: '0 auto' }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -420,13 +432,10 @@ Réponds UNIQUEMENT en JSON valide :
           {current + 1} / {questions.length}
           {streak >= 3 && <span style={{ color: '#e9c46a', marginLeft: '0.5rem' }}>🔥 {streak}</span>}
         </div>
-        <div style={{ fontSize: '0.85rem', color: '#e9c46a', fontWeight: 'bold' }}>
-          {score} pts · +{digoosEarned} <Delta size={20} />
-        </div>
       </div>
 
       <div style={{ background: 'var(--color-border)', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
-        <div className="progress-bar" style={{ width: `${(current / questions.length) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem' }} />
+        <div className="progress-bar" style={{ width: `${((current + 1) / questions.length) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem' }} />
       </div>
 
       {q && (
@@ -495,6 +504,5 @@ Réponds UNIQUEMENT en JSON valide :
         Entrée pour valider · Entrée pour passer
       </div>
     </div>
-    </>
   )
 }

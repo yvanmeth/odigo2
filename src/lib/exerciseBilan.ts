@@ -8,6 +8,7 @@ export interface BilanCalcInput {
   difficulty: Difficulty
   hasRevisionBonus: boolean
   dailySumBefore: number
+  blocksPerfect?: boolean
 }
 
 export interface BilanCalcResult {
@@ -24,10 +25,10 @@ export interface BilanCalcResult {
 }
 
 export const calcBilan = (input: BilanCalcInput): BilanCalcResult => {
-  const { errors, difficulty, hasRevisionBonus, dailySumBefore } = input
+  const { errors, difficulty, hasRevisionBonus, dailySumBefore, blocksPerfect } = input
 
   const stars = errors > 8 ? 0 : errors >= 6 ? 1 : errors >= 3 ? 2 : 3
-  const isPerfect = errors === 0
+  const isPerfect = errors === 0 && !blocksPerfect
   const bonusStars = stars * 10
   const bonusPerfect = isPerfect ? 10 : 0
   const bonusRevision = hasRevisionBonus ? 5 : 0

@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { Delta } from '../components/Delta'
 import { EmptyState } from '../components/EmptyState'
 import { supabase } from '../lib/supabase'
-import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { useToast } from '../components/Toast'
-import HighscoreModal from '../components/HighscoreModal'
+import ExerciseBilan from '../components/ExerciseBilan'
+import { hasRevisionBonusForList } from '../services/revisionBonus'
 import { callClaude } from '../lib/claude'
 
 type GameState = 'select' | 'loading' | 'playing' | 'result'
 type Mode = 'facile' | 'moyen' | 'difficile'
-type SeriesLength = 3 | 5 | 10
 
 interface WordSlot {
   correctText: string
@@ -49,8 +47,6 @@ const MODES: { value: Mode; label: string; desc: string }[] = [
   { value: 'moyen', label: '🧠 Moyen', desc: 'Choisis les bons mots ET le bon ordre' },
   { value: 'difficile', label: '✍️ Difficile', desc: 'Écris la traduction toi-même' },
 ]
-
-const SERIES_LENGTHS: SeriesLength[] = [3, 5, 10]
 
 const btnPrimary: React.CSSProperties = { padding: '0.75rem 2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }
 const btnSecondary: React.CSSProperties = { padding: '0.75rem 2rem', background: 'var(--color-border)', color: '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }
@@ -126,8 +122,8 @@ export default function PuzzlePhrases() {
   const [lists, setLists] = useState<WordList[]>([])
   const [loadingLists, setLoadingLists] = useState(true)
   const [selectedListId, setSelectedListId] = useState('')
+  const [listName, setListName] = useState('')
   const [mode, setMode] = useState<Mode>('facile')
-  const [seriesLength, setSeriesLength] = useState<SeriesLength>(5)
 
   const [sentences, setSentences] = useState<PuzzleSentence[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -135,18 +131,17 @@ export default function PuzzlePhrases() {
   const [bankItems, setBankItems] = useState<BankItem[]>([])
   const [userInputs, setUserInputs] = useState<string[]>([])
   const [attempt, setAttempt] = useState<1 | 2>(1)
-  const [feedback, setFeedback] = useState<'none' | 'retry' | 'reveal'>('none')
+  const [feedback, setFeedback] = useState<'none' | 'success' | 'retry' | 'reveal'>('none')
+  const [premierEssaiDonne, setPremierEssaiDonne] = useState<string | null>(null)
 
   const [streak, setStreak] = useState(0)
-  const [points, setPoints] = useState(0)
-  const [earnedDigoos, setEarnedDigoos] = useState(0)
-  const [totalCorrect, setTotalCorrect] = useState(0)
+  const [resultats, setResultats] = useState<{
+    french: string; attendu: string; donne: string; correct: boolean; attempt: 1 | 2; premierEssai: string | null
+  }[]>([])
 
-  const [showHighscore, setShowHighscore] = useState(false)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [hasRevisionBonus, setHasRevisionBonus] = useState(false)
 
   const resultsRef = useRef<boolean[]>([])
-  const pointsRef = useRef(0)
 
   const fetchLists = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -158,7 +153,7 @@ export default function PuzzlePhrases() {
       .eq('list_type', 'vocabulaire')
     if (data) {
       setLists(data)
-      if (data.length === 1) setSelectedListId(data[0].id)
+      if (data.length === 1) { setSelectedListId(data[0].id); setListName(data[0].name) }
     }
     setLoadingLists(false)
   }
@@ -171,10 +166,11 @@ export default function PuzzlePhrases() {
     if (!selectedListId) return
     setGameState('loading')
 
-    const { data: wordItems } = await supabase
-      .from('word_items')
-      .select('source_word, target_word')
-      .eq('list_id', selectedListId)
+    const [revBonus, { data: wordItems }] = await Promise.all([
+      hasRevisionBonusForList(selectedListId),
+      supabase.from('word_items').select('source_word, target_word').eq('list_id', selectedListId),
+    ])
+    setHasRevisionBonus(revBonus)
 
     if (!wordItems || wordItems.length === 0) {
       showToast('Cette liste ne contient aucun mot.', 'error')
@@ -182,14 +178,14 @@ export default function PuzzlePhrases() {
       return
     }
 
-    const pickedWords = Array.from({ length: seriesLength }, () =>
+    const pickedWords = Array.from({ length: 10 }, () =>
       wordItems[Math.floor(Math.random() * wordItems.length)]
     )
 
     const listLang = lists.find(l => l.id === selectedListId)?.language || 'Anglais'
 
     try {
-      const systemPrompt = buildSystemPrompt(mode, listLang, seriesLength)
+      const systemPrompt = buildSystemPrompt(mode, listLang, 10)
       const userPrompt = buildUserPrompt(
         pickedWords.map(w => ({ source_word: w.source_word, target_word: w.target_word || '' })),
         listLang
@@ -206,19 +202,20 @@ export default function PuzzlePhrases() {
           options: w.options,
         })),
       }))
+      const shuffled = shuffleArray(mapped)
 
       resultsRef.current = []
-      pointsRef.current = 0
-      setSentences(mapped)
+      setResultats([])
+      setSentences(shuffled)
       setCurrentIndex(0)
       setStreak(0)
-      setPoints(0)
       setAttempt(1)
       setFeedback('none')
-      const { slots: initSlots, bankItems: initBank } = initSentence(mapped[0])
+      setPremierEssaiDonne(null)
+      const { slots: initSlots, bankItems: initBank } = initSentence(shuffled[0])
       setSlots(initSlots)
       setBankItems(initBank)
-      setUserInputs(new Array(mapped[0].words.length).fill(''))
+      setUserInputs(new Array(shuffled[0].words.length).fill(''))
       setGameState('playing')
     } catch {
       showToast('Erreur lors de la génération des phrases. Réessaie.', 'error')
@@ -226,24 +223,32 @@ export default function PuzzlePhrases() {
     }
   }
 
-  const recordResult = (firstAttemptCorrect: boolean, success: boolean) => {
+  const recordResult = (
+    sentence: PuzzleSentence, donne: string, firstAttemptCorrect: boolean, success: boolean, premierEssai: string | null
+  ) => {
     resultsRef.current = [...resultsRef.current, success]
+    const attendu = sentence.words.map(w => w.correctText).join(' ')
+    setResultats(prev => [...prev, {
+      french: sentence.french,
+      attendu,
+      donne,
+      correct: success,
+      attempt: firstAttemptCorrect ? 1 : 2,
+      premierEssai,
+    }])
     if (firstAttemptCorrect) {
-      const newStreak = streak + 1
-      setStreak(newStreak)
-      const gain = newStreak >= 3 ? 6 : 1
-      pointsRef.current += gain
-      setPoints(pointsRef.current)
+      setStreak(prev => prev + 1)
     } else {
       setStreak(0)
-      if (success) {
-        pointsRef.current += 1
-        setPoints(pointsRef.current)
-      }
     }
   }
 
   const validate = () => {
+    // Ceinture de sécurité : si la phrase courante est déjà entièrement résolue
+    // (ex. double-clic sur "Valider" pendant les 1200ms avant goToNextSentence()),
+    // on ignore l'appel pour éviter un double recordResult.
+    if (slots.length > 0 && slots.every(s => s.status === 'correct')) return
+
     const sentence = sentences[currentIndex]
     const newSlots: SlotState[] = slots.map((slot, i) => {
       if (slot.status === 'correct') return slot
@@ -256,15 +261,19 @@ export default function PuzzlePhrases() {
     setSlots(newSlots)
 
     const allCorrect = newSlots.every(s => s.status === 'correct')
+    const donne = sentence.words.map((_, i) =>
+      mode === 'difficile' ? (userInputs[i] || '—').trim() : (bankItems.find(b => b.placedInSlot === i)?.text || '—')
+    ).join(' ')
 
     if (allCorrect) {
-      recordResult(attempt === 1, true)
-      setFeedback('none')
+      recordResult(sentence, donne, attempt === 1, true, attempt === 1 ? null : premierEssaiDonne)
+      setFeedback('success')
       setTimeout(() => goToNextSentence(), 1200)
     } else if (attempt === 1) {
+      setPremierEssaiDonne(donne)
       setFeedback('retry')
     } else {
-      recordResult(false, false)
+      recordResult(sentence, donne, false, false, premierEssaiDonne)
       setFeedback('reveal')
     }
   }
@@ -308,34 +317,18 @@ export default function PuzzlePhrases() {
     setUserInputs(new Array(sentences[nextIndex].words.length).fill(''))
     setAttempt(1)
     setFeedback('none')
-  }
-
-  const checkHighscore = async (finalScore: number): Promise<boolean> => {
-    if (localStorage.getItem('odigo_highscores') === 'off') return false
-    if (!selectedListId) return false
-    const { data } = await supabase
-      .from('highscores').select('score')
-      .eq('exercise', 'puzzlephrases').eq('list_id', selectedListId)
-      .order('score', { ascending: false }).limit(5)
-    if (!data) return false
-    if (data.length < 5) return true
-    return finalScore > data[data.length - 1].score
+    setPremierEssaiDonne(null)
   }
 
   const finaliser = async () => {
+    setGameState('result')
     const correctCount = resultsRef.current.filter(Boolean).length
     await logActivity({
       action_type: 'exercise_completed',
-      questions_total: seriesLength,
+      questions_total: 10,
       questions_correct: correctCount,
       metadata: { exercise: 'puzzlephrases', mode, listId: selectedListId },
     })
-    const earned = await addDigoos(pointsRef.current, 'exercise', 'Puzzle Phrases')
-    setEarnedDigoos(earned)
-    setTotalCorrect(correctCount)
-    const isTop = await checkHighscore(pointsRef.current)
-    if (isTop) setShowHighscore(true)
-    else setGameState('result')
   }
 
   const handlePlaceFixed = (bankId: string) => {
@@ -364,15 +357,6 @@ export default function PuzzlePhrases() {
     setBankItems(prev => prev.map(b => b.id === bankId ? { ...b, placedInSlot: null } : b))
   }
 
-  const rejouer = () => {
-    setGameState('select')
-  }
-
-  const quitter = () => {
-    setSentences([])
-    setGameState('select')
-  }
-
   // ---- ÉCRAN SÉLECTION ----
   if (gameState === 'select' || gameState === 'loading') {
     return (
@@ -396,7 +380,11 @@ export default function PuzzlePhrases() {
                 <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Liste de vocabulaire</label>
                 <select
                   value={selectedListId}
-                  onChange={e => setSelectedListId(e.target.value)}
+                  onChange={e => {
+                    setSelectedListId(e.target.value)
+                    const l = lists.find(x => x.id === e.target.value)
+                    if (l) setListName(l.name)
+                  }}
                   style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
                 >
                   <option value="">-- Sélectionner --</option>
@@ -427,21 +415,6 @@ export default function PuzzlePhrases() {
               </div>
             </div>
 
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Nombre de phrases</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                {SERIES_LENGTHS.map(n => (
-                  <button
-                    key={n}
-                    onClick={() => setSeriesLength(n)}
-                    style={{ flex: 1, padding: '0.6rem', background: seriesLength === n ? '#2a9d8f' : 'var(--color-border)', color: seriesLength === n ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: seriesLength === n ? 'bold' : 'normal' }}
-                  >
-                    {n} phrases
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <button
               onClick={fetchSentences}
               disabled={!selectedListId || gameState === 'loading'}
@@ -449,25 +422,7 @@ export default function PuzzlePhrases() {
             >
               {gameState === 'loading' ? '⏳ Génération des phrases...' : '🚀 Commencer'}
             </button>
-            {selectedListId && localStorage.getItem('odigo_highscores') !== 'off' && (
-              <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
-                🏆 Voir le classement
-              </button>
-            )}
           </div>
-        )}
-        {showLeaderboard && (
-          <HighscoreModal
-            exercise="puzzlephrases"
-            listId={selectedListId}
-            listName={lists.find(l => l.id === selectedListId)?.name ?? ''}
-            score={0}
-            initialPhase="leaderboard"
-            onClose={() => setShowLeaderboard(false)}
-            onDisable={() => setShowLeaderboard(false)}
-            onReplay={() => { setShowLeaderboard(false); fetchSentences() }}
-            onQuit={() => setShowLeaderboard(false)}
-          />
         )}
       </div>
     )
@@ -475,16 +430,45 @@ export default function PuzzlePhrases() {
 
   // ---- ÉCRAN RÉSULTAT ----
   if (gameState === 'result') {
+    const correctCount = resultats.filter(r => r.correct).length
+    const hadAnyRetry = resultats.some(r => r.attempt === 2)
     return (
-      <div style={{ maxWidth: '520px', textAlign: 'center' }}>
-        <h2 style={{ color: '#2a9d8f', fontSize: '1.8rem', marginBottom: '0.25rem' }}>🎉 Série terminée !</h2>
-        <p style={{ color: '#888', fontSize: '1rem', marginBottom: '0.25rem' }}>{totalCorrect}/{seriesLength} phrases réussies</p>
-        <p style={{ color: '#e9c46a', fontWeight: 'bold', fontSize: '1.3rem', marginBottom: '1.5rem' }}>
-          +{earnedDigoos} <Delta size={20} />
-        </p>
-        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-          <button onClick={rejouer} style={btnPrimary}>🔄 Rejouer</button>
-          <button onClick={quitter} style={btnSecondary}>Quitter</button>
+      <div>
+        <ExerciseBilan
+          exercise="puzzlephrases"
+          errors={10 - correctCount}
+          difficulty={mode}
+          hasRevisionBonus={hasRevisionBonus}
+          listName={listName || undefined}
+          blocksPerfect={hadAnyRetry}
+          onDone={() => { setGameState('select'); setSentences([]) }}
+        />
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+            <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
+            {resultats.map((r, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
+                <span style={{ width: '1.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                  {i + 1}
+                </span>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.85rem' }}>
+                  <span style={{ color: '#555' }}><strong>{r.french}</strong></span>
+                  {r.attempt === 2 ? (
+                    <>
+                      <span style={{ color: '#e63946' }}>1er essai : {r.premierEssai || '—'} ✗</span>
+                      <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+                        2e essai : {r.correct ? `✓ ${r.attendu}` : `✗ ${r.donne} → ${r.attendu}`}
+                      </span>
+                    </>
+                  ) : (
+                    <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+                      {r.correct ? `✓ ${r.attendu}` : `✗ ${r.donne} → ${r.attendu}`}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -498,35 +482,17 @@ export default function PuzzlePhrases() {
     ? userInputs.every((v, i) => slots[i]?.status === 'correct' || v.trim() !== '')
     : slots.every((s, i) => s.status === 'correct' || bankItems.some(b => b.placedInSlot === i))
 
-  const listName = lists.find(l => l.id === selectedListId)?.name ?? ''
-
   return (
-    <>
-    {showHighscore && (
-      <HighscoreModal
-        exercise="puzzlephrases"
-        listId={selectedListId}
-        listName={listName}
-        score={pointsRef.current}
-        onClose={() => { setShowHighscore(false); setGameState('result') }}
-        onDisable={() => { setShowHighscore(false); setGameState('result') }}
-        onReplay={() => { setShowHighscore(false); fetchSentences() }}
-        onQuit={() => { setShowHighscore(false); setGameState('select') }}
-      />
-    )}
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
         <div style={{ fontSize: '0.9rem', color: '#888' }}>
           Phrase {currentIndex + 1} / {sentences.length}
           {streak >= 3 && <span style={{ color: '#e9c46a', marginLeft: '0.5rem' }}>🔥 {streak}</span>}
         </div>
-        <div style={{ fontSize: '0.85rem', color: '#e9c46a', fontWeight: 'bold' }}>
-          {points} pts
-        </div>
       </div>
 
       <div style={{ background: 'var(--color-border)', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
-        <div className="progress-bar" style={{ width: `${(currentIndex / sentences.length) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem' }} />
+        <div className="progress-bar" style={{ width: `${((currentIndex + 1) / sentences.length) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem' }} />
       </div>
 
       <div style={{ background: 'var(--color-background)', borderRadius: '1rem', padding: '1.25rem', fontSize: '1.2rem', fontWeight: 'bold', textAlign: 'center', marginBottom: '1.5rem', color: '#333' }}>
@@ -650,6 +616,5 @@ export default function PuzzlePhrases() {
         </div>
       )}
     </div>
-    </>
   )
 }

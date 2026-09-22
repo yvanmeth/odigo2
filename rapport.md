@@ -1,77 +1,82 @@
-# Rapport — Correction contraction "j'" dans buildReponsesAffichage
+# Rapport — Restructuration du récapitulatif de PuzzlePhrases.tsx
 
-## Changements appliqués
+## Changement appliqué
 
-**Fichier** : `src/pages/conjugaison.tsx`
+**Fichier** : `src/pages/PuzzlePhrases.tsx` (bloc récapitulatif de l'écran `result`)
 
-### 1. Nouvelle fonction `contracterJe` (ajoutée ligne ~133)
-
-```ts
-// "je" → "j'" devant voyelle ou h (muet dans la grande majorité des verbes courants)
-const contracterJe = (forme: string): string => {
-  if (/^[aeéèêëiîïoôuûüyh]/i.test(forme)) return `j'${forme}`
-  return `je ${forme}`
-}
+**Avant** (ligne unique, phrase + résultat côte à côte avec badge superposé) :
+```tsx
+{resultats.map((r, i) => (
+  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem', gap: '0.5rem' }}>
+    <span style={{ color: '#555', flex: 1 }}>
+      <strong>{r.french}</strong>
+      {r.attempt === 2 && (
+        <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', color: '#e9c46a', fontWeight: 'normal' }}>2e essai</span>
+      )}
+    </span>
+    {r.attempt === 2 ? (
+      <span style={{ textAlign: 'right', color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+        1er essai : {r.premierEssai || '—'} ✗ · 2e essai : {r.correct ? `✓ ${r.attendu}` : `✗ ${r.donne} → ${r.attendu}`}
+      </span>
+    ) : (
+      <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold', textAlign: 'right' }}>
+        {r.correct ? `✓ ${r.attendu}` : `✗ ${r.donne} → ${r.attendu}`}
+      </span>
+    )}
+  </div>
+))}
 ```
 
-Regex couvre : toutes les voyelles françaises (accentuées et non accentuées) + h (muet pour la quasi-totalité des verbes du niveau 7P-11P).
-
-### 2. `buildReponsesAffichage` modifiée
-
-Avant :
-```ts
-if (reponses.length === 1) {
-  return pronomAttendu ? `${pronomAttendu} ${reponses[0]}` : reponses[0]
-}
-...
-return pronomAttendu ? `${pronomAttendu} ${compact}` : compact
+**Après** (numéro + colonne empilée verticalement) :
+```tsx
+{resultats.map((r, i) => (
+  <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
+    <span style={{ width: '1.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: '0.8rem', fontWeight: 'bold' }}>
+      {i + 1}
+    </span>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.85rem' }}>
+      <span style={{ color: '#555' }}><strong>{r.french}</strong></span>
+      {r.attempt === 2 ? (
+        <>
+          <span style={{ color: '#e63946' }}>1er essai : {r.premierEssai || '—'} ✗</span>
+          <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+            2e essai : {r.correct ? `✓ ${r.attendu}` : `✗ ${r.donne} → ${r.attendu}`}
+          </span>
+        </>
+      ) : (
+        <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+          {r.correct ? `✓ ${r.attendu}` : `✗ ${r.donne} → ${r.attendu}`}
+        </span>
+      )}
+    </div>
+  </div>
+))}
 ```
 
-Après :
-```ts
-const afficherAvecPronom = (forme: string): string => {
-  if (!pronomAttendu) return forme
-  if (personne === 'je') return contracterJe(forme)
-  return `${pronomAttendu} ${forme}`
-}
+## Détail des changements
 
-if (reponses.length === 1) return afficherAvecPronom(reponses[0])
-...
-return afficherAvecPronom(compact)
-```
+- **Colonne numéro** : `<span>` de largeur fixe `1.5rem`, `flexShrink: 0`, texte centré, couleur discrète `#aaa`. Le conteneur parent (`display: flex, alignItems: 'center'`) centre verticalement ce numéro par rapport à la hauteur totale du bloc — qu'il fasse 2 lignes (attempt 1) ou 3 lignes (attempt 2, avec la phrase + 2 lignes de résultat).
+- **Colonne principale** : `<div>` en `flexDirection: 'column'` contenant :
+  - la phrase française en gras, toujours en premier ;
+  - **si `attempt === 1`** : une seule ligne résultat (✓ vert ou ✗ rouge), inchangée dans son contenu ;
+  - **si `attempt === 2`** : deux lignes distinctes empilées — `1er essai : {premierEssai} ✗` en rouge, puis `2e essai : ✓/✗ ...` colorée selon le résultat final.
+- **Badge "2e essai" superposé retiré** : l'information est désormais portée explicitement par la ligne "1er essai : ...", donc le petit badge à côté de la phrase (`<span>2e essai</span>` en superposition) a été supprimé.
+- **Séparateur** : `borderBottom: '1px solid #f5f5f5'` conservé à l'identique entre chaque bloc question.
 
----
-
-## Trace des cas représentatifs
-
-| Forme(s) dans `reponses` | Avant | Après |
-|---|---|---|
-| `["aurai été"]` | `je aurai été` ✗ | `j'aurai été` ✓ |
-| `["ai mangé"]` | `je ai mangé` ✗ | `j'ai mangé` ✓ |
-| `["habite"]` | `je habite` ✗ | `j'habite` ✓ |
-| `["ai"]` | `je ai` ✗ | `j'ai` ✓ |
-| `["mange"]` | `je mange` ✓ | `je mange` ✓ (inchangé) |
-| `["vais"]` | `je vais` ✓ | `je vais` ✓ (inchangé) |
-| `["suis allé", "suis allée"]` → compact `"suis allé(e)"` | `je suis allé(e)` ✓ | `je suis allé(e)` ✓ (inchangé) |
-
----
-
-## Périmètre
-
-- Seul `buildReponsesAffichage` modifié — affichage de la correction uniquement.
-- Validation (`parseReponse`, `validerReponse`, `pronominCorrect`) : inchangée.
-- Autres personnes (tu, il/elle, nous, vous, ils/elles) : inchangées — `contracterJe` n'est appelée que via `afficherAvecPronom` lorsque `personne === 'je'`.
-- Impératif : inchangé — `pronomAttendu = ''`, `afficherAvecPronom` retourne `forme` sans rien ajouter.
+Tout le contenu logique existant (texte de la phrase, valeurs `attendu`/`donne`/`premierEssai`, couleurs vert/rouge, calcul `r.attempt === 2`) est conservé sans modification — seule la disposition visuelle change.
 
 ---
 
 ## Build + Lint
 
 ```
-npm run build   → ✓ built in 956ms  (0 erreurs TypeScript)
-npm run lint    → conjugaison.tsx : 2 erreurs pré-existantes, 0 nouvelle erreur introduite
+npm run build   → ✓ built in 1.00s  (0 erreur TypeScript)
 ```
 
-Erreurs pré-existantes dans conjugaison.tsx (inchangées, acceptées dans ce projet) :
-- L. 187 `react-hooks/immutability` — `fetchLists()` appelée dans `useEffect` avant sa déclaration `const`
-- L. 235 `@typescript-eslint/no-explicit-any` — `(w: any)` dans le `.map()` sur `word_items`
+```
+npx eslint src/pages/PuzzlePhrases.tsx
+→ 1 erreur — pré-existante, sur du code non modifié :
+  - L.162 react-hooks/set-state-in-effect (fetchLists() appelée dans useEffect(() => {...}, []))
+```
+
+**0 nouvelle erreur introduite.**
