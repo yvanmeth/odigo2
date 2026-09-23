@@ -1,57 +1,40 @@
-# Rapport — Retrait de l'affichage du score en temps réel (qcm.tsx)
+# Rapport — Alignement à gauche du récapitulatif (spelling.tsx)
 
 ## Changement appliqué
 
-**Fichier** : `src/pages/qcm.tsx`
-
 **Avant** :
 ```tsx
-<div style={{ fontWeight: 'bold', color: '#2a9d8f', fontSize: '1.2rem' }}>
-  {score} pts {getFireEmoji()}
+<div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.85rem' }}>
+  <span style={{ color: '#555' }}><strong>{r.mot}</strong></span>
+  <span style={{ color: r.type === 'perfect' ? '#2a9d8f' : r.type === 'ok' ? '#e9c46a' : '#e63946', fontWeight: 'bold' }}>
+    ...
+  </span>
 </div>
 ```
 **Après** :
 ```tsx
-<div style={{ fontWeight: 'bold', color: '#2a9d8f', fontSize: '1.2rem' }}>
-  {getFireEmoji()}
+<div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.85rem', textAlign: 'left' }}>
+  <span style={{ color: '#555' }}><strong>{r.mot}</strong></span>
+  <span style={{ color: r.type === 'perfect' ? '#2a9d8f' : r.type === 'ok' ? '#e9c46a' : '#e63946', fontWeight: 'bold' }}>
+    ...
+  </span>
 </div>
 ```
-Le texte "{score} pts" est retiré du HUD. `getFireEmoji()` (🔥/🔥🔥 selon `fireMode`, basé uniquement sur `streak`) est conservé — retour visuel motivant indépendant du score, comme demandé.
-
-## Point technique rencontré : `score` devenu réellement inutilisé
-
-Après retrait de l'affichage, `score` (state) n'était plus lu nulle part dans le fichier — seul `setScore` restait appelé (reset + accumulation de points). TypeScript (`noUnusedLocals`) a immédiatement bloqué le build :
-```
-src/pages/qcm.tsx(80,10): error TS6133: 'score' is declared but its value is never read.
-```
-
-**Décision** : plutôt que de supprimer en cascade toute la mécanique de points (`config.basePoints`, `bonusSpeed`, bonus streak +5/+15, `elapsed`/`startTime`) — ce qui aurait dépassé le périmètre demandé ("retire uniquement l'affichage") — `score` a été ajouté aux métadonnées de `logActivity`, lui donnant un usage réel minimal et cohérent avec la consigne ("le state score interne peut rester s'il est encore utilisé ailleurs") :
-
-**Avant** :
-```ts
-metadata: { exercise: 'qcm', mode },
-```
-**Après** :
-```ts
-metadata: { exercise: 'qcm', mode, score },
-```
-Cela conserve intacte toute la mécanique de points/streak/vitesse existante (invisible au joueur désormais, mais toujours calculée et désormais tracée dans l'historique d'activité), sans toucher au reste du fichier.
+`textAlign: 'left'` ajouté sur le conteneur de la colonne de droite (mot + ligne de résultat empilés), forçant l'alignement à gauche indépendamment de tout centrage hérité d'un élément ancestral.
 
 ---
 
 ## Build + Lint
 
 ```
-npm run build   → ✓ built in 915ms  (0 erreur TypeScript)
+npm run build   → ✓ built in 926ms  (0 erreur TypeScript)
 ```
 
 ```
-npx eslint src/pages/qcm.tsx
-→ 9 problèmes (6 erreurs, 3 warnings) — identiques (mêmes lignes de code) à ceux déjà
+npx eslint src/pages/spelling.tsx
+→ 8 problèmes (5 erreurs, 3 warnings) — identiques (mêmes lignes de code) à ceux déjà
   documentés lors des interventions précédentes sur ce fichier, tous pré-existants sur
-  du code non touché par ce retrait : les deux useEffect d'initialisation (guestMode/
-  fetchLists), la boucle de jeu principale (setQueue/setIsReviewPhase/saveScore avant
-  déclaration/deps)
+  du code non touché par ce changement.
 ```
 
 **0 nouvelle erreur, 0 nouveau warning introduits.**

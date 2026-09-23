@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { speak as speakWithLang } from '../lib/speech'
-import HighscoreModal from '../components/HighscoreModal'
+import ExerciseBilan from '../components/ExerciseBilan'
+import { hasRevisionBonusForList } from '../services/revisionBonus'
 
 interface WordItem {
   id: string
@@ -20,7 +20,16 @@ interface WordList {
 
 type GameState = 'select' | 'playing' | 'result'
 
-const TOTAL_WORDS = 15
+const TOTAL_WORDS = 10
+
+const shuffleArray = <T,>(arr: T[]): T[] => {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
 
 const LANG_VOICE_MAP: Record<string, string> = {
   'Anglais': 'en-GB', 'Allemand': 'de-DE', 'Grec': 'el-GR',
@@ -31,6 +40,7 @@ export default function Spelling() {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
+  const [listName, setListName] = useState('')
   const [direction, setDirection] = useState<'foreign' | 'french'>('foreign')
   const [words, setWords] = useState<WordItem[]>([])
   const [listLanguage, setListLanguage] = useState('')
@@ -40,14 +50,17 @@ export default function Spelling() {
   const [currentWord, setCurrentWord] = useState<WordItem | null>(null)
   const [input, setInput] = useState('')
   const [feedback, setFeedback] = useState<{ type: 'perfect' | 'ok' | 'wrong'; correction: string; hasCase: boolean; hasPunct: boolean } | null>(null)
-  const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
   const [fireMode, setFireMode] = useState<null | 'small' | 'big'>(null)
   const [wordsCompleted, setWordsCompleted] = useState(0)
   const [totalWords, setTotalWords] = useState(0)
   const [isReviewPhase, setIsReviewPhase] = useState(false)
-  const [showHighscore, setShowHighscore] = useState(false)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [correctFirstPass, setCorrectFirstPass] = useState(0)
+  const [resultats, setResultats] = useState<{
+    mot: string; donne: string; correction: string; type: 'perfect' | 'ok' | 'wrong'
+    hasCase: boolean; hasPunct: boolean; isReview: boolean
+  }[]>([])
+  const [hasRevisionBonus, setHasRevisionBonus] = useState(false)
 
   const [usedListen, setUsedListen] = useState(false)
   const [usedLetterCount, setUsedLetterCount] = useState(false)
@@ -73,16 +86,28 @@ export default function Spelling() {
   }
 
   const buildQueue = (wordPool: WordItem[]) => {
-    const q: WordItem[] = []
-    for (let i = 0; i < TOTAL_WORDS; i++) {
+    if (wordPool.length >= TOTAL_WORDS) {
+      const q: WordItem[] = []
+      for (let i = 0; i < TOTAL_WORDS; i++) {
+        q.push(wordPool[Math.floor(Math.random() * wordPool.length)])
+      }
+      return q
+    }
+    // Liste < 10 mots : chaque mot au moins une fois, complément aléatoire jusqu'à 10
+    const q: WordItem[] = [...wordPool]
+    while (q.length < TOTAL_WORDS) {
       q.push(wordPool[Math.floor(Math.random() * wordPool.length)])
     }
-    return q
+    return shuffleArray(q)
   }
 
   const startGame = async () => {
     if (!selectedList) return
-    await fetchWords(selectedList)
+    const [revBonus] = await Promise.all([
+      hasRevisionBonusForList(selectedList),
+      fetchWords(selectedList),
+    ])
+    setHasRevisionBonus(revBonus)
   }
 
   useEffect(() => {
@@ -90,12 +115,13 @@ export default function Spelling() {
       const q = buildQueue(words)
       setQueue(q)
       setTotalWords(TOTAL_WORDS)
-      setScore(0)
       setStreak(0)
       setWordsCompleted(0)
       setFailedWords([])
       setIsReviewPhase(false)
       setFireMode(null)
+      setCorrectFirstPass(0)
+      setResultats([])
       setGameState('playing')
     }
   }, [words])
@@ -142,6 +168,10 @@ export default function Spelling() {
   }
 
   const getFirstLetterHint = (word: string) => {
+    return word.split(' ').map(w => `${w[0]}...`).join('   ')
+  }
+
+  const getCombinedHint = (word: string) => {
     return word.split(' ').map(w => w[0] + w.slice(1).split('').map(() => '_').join(' ')).join('   ')
   }
 
@@ -191,45 +221,35 @@ export default function Spelling() {
     return normalize(answer) === normalize(correct) && answer !== correct
   }
 
-  const calculatePoints = (errorCount: number) => {
-    const hasAid = usedListen || usedLetterCount || usedFirstLetter
-    if (errorCount === 0) {
-      if (!hasAid) return 20
-      if (usedFirstLetter) return 12
-      if (usedLetterCount) return 15
-      if (usedListen) return 10
-    }
-    if (errorCount === 1) {
-      return hasAid ? 5 : 8
-    }
-    return 0
-  }
-
   const handleValidate = useCallback(() => {
     if (!currentWord || feedback) return
     const correct = getTargetWord(currentWord)
-    const errorCount = countErrors(input.trim(), correct)
-    const caseDiff = hasCaseDiff(input.trim(), correct)
-    const punctDiff = hasPunctDiff(input.trim(), correct)
+    const mot = getSourceWord(currentWord)
+    const donne = input.trim()
+    const errorCount = countErrors(donne, correct)
+    const caseDiff = hasCaseDiff(donne, correct)
+    const punctDiff = hasPunctDiff(donne, correct)
 
     let type: 'perfect' | 'ok' | 'wrong'
     if (errorCount === 0) type = 'perfect'
     else if (errorCount === 1) type = 'ok'
     else type = 'wrong'
 
-    const points = calculatePoints(errorCount)
     setFeedback({ type, correction: correct, hasCase: caseDiff, hasPunct: punctDiff })
+
+    setResultats(prev => [...prev, {
+      mot, donne, correction: correct, type, hasCase: caseDiff, hasPunct: punctDiff, isReview: isReviewPhase,
+    }])
 
     if (type === 'perfect') {
       const newStreak = streak + 1
       setStreak(newStreak)
       const newFireMode = newStreak >= 10 ? 'big' : newStreak >= 4 ? 'small' : null
       setFireMode(newFireMode)
-      setScore(prev => prev + points)
+      if (!isReviewPhase) setCorrectFirstPass(prev => prev + 1)
     } else {
       setStreak(0)
       setFireMode(null)
-      if (type === 'ok') setScore(prev => prev + points)
       setFailedWords(prev => [...prev, currentWord])
     }
 
@@ -237,7 +257,7 @@ export default function Spelling() {
 
     // Scroll vers le feedback
     setTimeout(() => {
-      feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }, 100)
 
     // Attendre 3 secondes avant de passer au mot suivant
@@ -245,7 +265,7 @@ export default function Spelling() {
       setCurrentWord(null)
       setFeedback(null)
     }, 3000)
-  }, [currentWord, input, feedback, streak, usedListen, usedLetterCount, usedFirstLetter, getTargetWord])
+  }, [currentWord, input, feedback, streak, getTargetWord, getSourceWord, isReviewPhase])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -257,29 +277,14 @@ export default function Spelling() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [handleValidate, gameState, feedback])
 
-  const checkHighscore = async (finalScore: number): Promise<boolean> => {
-    if (localStorage.getItem('odigo_highscores') === 'off') return false
-    if (!selectedList) return false
-    const { data } = await supabase
-      .from('highscores').select('score')
-      .eq('exercise', 'spelling').eq('list_id', selectedList)
-      .order('score', { ascending: false }).limit(5)
-    if (!data) return false
-    if (data.length < 5) return true
-    return finalScore > data[data.length - 1].score
-  }
-
   const saveScore = async () => {
-    await addDigoos(5 + Math.floor(score / 10), 'exercise', 'Épellation')
+    setGameState('result')
     await logActivity({
       action_type: 'exercise_completed',
-      questions_total: wordsCompleted,
-      questions_correct: wordsCompleted - failedWords.length,
+      questions_total: TOTAL_WORDS,
+      questions_correct: correctFirstPass,
       metadata: { exercise: 'spelling' },
     })
-    const isTop = await checkHighscore(score)
-    if (isTop) setShowHighscore(true)
-    else setGameState('result')
   }
 
   const getFireEmoji = () => {
@@ -303,7 +308,7 @@ export default function Spelling() {
               onChange={e => {
                 setSelectedList(e.target.value)
                 const l = lists.find(x => x.id === e.target.value)
-                if (l) setListLanguage(l.language)
+                if (l) { setListLanguage(l.language); setListName(l.name) }
               }}
               style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
             >
@@ -327,12 +332,6 @@ export default function Spelling() {
           <button onClick={startGame} disabled={!selectedList} style={{ width: '100%', padding: '0.75rem', background: selectedList ? '#2a9d8f' : '#ccc', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: selectedList ? 'pointer' : 'default', fontSize: '1rem', fontWeight: 'bold' }}>
             🚀 Jouer
           </button>
-
-          {selectedList && localStorage.getItem('odigo_highscores') !== 'off' && (
-            <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
-              🏆 Voir le classement
-            </button>
-          )}
         </div>
       </div>
     )
@@ -340,31 +339,58 @@ export default function Spelling() {
 
   if (gameState === 'result') {
     return (
-      <div style={{ textAlign: 'center' }}>
-        <h2 style={{ color: '#2a9d8f', fontSize: '2rem', marginBottom: '0.5rem' }}>Partie terminée !</h2>
-        <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2a9d8f', marginBottom: '0.25rem' }}>{score} pts</div>
-        <div style={{ color: '#888', marginBottom: '2rem' }}>{wordsCompleted} mots traités</div>
-        <button onClick={() => { setGameState('select'); setWords([]) }} style={{ padding: '0.75rem 2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}>
-          Retour
-        </button>
+      <div>
+        <ExerciseBilan
+          exercise="spelling"
+          errors={TOTAL_WORDS - correctFirstPass}
+          difficulty="moyen"
+          hasRevisionBonus={hasRevisionBonus}
+          listName={listName || undefined}
+          onDone={() => { setGameState('select'); setWords([]) }}
+        />
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+            <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
+            {resultats.map((r, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
+                <span style={{ width: '3.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: r.isReview ? '0.7rem' : '0.8rem', fontWeight: 'bold' }}>
+                  {r.isReview ? 'Révision' : i + 1}
+                </span>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.85rem', textAlign: 'left' }}>
+                  <span style={{ color: '#555' }}><strong>{r.mot}</strong></span>
+                  <span style={{ color: r.type === 'perfect' ? '#2a9d8f' : r.type === 'ok' ? '#e9c46a' : '#e63946', fontWeight: 'bold' }}>
+                    {r.type === 'perfect'
+                      ? `✓ ${r.correction}${(r.hasCase || r.hasPunct) ? ' (majuscule/ponctuation)' : ''}`
+                      : r.type === 'ok'
+                        ? `~ ${r.donne} → ${r.correction}`
+                        : `✗ ${r.donne} → ${r.correction}`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
-  const listName = lists.find(l => l.id === selectedList)?.name || ''
-
   return (
     <div style={{ maxWidth: '500px', margin: '0 auto' }}>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
         <div style={{ fontWeight: 'bold', color: '#2a9d8f', fontSize: '1.2rem' }}>
-          {score} pts {getFireEmoji()}
+          {getFireEmoji()}
         </div>
         <div style={{ fontSize: '0.85rem', color: '#888' }}>
           {streak > 0 && <span style={{ color: fireMode ? '#e9c46a' : '#2a9d8f', marginRight: '0.5rem' }}>série : {streak}</span>}
           {wordsCompleted}/{totalWords}
           {isReviewPhase && <span style={{ color: '#e63946', marginLeft: '0.3rem' }}>révision</span>}
         </div>
+      </div>
+
+      {/* Barre de progression (1er passage, total fixe = 10, figée à 100% pendant la révision) */}
+      <div style={{ background: 'var(--color-border)', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
+        <div style={{ width: `${(Math.min(wordsCompleted, TOTAL_WORDS) / TOTAL_WORDS) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem', transition: 'width 0.2s' }} />
       </div>
 
       {currentWord && (
@@ -412,9 +438,11 @@ export default function Spelling() {
 
           {(showLetterCount || showFirstLetter) && (
             <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: '1.2rem', color: '#2a9d8f', marginBottom: '1rem', letterSpacing: '0.2rem' }}>
-              {showFirstLetter
-                ? getFirstLetterHint(getTargetWord(currentWord))
-                : getLetterHint(getTargetWord(currentWord))
+              {showFirstLetter && showLetterCount
+                ? getCombinedHint(getTargetWord(currentWord))
+                : showFirstLetter
+                  ? getFirstLetterHint(getTargetWord(currentWord))
+                  : getLetterHint(getTargetWord(currentWord))
               }
             </div>
           )}
@@ -457,24 +485,6 @@ export default function Spelling() {
         </div>
       )}
 
-      {showHighscore && (
-        <HighscoreModal
-          exercise="spelling" listId={selectedList} listName={listName} score={score}
-          onClose={() => { setShowHighscore(false); setGameState('result') }}
-          onDisable={() => { localStorage.setItem('odigo_highscores', 'off'); setShowHighscore(false); setGameState('result') }}
-          onReplay={() => { setShowHighscore(false); setGameState('select'); startGame() }}
-          onQuit={() => { setShowHighscore(false); setGameState('select') }}
-        />
-      )}
-      {showLeaderboard && (
-        <HighscoreModal
-          exercise="spelling" listId={selectedList} listName={listName} score={0} initialPhase="leaderboard"
-          onClose={() => setShowLeaderboard(false)}
-          onDisable={() => { localStorage.setItem('odigo_highscores', 'off'); setShowLeaderboard(false) }}
-          onReplay={() => { setShowLeaderboard(false); startGame() }}
-          onQuit={() => setShowLeaderboard(false)}
-        />
-      )}
     </div>
   )
 }
