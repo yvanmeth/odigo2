@@ -357,6 +357,32 @@ export default function PuzzlePhrases() {
     setBankItems(prev => prev.map(b => b.id === bankId ? { ...b, placedInSlot: null } : b))
   }
 
+  const canValidate = mode === 'difficile'
+    ? userInputs.every((v, i) => slots[i]?.status === 'correct' || v.trim() !== '')
+    : slots.every((s, i) => s.status === 'correct' || bankItems.some(b => b.placedInSlot === i))
+
+  const handleEnterAction = () => {
+    if (feedback === 'none') {
+      if (canValidate) validate()
+    } else if (feedback === 'retry') {
+      corriger()
+    } else if (feedback === 'reveal') {
+      goToNextSentence()
+    }
+    // feedback === 'success' → rien, transition automatique déjà en cours (setTimeout)
+  }
+
+  // Clavier (mode difficile uniquement) : Entrée valide/corrige/passe selon feedback.
+  // Listener document pour les cas où le focus n'est pas sur un input (retry/reveal) ;
+  // stopPropagation() sur le onKeyDown des inputs évite le double déclenchement.
+  useEffect(() => {
+    if (mode !== 'difficile' || gameState !== 'playing') return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Enter') handleEnterAction() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, gameState, feedback])
+
   // ---- ÉCRAN SÉLECTION ----
   if (gameState === 'select' || gameState === 'loading') {
     return (
@@ -478,10 +504,6 @@ export default function PuzzlePhrases() {
   const sentence = sentences[currentIndex]
   if (!sentence) return null
 
-  const canValidate = mode === 'difficile'
-    ? userInputs.every((v, i) => slots[i]?.status === 'correct' || v.trim() !== '')
-    : slots.every((s, i) => s.status === 'correct' || bankItems.some(b => b.placedInSlot === i))
-
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -508,8 +530,9 @@ export default function PuzzlePhrases() {
                 key={i}
                 type="text"
                 value={userInputs[i] || ''}
-                disabled={slot.status === 'correct'}
+                disabled={slot.status === 'correct' || feedback === 'reveal'}
                 onChange={e => setUserInputs(prev => prev.map((v, idx) => idx === i ? e.target.value : v))}
+                onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); handleEnterAction() } }}
                 style={{
                   padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: `2px solid ${border}`,
                   background: bg, fontSize: '0.95rem', width: '110px', textAlign: 'center',
@@ -528,14 +551,14 @@ export default function PuzzlePhrases() {
               return (
                 <div
                   key={i}
-                  onClick={() => placedItem && !placedItem.locked && handleRemoveFromSlot(placedItem.id)}
+                  onClick={() => feedback !== 'reveal' && placedItem && !placedItem.locked && handleRemoveFromSlot(placedItem.id)}
                   style={{
                     minWidth: '60px', minHeight: '2.5rem', padding: '0.5rem 0.75rem',
                     borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontWeight: 'bold', fontSize: '0.95rem', color: '#1a1a1a',
                     border: placedItem ? `2px solid ${border}` : '2px dashed #ccc',
                     background: placedItem ? bg : 'transparent',
-                    cursor: placedItem && !placedItem.locked ? 'pointer' : 'default',
+                    cursor: feedback !== 'reveal' && placedItem && !placedItem.locked ? 'pointer' : 'default',
                   }}
                 >
                   {placedItem?.text || ''}
@@ -549,8 +572,8 @@ export default function PuzzlePhrases() {
               b.kind === 'fixed' ? (
                 <div
                   key={b.id}
-                  onClick={() => handlePlaceFixed(b.id)}
-                  style={{ background: 'white', border: '1px solid var(--color-border)', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold', color: '#1a1a1a' }}
+                  onClick={() => feedback !== 'reveal' && handlePlaceFixed(b.id)}
+                  style={{ background: 'white', border: '1px solid var(--color-border)', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', cursor: feedback !== 'reveal' ? 'pointer' : 'default', fontSize: '0.95rem', fontWeight: 'bold', color: '#1a1a1a' }}
                 >
                   {b.text}
                 </div>
@@ -559,6 +582,7 @@ export default function PuzzlePhrases() {
                   <span style={{ fontSize: '0.7rem', color: '#888' }}>{b.category} :</span>
                   <select
                     value={b.text}
+                    disabled={feedback === 'reveal'}
                     onChange={e => handleCategoryChoice(b.id, e.target.value)}
                     style={{ padding: '0.4rem 0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.85rem' }}
                   >
