@@ -1,38 +1,82 @@
-# Rapport — Retrait des console.log de diagnostic clavier (PuzzlePhrases.tsx)
+# Rapport — Correctif appliqué : pièce qui tombe (worddrop.tsx)
 
-## Changement appliqué
+## Confirmation : le code a réellement changé cette fois
 
-**Fichier** : `src/pages/PuzzlePhrases.tsx`
+### `getWordLeft()`
 
-Les 3 `console.log` temporaires ajoutés pour le diagnostic empirique du bug clavier ont été retirés :
-
-1. `console.log('[INPUT] keydown', e.key)` — retiré de l'`onKeyDown` de l'input mode difficile.
-2. `console.log('[DOCUMENT] keydown', e.key)` — retiré du `handler` du listener document.
-3. `console.log('[ENTER ACTION] feedback=', feedback, 'canValidate=', canValidate)` — retiré du début de `handleEnterAction()`.
-
-Le code logique (garde, `stopPropagation()`, branchement `handleEnterAction`) est resté strictement identique à avant l'instrumentation — seules les lignes de log ont été supprimées.
-
-## Vérification
-
+**Avant** :
+```ts
+const getWordLeft = () => {
+  if (wordPos === 0) return 'calc(16.6% - 60px)'
+  if (wordPos === 1) return 'calc(50% - 60px)'
+  return 'calc(83.3% - 60px)'
+}
 ```
-grep "console\.log" src/pages/PuzzlePhrases.tsx
-→ Aucune correspondance.
+**Après** :
+```ts
+const getWordLeft = () => {
+  if (wordPos === 0) return '16.6%'
+  if (wordPos === 1) return '50%'
+  return '83.3%'
+}
 ```
 
-Aucun `console.log` de debug ne subsiste dans le fichier.
+### Bloc JSX complet "Mot qui tombe"
+
+```tsx
+{/* Mot qui tombe */}
+{currentWord && (
+  <div style={{
+    position: 'absolute',
+    top: `${wordY}px`,
+    left: getWordLeft(),
+    transform: 'translateX(-50%)',
+    textAlign: 'center',
+    transition: isFalling ? 'left 0.15s ease' : 'left 0.15s ease',
+    zIndex: 5,
+  }}>
+    <div style={{
+      display: 'inline-block',
+      whiteSpace: 'nowrap',
+      minWidth: '80px',
+      maxWidth: '160px',
+      background: feedback === 'correct' ? '#2a9d8f' : feedback === 'wrong' ? '#e63946' : 'white',
+      color: feedback ? 'white' : '#333',
+      padding: '0.5rem 1rem',
+      borderRadius: '0.75rem',
+      fontWeight: 'bold',
+      fontSize: '1rem',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      transition: 'background 0.2s',
+    }}>
+      {displayWord}
+    </div>
+  </div>
+)}
+```
+
+Vérifié par relecture directe du fichier après édition (lignes 460-487) :
+- `width: '120px'` **retiré** du conteneur externe, remplacé par `transform: 'translateX(-50%)'`.
+- `getWordLeft()` retourne bien des pourcentages simples, sans `calc(... - 60px)`.
+- Le `<div>` interne porte désormais `display: 'inline-block'`, `whiteSpace: 'nowrap'`, `minWidth: '80px'`, `maxWidth: '160px'`, en plus de ses propriétés existantes (`background`, `color`, `padding`, `borderRadius`, `fontWeight`, `fontSize`, `boxShadow`, `transition`).
 
 ---
 
 ## Build + Lint
 
 ```
-npm run build   → ✓ built in 1.41s  (0 erreur TypeScript)
+npm run build   → ✓ built in 953ms  (0 erreur TypeScript)
 ```
 
 ```
-npx eslint src/pages/PuzzlePhrases.tsx
-→ 1 erreur — pré-existante, sur du code non modifié :
-  - L.162 react-hooks/set-state-in-effect (fetchLists() appelée dans useEffect(() => {...}, []))
+npx eslint src/pages/worddrop.tsx
+→ 10 problèmes (7 erreurs, 3 warnings) — identiques (mêmes lignes de code, décalées de 2 lignes
+  seulement suite au retrait de width: '120px' remplacé par transform) à ceux déjà documentés lors
+  des intégrations précédentes, tous pré-existants sur du code non touché par ce correctif :
+  - '_speed' jamais lu, les deux useEffect d'initialisation (guestMode/fetchLists),
+    la boucle de jeu principale (setQueue/setIsReviewPhase/saveScore avant déclaration/deps)
 ```
 
-**0 nouvelle erreur introduite.** Le fichier est revenu à son état de code de production, sans instrumentation résiduelle.
+**0 nouvelle erreur, 0 nouveau warning introduits par ce correctif.**
+
+Le mécanisme désormais en place : `left: 16.6%/50%/83.3%` + `transform: translateX(-50%)` centre la pièce sur sa position quelle que soit sa largeur réelle (plus besoin de connaître la largeur à l'avance) ; `display: inline-block` + `whiteSpace: nowrap` fait que la boîte s'adapte au contenu et empêche tout retour à la ligne, y compris pour une expression à deux mots comme "zum Abendessen" ; `minWidth`/`maxWidth` bornent la taille pour rester visuellement cohérent entre un mot très court et un mot très long.
