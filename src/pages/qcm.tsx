@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
-import HighscoreModal from '../components/HighscoreModal'
+import ExerciseBilan from '../components/ExerciseBilan'
+import { hasRevisionBonusForList } from '../services/revisionBonus'
 
 interface WordItem {
   id: string
@@ -20,11 +20,26 @@ interface WordList {
 type GameState = 'select' | 'playing' | 'result'
 type Mode = 'debutant' | 'avance' | 'expert'
 
-const TOTAL_WORDS = 15
+const TOTAL_WORDS = 10
 const MODE_CONFIG = {
-  debutant: { choices: 2, basePoints: 5, bonusSpeed: 2, label: 'Débutant', emoji: '🌱' },
-  avance: { choices: 4, basePoints: 10, bonusSpeed: 5, label: 'Avancé', emoji: '⚡' },
-  expert: { choices: 8, basePoints: 20, bonusSpeed: 10, label: 'Expert', emoji: '💎' },
+  debutant: { choices: 3, basePoints: 5, bonusSpeed: 2, label: 'Débutant', emoji: '🌱' },
+  avance: { choices: 6, basePoints: 10, bonusSpeed: 5, label: 'Avancé', emoji: '⚡' },
+  expert: { choices: 9, basePoints: 20, bonusSpeed: 10, label: 'Expert', emoji: '💎' },
+}
+
+const MODE_TO_DIFFICULTY: Record<Mode, 'facile' | 'moyen' | 'difficile'> = {
+  debutant: 'facile',
+  avance: 'moyen',
+  expert: 'difficile',
+}
+
+const shuffleArray = <T,>(arr: T[]): T[] => {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
 }
 
 const LANG_VOICE_MAP: Record<string, string> = {
@@ -51,6 +66,7 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
+  const [listName, setListName] = useState('')
   const [mode, setMode] = useState<Mode>('avance')
   const [direction, setDirection] = useState<'foreign' | 'french'>('foreign')
   const [words, setWords] = useState<WordItem[]>([])
@@ -66,9 +82,12 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
   const [wordsCompleted, setWordsCompleted] = useState(0)
   const [totalWords, setTotalWords] = useState(0)
   const [isReviewPhase, setIsReviewPhase] = useState(false)
+  const [correctFirstPass, setCorrectFirstPass] = useState(0)
+  const [resultats, setResultats] = useState<{
+    mot: string; attendu: string; donne: string; correct: boolean; isReview: boolean
+  }[]>([])
+  const [hasRevisionBonus, setHasRevisionBonus] = useState(false)
   const [startTime, setStartTime] = useState(0)
-  const [showHighscore, setShowHighscore] = useState(false)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [fireMode, setFireMode] = useState<null | 'small' | 'big'>(null)
 
   const [listLanguage, setListLanguage] = useState('')
@@ -91,18 +110,24 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
   }
 
   const fetchWords = async (listId: string) => {
-    console.log('Loading guest list:', listId)
-    const { data, error } = await supabase.from('word_items').select('*').eq('list_id', listId)
-    console.log('Guest words result:', data?.length, 'error:', error)
+    const { data } = await supabase.from('word_items').select('*').eq('list_id', listId)
     if (data) setWords(data.filter(w => w.source_word && w.target_word))
   }
 
   const buildQueue = (wordPool: WordItem[]) => {
-    const q: WordItem[] = []
-    for (let i = 0; i < TOTAL_WORDS; i++) {
+    if (wordPool.length >= TOTAL_WORDS) {
+      const q: WordItem[] = []
+      for (let i = 0; i < TOTAL_WORDS; i++) {
+        q.push(wordPool[Math.floor(Math.random() * wordPool.length)])
+      }
+      return q
+    }
+    // Liste < 10 mots : chaque mot au moins une fois, complément aléatoire jusqu'à 10
+    const q: WordItem[] = [...wordPool]
+    while (q.length < TOTAL_WORDS) {
       q.push(wordPool[Math.floor(Math.random() * wordPool.length)])
     }
-    return q
+    return shuffleArray(q)
   }
 
   const getChoices = useCallback((correct: WordItem, allWords: WordItem[], numChoices: number) => {
@@ -117,7 +142,11 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
 
   const startGame = async () => {
     if (!selectedList) return
-    await fetchWords(selectedList)
+    const [revBonus] = await Promise.all([
+      hasRevisionBonusForList(selectedList),
+      fetchWords(selectedList),
+    ])
+    setHasRevisionBonus(revBonus)
   }
 
   useEffect(() => {
@@ -131,6 +160,8 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
       setFailedWords([])
       setIsReviewPhase(false)
       setFireMode(null)
+      setCorrectFirstPass(0)
+      setResultats([])
       setGameState('playing')
     }
   }, [words])
@@ -163,14 +194,20 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
     if (!currentWord || feedback) return
     const config = MODE_CONFIG[mode]
     const correctAnswer = direction === 'foreign' ? currentWord.target_word : currentWord.source_word
+    const motAffiche = direction === 'foreign' ? currentWord.source_word : currentWord.target_word
     const isCorrect = chosen === correctAnswer
     const elapsed = (Date.now() - startTime) / 1000
 
     setFeedback({ correct: isCorrect, answer: correctAnswer })
 
+    setResultats(prev => [...prev, {
+      mot: motAffiche, attendu: correctAnswer, donne: chosen, correct: isCorrect, isReview: isReviewPhase,
+    }])
+
     if (isCorrect) {
       const newStreak = streak + 1
       setStreak(newStreak)
+      if (!isReviewPhase) setCorrectFirstPass(prev => prev + 1)
 
       let points = config.basePoints
       if (elapsed < 3) points += config.bonusSpeed
@@ -194,35 +231,20 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
       setCurrentWord(null)
       setFeedback(null)
     }, 1000)
-  }, [currentWord, feedback, mode, direction, streak, startTime])
-
-  const checkHighscore = async (finalScore: number): Promise<boolean> => {
-    if (localStorage.getItem('odigo_highscores') === 'off') return false
-    if (!selectedList) return false
-    const { data } = await supabase
-      .from('highscores').select('score')
-      .eq('exercise', 'qcm').eq('list_id', selectedList)
-      .order('score', { ascending: false }).limit(5)
-    if (!data) return false
-    if (data.length < 5) return true
-    return finalScore > data[data.length - 1].score
-  }
+  }, [currentWord, feedback, mode, direction, streak, startTime, isReviewPhase])
 
   const saveScore = async () => {
     if (guestMode) {
       onGameEnd?.()
       return
     }
-    await addDigoos(5 + Math.floor(score / 10), 'exercise', 'QCM')
+    setGameState('result')
     await logActivity({
       action_type: 'exercise_completed',
-      questions_total: wordsCompleted,
-      questions_correct: wordsCompleted - failedWords.length,
-      metadata: { exercise: 'qcm', mode },
+      questions_total: TOTAL_WORDS,
+      questions_correct: correctFirstPass,
+      metadata: { exercise: 'qcm', mode, score },
     })
-    const isTop = await checkHighscore(score)
-    if (isTop) setShowHighscore(true)
-    else setGameState('result')
   }
 
   const displayWord = currentWord
@@ -244,7 +266,7 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
 
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Liste</label>
-            <select value={selectedList} onChange={e => { setSelectedList(e.target.value); const l = lists.find(x => x.id === e.target.value); if (l) setListLanguage(l.language) }} style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}>
+            <select value={selectedList} onChange={e => { setSelectedList(e.target.value); const l = lists.find(x => x.id === e.target.value); if (l) { setListLanguage(l.language); setListName(l.name) } }} style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}>
               <option value="">-- Sélectionner --</option>
               {lists.map(l => <option key={l.id} value={l.id}>{l.name} — {l.language} ({l.list_type})</option>)}
             </select>
@@ -276,12 +298,6 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
           <button onClick={startGame} disabled={!selectedList} style={{ width: '100%', padding: '0.75rem', background: selectedList ? '#2a9d8f' : '#ccc', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: selectedList ? 'pointer' : 'default', fontSize: '1rem', fontWeight: 'bold' }}>
             🚀 Jouer
           </button>
-
-          {selectedList && localStorage.getItem('odigo_highscores') !== 'off' && (
-            <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
-              🏆 Voir le classement
-            </button>
-          )}
         </div>
       </div>
     )
@@ -289,26 +305,44 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
 
   if (gameState === 'result' && !guestMode) {
     return (
-      <div style={{ textAlign: 'center' }}>
-        <h2 style={{ color: '#2a9d8f', fontSize: '2rem', marginBottom: '0.5rem' }}>Partie terminée !</h2>
-        <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2a9d8f', marginBottom: '0.25rem' }}>{score} pts</div>
-        <div style={{ color: '#888', marginBottom: '2rem' }}>{wordsCompleted} mots traités · Mode {MODE_CONFIG[mode].label}</div>
-        <button onClick={() => { setGameState('select'); setWords([]) }} style={{ padding: '0.75rem 2rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '1rem' }}>
-          Retour
-        </button>
+      <div>
+        <ExerciseBilan
+          exercise="qcm"
+          errors={TOTAL_WORDS - correctFirstPass}
+          difficulty={MODE_TO_DIFFICULTY[mode]}
+          hasRevisionBonus={hasRevisionBonus}
+          listName={listName || undefined}
+          onDone={() => { setGameState('select'); setWords([]) }}
+        />
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+            <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
+            {resultats.map((r, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
+                <span style={{ width: '3.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: r.isReview ? '0.7rem' : '0.8rem', fontWeight: 'bold' }}>
+                  {r.isReview ? 'Révision' : i + 1}
+                </span>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.85rem' }}>
+                  <span style={{ color: '#555' }}><strong>{r.mot}</strong></span>
+                  <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+                    {r.correct ? `✓ ${r.attendu}` : `✗ ${r.donne} → ${r.attendu}`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
-
-  const listName = lists.find(l => l.id === selectedList)?.name || ''
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
 
       {/* HUD */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
         <div style={{ fontWeight: 'bold', color: '#2a9d8f', fontSize: '1.2rem' }}>
-          {score} pts {getFireEmoji()}
+          {getFireEmoji()}
         </div>
         <div style={{ fontSize: '0.85rem', color: '#888' }}>
           {streak > 0 && <span style={{ color: fireMode ? '#e9c46a' : '#2a9d8f', marginRight: '0.5rem' }}>série : {streak}</span>}
@@ -316,6 +350,11 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
           {isReviewPhase && <span style={{ color: '#e63946', marginLeft: '0.3rem' }}>révision</span>}
         </div>
         <div style={{ fontSize: '0.85rem', color: '#888' }}>{MODE_CONFIG[mode].emoji} {MODE_CONFIG[mode].label}</div>
+      </div>
+
+      {/* Barre de progression (1er passage, total fixe = 10, figée à 100% pendant la révision) */}
+      <div style={{ background: 'var(--color-border)', borderRadius: '1rem', height: '6px', marginBottom: '1.5rem', overflow: 'hidden' }}>
+        <div style={{ width: `${(Math.min(wordsCompleted, TOTAL_WORDS) / TOTAL_WORDS) * 100}%`, background: '#2a9d8f', height: '100%', borderRadius: '1rem', transition: 'width 0.2s' }} />
       </div>
 
       {/* Mot à traduire */}
@@ -349,36 +388,46 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
       {/* Choix */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: mode === 'expert' ? 'repeat(4, 1fr)' : mode === 'avance' ? 'repeat(2, 1fr)' : 'repeat(2, 1fr)',
+        gridTemplateColumns: mode === 'expert' ? 'repeat(3, 1fr)' : mode === 'avance' ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
         gap: '0.75rem',
       }}>
         {choices.map((choice, i) => {
           const isCorrect = feedback && choice === feedback.answer
           return (
-            <button
-              key={i}
-              onClick={() => handleAnswer(choice)}
-              disabled={!!feedback}
-              style={{
-                padding: '0.75rem',
-                background: feedback
-                  ? isCorrect ? '#2a9d8f' : '#f5f5f5'
-                  : 'white',
-                color: feedback
-                  ? isCorrect ? 'white' : '#aaa'
-                  : '#333',
-                border: `2px solid ${feedback ? (isCorrect ? '#2a9d8f' : '#eee') : 'var(--color-border)'}`,
-                borderRadius: '0.75rem',
-                cursor: feedback ? 'default' : 'pointer',
-                fontSize: '0.9rem',
-                fontWeight: 'bold',
-                transition: 'all 0.15s',
-                textAlign: 'center',
-                width: '100%',
-              }}
-            >
-              {choice}
-            </button>
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+              <button
+                onClick={() => handleAnswer(choice)}
+                disabled={!!feedback}
+                style={{
+                  padding: mode === 'expert' ? '1rem 0.75rem' : '0.75rem',
+                  background: feedback
+                    ? isCorrect ? '#2a9d8f' : '#f5f5f5'
+                    : 'white',
+                  color: feedback
+                    ? isCorrect ? 'white' : '#aaa'
+                    : '#333',
+                  border: `2px solid ${feedback ? (isCorrect ? '#2a9d8f' : '#eee') : 'var(--color-border)'}`,
+                  borderRadius: '0.75rem',
+                  cursor: feedback ? 'default' : 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold',
+                  transition: 'all 0.15s',
+                  textAlign: 'center',
+                  width: '100%',
+                }}
+              >
+                {choice}
+              </button>
+              {direction === 'french' && listLanguage !== 'Français' && !feedback && (
+                <button
+                  onClick={() => speak(choice, LANG_VOICE_MAP[listLanguage] || 'fr-FR')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', padding: 0 }}
+                  title="Écouter la prononciation"
+                >
+                  🔊
+                </button>
+              )}
+            </div>
           )
         })}
       </div>
@@ -390,24 +439,6 @@ export default function QCM({ guestMode, guestListId, guestLanguage, onGameEnd }
         </div>
       )}
 
-      {showHighscore && (
-        <HighscoreModal
-          exercise="qcm" listId={selectedList} listName={listName} score={score}
-          onClose={() => { setShowHighscore(false); setGameState('result') }}
-          onDisable={() => { localStorage.setItem('odigo_highscores', 'off'); setShowHighscore(false); setGameState('result') }}
-          onReplay={() => { setShowHighscore(false); setGameState('select'); startGame() }}
-          onQuit={() => { setShowHighscore(false); setGameState('select') }}
-        />
-      )}
-      {showLeaderboard && (
-        <HighscoreModal
-          exercise="qcm" listId={selectedList} listName={listName} score={0} initialPhase="leaderboard"
-          onClose={() => setShowLeaderboard(false)}
-          onDisable={() => { localStorage.setItem('odigo_highscores', 'off'); setShowLeaderboard(false) }}
-          onReplay={() => { setShowLeaderboard(false); startGame() }}
-          onQuit={() => setShowLeaderboard(false)}
-        />
-      )}
     </div>
   )
 }
