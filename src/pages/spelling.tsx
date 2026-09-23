@@ -19,8 +19,15 @@ interface WordList {
 }
 
 type GameState = 'select' | 'playing' | 'result'
+type Difficulty = 'facile' | 'moyen' | 'difficile'
 
 const TOTAL_WORDS = 10
+
+const DIFFICULTIES: { id: Difficulty; label: string; icon: string }[] = [
+  { id: 'facile', label: 'Apprenti', icon: '🌱' },
+  { id: 'moyen', label: 'Aventurier', icon: '⚔️' },
+  { id: 'difficile', label: 'Légende', icon: '👑' },
+]
 
 const shuffleArray = <T,>(arr: T[]): T[] => {
   const a = [...arr]
@@ -42,6 +49,7 @@ export default function Spelling() {
   const [selectedList, setSelectedList] = useState('')
   const [listName, setListName] = useState('')
   const [direction, setDirection] = useState<'foreign' | 'french'>('foreign')
+  const [difficulty, setDifficulty] = useState<Difficulty>('moyen')
   const [words, setWords] = useState<WordItem[]>([])
   const [listLanguage, setListLanguage] = useState('')
 
@@ -61,6 +69,7 @@ export default function Spelling() {
     hasCase: boolean; hasPunct: boolean; isReview: boolean
   }[]>([])
   const [hasRevisionBonus, setHasRevisionBonus] = useState(false)
+  const [hadOptionalHint, setHadOptionalHint] = useState(false)
 
   const [usedListen, setUsedListen] = useState(false)
   const [usedLetterCount, setUsedLetterCount] = useState(false)
@@ -122,6 +131,7 @@ export default function Spelling() {
       setFireMode(null)
       setCorrectFirstPass(0)
       setResultats([])
+      setHadOptionalHint(false)
       setGameState('playing')
     }
   }, [words])
@@ -150,10 +160,12 @@ export default function Spelling() {
     setUsedListen(false)
     setUsedLetterCount(false)
     setUsedFirstLetter(false)
-    setShowLetterCount(false)
-    setShowFirstLetter(false)
+    // Pré-activation automatique des indices selon la difficulté :
+    // facile = les deux visibles d'office ; moyen = nombre de lettres seul ; difficile = aucun
+    setShowLetterCount(difficulty !== 'difficile')
+    setShowFirstLetter(difficulty === 'facile')
     setTimeout(() => inputRef.current?.focus(), 100)
-  }, [currentWord, queue, gameState])
+  }, [currentWord, queue, gameState, difficulty])
 
   const getTargetWord = useCallback((word: WordItem) => {
     return direction === 'foreign' ? word.target_word : word.source_word
@@ -241,6 +253,16 @@ export default function Spelling() {
       mot, donne, correction: correct, type, hasCase: caseDiff, hasPunct: punctDiff, isReview: isReviewPhase,
     }])
 
+    // Un indice est "optionnel" (au-delà du contexte normal du mode) si :
+    // - moyen : la 1ère lettre a été demandée en plus (le nb de lettres est déjà automatique)
+    // - difficile : l'un des deux a été demandé (rien n'est automatique)
+    // - facile : jamais, les deux indices sont déjà le contexte normal
+    const hintWasOptional =
+      difficulty === 'moyen' ? usedFirstLetter :
+      difficulty === 'difficile' ? (usedLetterCount || usedFirstLetter) :
+      false
+    if (hintWasOptional) setHadOptionalHint(true)
+
     if (type === 'perfect') {
       const newStreak = streak + 1
       setStreak(newStreak)
@@ -265,7 +287,7 @@ export default function Spelling() {
       setCurrentWord(null)
       setFeedback(null)
     }, 3000)
-  }, [currentWord, input, feedback, streak, getTargetWord, getSourceWord, isReviewPhase])
+  }, [currentWord, input, feedback, streak, getTargetWord, getSourceWord, isReviewPhase, difficulty, usedFirstLetter, usedLetterCount])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -329,6 +351,21 @@ export default function Spelling() {
             </div>
           </div>
 
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Difficulté</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {DIFFICULTIES.map(d => (
+                <button
+                  key={d.id}
+                  onClick={() => setDifficulty(d.id)}
+                  style={{ flex: 1, padding: '0.6rem', background: difficulty === d.id ? '#2a9d8f' : 'var(--color-border)', color: difficulty === d.id ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: difficulty === d.id ? 'bold' : 'normal' }}
+                >
+                  {d.icon} {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button onClick={startGame} disabled={!selectedList} style={{ width: '100%', padding: '0.75rem', background: selectedList ? '#2a9d8f' : '#ccc', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: selectedList ? 'pointer' : 'default', fontSize: '1rem', fontWeight: 'bold' }}>
             🚀 Jouer
           </button>
@@ -343,9 +380,10 @@ export default function Spelling() {
         <ExerciseBilan
           exercise="spelling"
           errors={TOTAL_WORDS - correctFirstPass}
-          difficulty="moyen"
+          difficulty={difficulty}
           hasRevisionBonus={hasRevisionBonus}
           listName={listName || undefined}
+          blocksPerfect={hadOptionalHint}
           onDone={() => { setGameState('select'); setWords([]) }}
         />
         <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
@@ -422,18 +460,22 @@ export default function Spelling() {
                 🔊 Écouter {usedListen && '(-pts)'}
               </button>
             )}
-            <button
-              onClick={() => { setShowLetterCount(true); setUsedLetterCount(true) }}
-              style={{ padding: '0.4rem 0.8rem', background: usedLetterCount ? 'var(--color-border)' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-            >
-              # Lettres {usedLetterCount && '(-pts)'}
-            </button>
-            <button
-              onClick={() => { setShowFirstLetter(true); setUsedFirstLetter(true) }}
-              style={{ padding: '0.4rem 0.8rem', background: usedFirstLetter ? 'var(--color-border)' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
-            >
-              A_ 1ère lettre {usedFirstLetter && '(-pts)'}
-            </button>
+            {difficulty === 'difficile' && (
+              <button
+                onClick={() => { setShowLetterCount(true); setUsedLetterCount(true) }}
+                style={{ padding: '0.4rem 0.8rem', background: usedLetterCount ? 'var(--color-border)' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                Nombre de lettres
+              </button>
+            )}
+            {difficulty !== 'facile' && (
+              <button
+                onClick={() => { setShowFirstLetter(true); setUsedFirstLetter(true) }}
+                style={{ padding: '0.4rem 0.8rem', background: usedFirstLetter ? 'var(--color-border)' : 'white', color: '#2a9d8f', border: '1px solid #2a9d8f', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                Première lettre
+              </button>
+            )}
           </div>
 
           {(showLetterCount || showFirstLetter) && (
