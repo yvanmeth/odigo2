@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { speak } from '../lib/speech'
-import HighscoreModal from '../components/HighscoreModal'
+import ExerciseBilan from '../components/ExerciseBilan'
+import { hasRevisionBonusForList } from '../services/revisionBonus'
 
 interface WordItem {
   id: string
@@ -20,6 +21,32 @@ interface WordList {
 }
 
 type GameState = 'select' | 'playing' | 'result'
+type GameMode = 'normal' | 'libre'
+
+const TOTAL_NORMAL_CARDS = 10
+
+// Fisher-Yates — utilisé uniquement par buildNormalDeck (mode normal),
+// distinct du shuffle() existant (Array.sort aléatoire) réservé au mode libre.
+const shuffleArray = <T,>(arr: T[]): T[] => {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+const buildNormalDeck = (wordPool: WordItem[]): WordItem[] => {
+  if (wordPool.length >= TOTAL_NORMAL_CARDS) {
+    return shuffleArray(wordPool).slice(0, TOTAL_NORMAL_CARDS)
+  }
+  // Liste < 10 mots : chaque mot au moins une fois, complément aléatoire jusqu'à 10
+  const q: WordItem[] = [...wordPool]
+  while (q.length < TOTAL_NORMAL_CARDS) {
+    q.push(wordPool[Math.floor(Math.random() * wordPool.length)])
+  }
+  return shuffleArray(q)
+}
 
 const LANG_VOICE_MAP: Record<string, string> = {
   'Anglais': 'en-GB', 'Allemand': 'de-DE', 'Grec': 'el-GR',
@@ -65,8 +92,10 @@ export default function Flashcards() {
   const [gameState, setGameState] = useState<GameState>('select')
   const [lists, setLists] = useState<WordList[]>([])
   const [selectedList, setSelectedList] = useState('')
+  const [listName, setListName] = useState('')
   const [listLanguage, setListLanguage] = useState('')
   const [direction, setDirection] = useState<'foreign' | 'french'>('foreign')
+  const [mode, setMode] = useState<GameMode>('libre')
   const [words, setWords] = useState<WordItem[]>([])
 
   // Game state
@@ -79,8 +108,13 @@ export default function Flashcards() {
   const [cardAttempts, setCardAttempts] = useState(0)
   const [digoosEarned, setDigoosEarned] = useState(0)
   const [swipeAnim, setSwipeAnim] = useState<'left' | 'right' | null>(null)
-  const [showHighscore, setShowHighscore] = useState(false)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
+
+  // Mode normal uniquement — passage unique + une phase de révision
+  const [isReviewPhase, setIsReviewPhase] = useState(false)
+  const [correctFirstPass, setCorrectFirstPass] = useState(0)
+  const [failedCards, setFailedCards] = useState<WordItem[]>([])
+  const [resultats, setResultats] = useState<{ mot: string; correct: boolean; isReview: boolean }[]>([])
+  const [hasRevisionBonus, setHasRevisionBonus] = useState(false)
 
   const touchStartX = useRef<number | null>(null)
 
@@ -130,23 +164,44 @@ export default function Flashcards() {
 
   const startGame = async () => {
     if (!selectedList) return
-    await fetchWords(selectedList)
+    if (mode === 'normal') {
+      const [revBonus] = await Promise.all([
+        hasRevisionBonusForList(selectedList),
+        fetchWords(selectedList),
+      ])
+      setHasRevisionBonus(revBonus)
+    } else {
+      await fetchWords(selectedList)
+    }
   }
 
   useEffect(() => {
     if (words.length > 0 && gameState === 'select') {
-      const shuffled = shuffle(words)
-      setDeck(shuffled.slice(1))
-      setCurrentCard(shuffled[0])
-      setTotalCards(words.length)
       setKnownCount(0)
       setPassCount(0)
       setDigoosEarned(0)
       setIsFlipped(false)
       setCardAttempts(0)
+
+      if (mode === 'normal') {
+        const normalDeck = buildNormalDeck(words)
+        setDeck(normalDeck.slice(1))
+        setCurrentCard(normalDeck[0])
+        setTotalCards(TOTAL_NORMAL_CARDS)
+        setIsReviewPhase(false)
+        setCorrectFirstPass(0)
+        setFailedCards([])
+        setResultats([])
+      } else {
+        const shuffled = shuffle(words)
+        setDeck(shuffled.slice(1))
+        setCurrentCard(shuffled[0])
+        setTotalCards(words.length)
+      }
+
       setGameState('playing')
     }
-  }, [words])
+  }, [words, mode])
 
   const handleFlip = useCallback(() => {
     if (!currentCard) return
@@ -156,17 +211,52 @@ export default function Flashcards() {
   const nextCard = useCallback((known: boolean) => {
     if (!currentCard) return
 
-    const isFirstAttempt = cardAttempts === 0
-    let digoos = 0
+    if (mode === 'libre') {
+      // ---- Mode libre : comportement actuel, strictement inchangé ----
+      const isFirstAttempt = cardAttempts === 0
+      let digoos = 0
 
-    if (known) {
-      digoos = isFirstAttempt ? 2 : 1
-      playSuccessSound()
-    } else {
-      playFailSound()
+      if (known) {
+        digoos = isFirstAttempt ? 2 : 1
+        playSuccessSound()
+      } else {
+        playFailSound()
+      }
+
+      setDigoosEarned(prev => prev + digoos)
+      setPassCount(prev => prev + 1)
+      setSwipeAnim(known ? 'right' : 'left')
+
+      setTimeout(() => {
+        setSwipeAnim(null)
+        setIsFlipped(false)
+        setCardAttempts(0)
+
+        if (known) {
+          setKnownCount(prev => prev + 1)
+          const next = deck[0] ?? null
+          setDeck(prev => prev.slice(1))
+          setCurrentCard(next)
+        } else {
+          const remaining = [...deck, currentCard]
+          const reshuffled = shuffle(remaining)
+          setCurrentCard(reshuffled[0])
+          setDeck(reshuffled.slice(1))
+        }
+      }, 350)
+      return
     }
 
-    setDigoosEarned(prev => prev + digoos)
+    // ---- Mode normal : passage linéaire, une seule phase de révision ----
+    if (known) playSuccessSound()
+    else playFailSound()
+
+    const mot = direction === 'foreign' ? currentCard.source_word : currentCard.target_word
+    setResultats(prev => [...prev, { mot, correct: known, isReview: isReviewPhase }])
+
+    if (known && !isReviewPhase) setCorrectFirstPass(prev => prev + 1)
+    if (!known) setFailedCards(prev => [...prev, currentCard])
+
     setPassCount(prev => prev + 1)
     setSwipeAnim(known ? 'right' : 'left')
 
@@ -174,20 +264,12 @@ export default function Flashcards() {
       setSwipeAnim(null)
       setIsFlipped(false)
       setCardAttempts(0)
-
-      if (known) {
-        setKnownCount(prev => prev + 1)
-        const next = deck[0] ?? null
-        setDeck(prev => prev.slice(1))
-        setCurrentCard(next)
-      } else {
-        const remaining = [...deck, currentCard]
-        const reshuffled = shuffle(remaining)
-        setCurrentCard(reshuffled[0])
-        setDeck(reshuffled.slice(1))
-      }
+      if (known) setKnownCount(prev => prev + 1)
+      const next = deck[0] ?? null
+      setDeck(prev => prev.slice(1))
+      setCurrentCard(next)
     }, 350)
-  }, [currentCard, deck, cardAttempts])
+  }, [currentCard, deck, cardAttempts, mode, isReviewPhase, direction])
 
   const handleKnown = useCallback(() => {
     if (!currentCard || swipeAnim) return
@@ -200,36 +282,48 @@ export default function Flashcards() {
     nextCard(false)
   }, [currentCard, swipeAnim, nextCard])
 
-  // Fin de session
+  // Fin de session / passage en révision (mode normal)
   useEffect(() => {
-    if (gameState === 'playing' && !currentCard && knownCount > 0) {
-      saveScore()
-    }
-  }, [currentCard, gameState, knownCount])
+    if (gameState !== 'playing') return
+    if (currentCard) return
 
-  const checkHighscore = async (finalScore: number): Promise<boolean> => {
-    if (localStorage.getItem('odigo_highscores') === 'off') return false
-    if (!selectedList) return false
-    const { data } = await supabase
-      .from('highscores').select('score')
-      .eq('exercise', 'flashcards').eq('list_id', selectedList)
-      .order('score', { ascending: false }).limit(5)
-    if (!data) return false
-    if (data.length < 5) return true
-    return finalScore > data[data.length - 1].score
-  }
+    if (mode === 'libre') {
+      if (knownCount > 0) saveScore()
+      return
+    }
+
+    // Mode normal : une seule passe de révision pour les cartes ratées au 1er passage
+    if (failedCards.length > 0 && !isReviewPhase) {
+      setIsReviewPhase(true)
+      setCurrentCard(failedCards[0])
+      setDeck(failedCards.slice(1))
+      setFailedCards([])
+      return
+    }
+    if (passCount > 0) saveScore()
+  }, [currentCard, gameState, knownCount, mode, failedCards, isReviewPhase, passCount])
 
   const saveScore = async () => {
-    await addDigoos(digoosEarned, 'exercise', 'Flashcards')
+    if (mode === 'libre') {
+      await addDigoos(digoosEarned, 'exercise', 'Flashcards')
+      await logActivity({
+        action_type: 'exercise_completed',
+        questions_total: totalCards,
+        questions_correct: knownCount,
+        metadata: { exercise: 'flashcards' },
+      })
+      setGameState('result')
+      return
+    }
+
+    // Mode normal
     await logActivity({
       action_type: 'exercise_completed',
-      questions_total: totalCards,
-      questions_correct: knownCount,
-      metadata: { exercise: 'flashcards' },
+      questions_total: TOTAL_NORMAL_CARDS,
+      questions_correct: correctFirstPass,
+      metadata: { exercise: 'flashcards', mode: 'normal' },
     })
-    const isTop = await checkHighscore(knownCount)
-    if (isTop) setShowHighscore(true)
-    else setGameState('result')
+    setGameState('result')
   }
 
   // Touch / swipe
@@ -263,7 +357,7 @@ export default function Flashcards() {
             <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Liste</label>
             <select
               value={selectedList}
-              onChange={e => { setSelectedList(e.target.value); const l = lists.find(x => x.id === e.target.value); if (l) setListLanguage(l.language) }}
+              onChange={e => { setSelectedList(e.target.value); const l = lists.find(x => x.id === e.target.value); if (l) { setListLanguage(l.language); setListName(l.name) } }}
               style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #ddd', fontSize: '0.9rem' }}
             >
               <option value="">-- Sélectionner --</option>
@@ -289,6 +383,24 @@ export default function Flashcards() {
             </div>
           </div>
 
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', color: '#555', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Mode</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={() => setMode('normal')}
+                style={{ flex: 1, padding: '0.6rem', background: mode === 'normal' ? '#2a9d8f' : 'var(--color-border)', color: mode === 'normal' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                Normal
+              </button>
+              <button
+                onClick={() => setMode('libre')}
+                style={{ flex: 1, padding: '0.6rem', background: mode === 'libre' ? '#2a9d8f' : 'var(--color-border)', color: mode === 'libre' ? 'white' : '#2a9d8f', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                Libre
+              </button>
+            </div>
+          </div>
+
           <button
             onClick={startGame}
             disabled={!selectedList}
@@ -296,12 +408,6 @@ export default function Flashcards() {
           >
             🚀 Jouer
           </button>
-
-          {selectedList && localStorage.getItem('odigo_highscores') !== 'off' && (
-            <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
-              🏆 Voir le classement
-            </button>
-          )}
 
           <div style={{ marginTop: '1rem', background: 'var(--color-background)', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.82rem', color: '#555', lineHeight: '1.6' }}>
             <strong style={{ color: '#2a9d8f' }}>Raccourcis clavier</strong><br />
@@ -315,6 +421,40 @@ export default function Flashcards() {
 
   // ---- ÉCRAN RÉSULTAT ----
   if (gameState === 'result') {
+    if (mode === 'normal') {
+      return (
+        <div>
+          <ExerciseBilan
+            exercise="flashcards"
+            errors={TOTAL_NORMAL_CARDS - correctFirstPass}
+            difficulty="moyen"
+            hasRevisionBonus={hasRevisionBonus}
+            listName={listName || undefined}
+            onDone={() => { setGameState('select'); setWords([]) }}
+          />
+          <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
+            <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+              <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
+              {resultats.map((r, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
+                  <span style={{ width: '3.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: r.isReview ? '0.7rem' : '0.8rem', fontWeight: 'bold' }}>
+                    {r.isReview ? 'Révision' : i + 1}
+                  </span>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.85rem' }}>
+                    <span style={{ color: '#555' }}><strong>{r.mot}</strong></span>
+                    <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+                      {r.correct ? '✓ Su' : '✗ Pas su'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Mode libre — écran actuel, inchangé
     return (
       <div style={{ textAlign: 'center' }}>
         <h2 style={{ color: '#2a9d8f', fontSize: '2rem', marginBottom: '0.5rem' }}>Toutes les cartes maîtrisées !</h2>
@@ -352,45 +492,23 @@ export default function Flashcards() {
 
   // ---- ÉCRAN JEU ----
   const remaining = deck.length + (currentCard ? 1 : 0)
-  const listName = lists.find(l => l.id === selectedList)?.name ?? ''
 
   return (
-    <>
-    {showHighscore && (
-      <HighscoreModal
-        exercise="flashcards"
-        listId={selectedList}
-        listName={listName}
-        score={knownCount}
-        onClose={() => { setShowHighscore(false); setGameState('result') }}
-        onDisable={() => { setShowHighscore(false); setGameState('result') }}
-        onReplay={() => { setShowHighscore(false); setGameState('select'); startGame() }}
-        onQuit={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
-      />
-    )}
-    {showLeaderboard && (
-      <HighscoreModal
-        exercise="flashcards"
-        listId={selectedList}
-        listName={listName}
-        score={0}
-        initialPhase="leaderboard"
-        onClose={() => setShowLeaderboard(false)}
-        onDisable={() => setShowLeaderboard(false)}
-        onReplay={() => { setShowLeaderboard(false); startGame() }}
-        onQuit={() => setShowLeaderboard(false)}
-      />
-    )}
     <div style={{ maxWidth: '480px', margin: '0 auto', userSelect: 'none' }}>
 
       {/* HUD */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div style={{ fontSize: '0.9rem', color: '#888' }}>
-          {knownCount} sue{knownCount > 1 ? 's' : ''} · {remaining} restante{remaining > 1 ? 's' : ''}
+          {isReviewPhase
+            ? <>Révision · {remaining} carte{remaining > 1 ? 's' : ''} restante{remaining > 1 ? 's' : ''}</>
+            : <>{knownCount} sue{knownCount > 1 ? 's' : ''} · {remaining} restante{remaining > 1 ? 's' : ''}</>
+          }
         </div>
-        <div style={{ fontSize: '0.85rem', color: '#e9c46a', fontWeight: 'bold' }}>
-          +{digoosEarned} <Delta size={20} />
-        </div>
+        {mode === 'libre' && (
+          <div style={{ fontSize: '0.85rem', color: '#e9c46a', fontWeight: 'bold' }}>
+            +{digoosEarned} <Delta size={20} />
+          </div>
+        )}
       </div>
 
       {/* Barre de progression */}
@@ -504,6 +622,5 @@ export default function Flashcards() {
         ← Pas su &nbsp;·&nbsp; Espace Retourner &nbsp;·&nbsp; → Su
       </div>
     </div>
-    </>
   )
 }
