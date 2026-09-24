@@ -106,8 +106,12 @@ export default function Flashcards() {
   const [knownCount, setKnownCount] = useState(0)
   const [passCount, setPassCount] = useState(0)
   const [cardAttempts, setCardAttempts] = useState(0)
-  const [digoosEarned, setDigoosEarned] = useState(0)
   const [swipeAnim, setSwipeAnim] = useState<'left' | 'right' | null>(null)
+
+  // Carte Δ surprise — mode libre uniquement
+  const [knownWords, setKnownWords] = useState<WordItem[]>([])
+  const [activeDigoosCard, setActiveDigoosCard] = useState<{ amount: number; word: WordItem; choices: string[]; answer: string } | null>(null)
+  const [digoosFeedback, setDigoosFeedback] = useState<{ correct: boolean } | null>(null)
 
   // Mode normal uniquement — passage unique + une phase de révision
   const [isReviewPhase, setIsReviewPhase] = useState(false)
@@ -175,11 +179,41 @@ export default function Flashcards() {
     }
   }
 
+  // Carte Δ surprise (mode libre uniquement) — 1 chance sur 20 de s'insérer devant
+  // la prochaine carte de vocabulaire prévue, sans la consommer (elle reste en tête du deck).
+  // Prend la forme d'une mini-question QCM (1 mot déjà su + 2 distracteurs) pour éviter
+  // un gain passif par spam de clics. knownWordsPool est passé explicitement par l'appelant
+  // (plutôt que lu depuis le state knownWords) pour éviter tout décalage lié au batching de setState.
+  const tryTriggerDigoosCard = useCallback((candidate: WordItem | null, fullDeckIncludingCandidate: WordItem[], knownWordsPool: WordItem[]): boolean => {
+    if (mode !== 'libre' || !candidate) return false
+    if (knownWordsPool.length === 0) return false
+    if (Math.random() >= 1 / 20) return false
+
+    const subject = knownWordsPool[Math.floor(Math.random() * knownWordsPool.length)]
+    const answer = direction === 'foreign' ? subject.target_word : subject.source_word
+    const distractorPool = shuffleArray(
+      words
+        .filter(w => w.id !== subject.id)
+        .map(w => direction === 'foreign' ? w.target_word : w.source_word)
+        .filter((v, i, a) => v && v !== answer && a.indexOf(v) === i)
+    ).slice(0, 2)
+
+    if (distractorPool.length < 2) return false // liste trop courte pour former un QCM à 3 choix
+
+    const choices = shuffleArray([answer, ...distractorPool])
+    const amount = Math.floor(Math.random() * 21) + 10
+
+    setActiveDigoosCard({ amount, word: subject, choices, answer })
+    setDigoosFeedback(null)
+    setCurrentCard(null)
+    setDeck(fullDeckIncludingCandidate)
+    return true
+  }, [mode, direction, words])
+
   useEffect(() => {
     if (words.length > 0 && gameState === 'select') {
       setKnownCount(0)
       setPassCount(0)
-      setDigoosEarned(0)
       setIsFlipped(false)
       setCardAttempts(0)
 
@@ -194,14 +228,19 @@ export default function Flashcards() {
         setResultats([])
       } else {
         const shuffled = shuffle(words)
-        setDeck(shuffled.slice(1))
-        setCurrentCard(shuffled[0])
+        setActiveDigoosCard(null)
+        setDigoosFeedback(null)
+        setKnownWords([])
+        if (!tryTriggerDigoosCard(shuffled[0] ?? null, shuffled, [])) {
+          setDeck(shuffled.slice(1))
+          setCurrentCard(shuffled[0])
+        }
         setTotalCards(words.length)
       }
 
       setGameState('playing')
     }
-  }, [words, mode])
+  }, [words, mode, tryTriggerDigoosCard])
 
   const handleFlip = useCallback(() => {
     if (!currentCard) return
@@ -212,18 +251,14 @@ export default function Flashcards() {
     if (!currentCard) return
 
     if (mode === 'libre') {
-      // ---- Mode libre : comportement actuel, strictement inchangé ----
-      const isFirstAttempt = cardAttempts === 0
-      let digoos = 0
-
+      // Mode libre : plus aucun Δ crédité via ce mécanisme classique — seules les
+      // cartes Δ surprise (mini-QCM) peuvent rapporter des Δ.
       if (known) {
-        digoos = isFirstAttempt ? 2 : 1
         playSuccessSound()
       } else {
         playFailSound()
       }
 
-      setDigoosEarned(prev => prev + digoos)
       setPassCount(prev => prev + 1)
       setSwipeAnim(known ? 'right' : 'left')
 
@@ -234,14 +269,21 @@ export default function Flashcards() {
 
         if (known) {
           setKnownCount(prev => prev + 1)
+          const updatedKnownWords = [...knownWords, currentCard]
+          setKnownWords(updatedKnownWords)
           const next = deck[0] ?? null
-          setDeck(prev => prev.slice(1))
-          setCurrentCard(next)
+          if (!tryTriggerDigoosCard(next, deck, updatedKnownWords)) {
+            setDeck(prev => prev.slice(1))
+            setCurrentCard(next)
+          }
         } else {
           const remaining = [...deck, currentCard]
           const reshuffled = shuffle(remaining)
-          setCurrentCard(reshuffled[0])
-          setDeck(reshuffled.slice(1))
+          const next = reshuffled[0] ?? null
+          if (!tryTriggerDigoosCard(next, reshuffled, knownWords)) {
+            setCurrentCard(next)
+            setDeck(reshuffled.slice(1))
+          }
         }
       }, 350)
       return
@@ -269,7 +311,7 @@ export default function Flashcards() {
       setDeck(prev => prev.slice(1))
       setCurrentCard(next)
     }, 350)
-  }, [currentCard, deck, cardAttempts, mode, isReviewPhase, direction])
+  }, [currentCard, deck, mode, isReviewPhase, direction, tryTriggerDigoosCard, knownWords])
 
   const handleKnown = useCallback(() => {
     if (!currentCard || swipeAnim) return
@@ -282,10 +324,35 @@ export default function Flashcards() {
     nextCard(false)
   }, [currentCard, swipeAnim, nextCard])
 
+  // Résolution de la carte Δ surprise : affiche ensuite la carte de vocabulaire
+  // restée en tête du deck (jamais consommée par le tirage).
+  const resolveDigoosCard = useCallback(() => {
+    setActiveDigoosCard(null)
+    setDigoosFeedback(null)
+    const next = deck[0] ?? null
+    setDeck(prev => prev.slice(1))
+    setCurrentCard(next)
+  }, [deck])
+
+  // Une seule tentative : bonne réponse créditée immédiatement, la carte suivante
+  // s'affiche après un court délai pour laisser le temps de lire le feedback.
+  const handleDigoosAnswer = useCallback((chosen: string) => {
+    if (!activeDigoosCard || digoosFeedback) return
+    const isCorrect = chosen === activeDigoosCard.answer
+    setDigoosFeedback({ correct: isCorrect })
+    if (isCorrect) {
+      addDigoos(activeDigoosCard.amount, 'reward', 'Carte Δ surprise')
+    }
+    setTimeout(() => {
+      resolveDigoosCard()
+    }, 1600)
+  }, [activeDigoosCard, digoosFeedback, resolveDigoosCard])
+
   // Fin de session / passage en révision (mode normal)
   useEffect(() => {
     if (gameState !== 'playing') return
     if (currentCard) return
+    if (activeDigoosCard) return // carte Δ en cours d'affichage : ce n'est pas une fin de session
 
     if (mode === 'libre') {
       if (knownCount > 0) saveScore()
@@ -301,11 +368,10 @@ export default function Flashcards() {
       return
     }
     if (passCount > 0) saveScore()
-  }, [currentCard, gameState, knownCount, mode, failedCards, isReviewPhase, passCount])
+  }, [currentCard, gameState, knownCount, mode, failedCards, isReviewPhase, passCount, activeDigoosCard])
 
   const saveScore = async () => {
     if (mode === 'libre') {
-      await addDigoos(digoosEarned, 'exercise', 'Flashcards')
       await logActivity({
         action_type: 'exercise_completed',
         questions_total: totalCards,
@@ -459,8 +525,7 @@ export default function Flashcards() {
       <div style={{ textAlign: 'center' }}>
         <h2 style={{ color: '#2a9d8f', fontSize: '2rem', marginBottom: '0.5rem' }}>Toutes les cartes maîtrisées !</h2>
         <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2a9d8f', marginBottom: '0.25rem' }}>{knownCount} / {totalCards}</div>
-        <div style={{ color: '#888', marginBottom: '0.5rem' }}>{passCount} passages au total</div>
-        <div style={{ color: '#e9c46a', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '2rem' }}>+{digoosEarned} <Delta size={20} /> gagnés</div>
+        <div style={{ color: '#888', marginBottom: '2rem' }}>{passCount} passages au total</div>
 
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
           <button
@@ -475,8 +540,8 @@ export default function Flashcards() {
               setDeck(shuffled.slice(1))
               setCurrentCard(shuffled[0])
               setKnownCount(0)
+              setKnownWords([])
               setPassCount(0)
-              setDigoosEarned(0)
               setIsFlipped(false)
               setCardAttempts(0)
               setGameState('playing')
@@ -504,11 +569,6 @@ export default function Flashcards() {
             : <>{knownCount} sue{knownCount > 1 ? 's' : ''} · {remaining} restante{remaining > 1 ? 's' : ''}</>
           }
         </div>
-        {mode === 'libre' && (
-          <div style={{ fontSize: '0.85rem', color: '#e9c46a', fontWeight: 'bold' }}>
-            +{digoosEarned} <Delta size={20} />
-          </div>
-        )}
       </div>
 
       {/* Barre de progression */}
@@ -519,8 +579,58 @@ export default function Flashcards() {
         }} />
       </div>
 
+      {/* Carte Δ surprise — mini-question QCM (mode libre uniquement) */}
+      {activeDigoosCard && (
+        <div style={{
+          position: 'relative', width: '100%', marginBottom: '1.5rem',
+          background: '#fff8e0', borderRadius: '1rem',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          padding: '1.5rem', boxSizing: 'border-box', gap: '1rem',
+        }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#b8860b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Carte Bonus !
+          </div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#333', textAlign: 'center' }}>
+            {direction === 'foreign' ? activeDigoosCard.word.source_word : activeDigoosCard.word.target_word}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%', maxWidth: '320px' }}>
+            {activeDigoosCard.choices.map((choice, i) => {
+              const isCorrectChoice = choice === activeDigoosCard.answer
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleDigoosAnswer(choice)}
+                  disabled={!!digoosFeedback}
+                  style={{
+                    padding: '0.65rem', borderRadius: '0.5rem', fontSize: '0.95rem', fontWeight: 'bold',
+                    cursor: digoosFeedback ? 'default' : 'pointer',
+                    background: digoosFeedback ? (isCorrectChoice ? '#2a9d8f' : 'white') : 'white',
+                    color: digoosFeedback ? (isCorrectChoice ? 'white' : '#aaa') : '#333',
+                    border: digoosFeedback ? (isCorrectChoice ? '2px solid #2a9d8f' : '2px solid #eee') : '2px solid #e9c46a',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {choice}
+                </button>
+              )
+            })}
+          </div>
+
+          {digoosFeedback && (
+            <div style={{ textAlign: 'center', fontSize: '1rem', fontWeight: 'bold', color: digoosFeedback.correct ? '#2a9d8f' : '#e63946', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              {digoosFeedback.correct
+                ? <>✓ Bravo ! +{activeDigoosCard.amount} <Delta size={18} /></>
+                : <>✗ La bonne réponse était : {activeDigoosCard.answer}</>
+              }
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Carte */}
-      {currentCard && (
+      {!activeDigoosCard && currentCard && (
         <div style={{ perspective: '1000px', marginBottom: '1.5rem' }}>
           <div
             onTouchStart={handleTouchStart}
@@ -594,7 +704,7 @@ export default function Flashcards() {
       )}
 
       {/* Boutons su / pas su */}
-      {currentCard && (
+      {!activeDigoosCard && currentCard && (
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button
             onClick={handleUnknown}
@@ -619,7 +729,10 @@ export default function Flashcards() {
 
       {/* Légende raccourcis */}
       <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.75rem', color: '#ccc' }}>
-        ← Pas su &nbsp;·&nbsp; Espace Retourner &nbsp;·&nbsp; → Su
+        {activeDigoosCard
+          ? <>Clique sur ta réponse</>
+          : <>← Pas su &nbsp;·&nbsp; Espace Retourner &nbsp;·&nbsp; → Su</>
+        }
       </div>
     </div>
   )
