@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabase'
-import HighscoreModal from '../components/HighscoreModal'
+import { logActivity } from '../services/activity'
+import ExerciseBilan from '../components/ExerciseBilan'
 
 const CANTONS = [
   { id: 'CHAG', name: 'Argovie', capital: 'Aarau' },
@@ -31,11 +31,24 @@ const CANTONS = [
   { id: 'CHZH', name: 'Zurich', capital: 'Zurich' },
 ]
 
-const SERIES_OPTIONS = [10, 15, 26]
+const TOTAL_QUESTIONS = 10
 
 type GameState = 'select' | 'playing' | 'result'
-type Difficulty = 'facile' | 'difficile'
+type Difficulty = 'facile' | 'moyen' | 'difficile'
+type QuestionType = 'nom' | 'capitale'
 type FeedbackType = 'correct' | 'incorrect' | null
+
+const DIFFICULTY_INFO: Record<Difficulty, { icon: string; label: string; desc: string }> = {
+  facile: { icon: '🎒', label: 'Apprenti', desc: 'On te demande le nom du canton.' },
+  moyen: { icon: '🧭', label: 'Aventurier', desc: 'On te demande le chef-lieu du canton.' },
+  difficile: { icon: '🏆', label: 'Légende', desc: 'Nom ou chef-lieu, mélangés au hasard — et sans indice sur les cantons déjà traités !' },
+}
+
+const buildQuestionTypes = (n: number, difficulty: Difficulty): QuestionType[] => {
+  if (difficulty === 'facile') return Array(n).fill('nom')
+  if (difficulty === 'moyen') return Array(n).fill('capitale')
+  return Array.from({ length: n }, () => (Math.random() < 0.5 ? 'nom' : 'capitale'))
+}
 
 interface CarteSuisseProps {
   onBack?: () => void
@@ -44,21 +57,21 @@ interface CarteSuisseProps {
 export default function CarteSuisse({ onBack }: CarteSuisseProps) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [difficulty, setDifficulty] = useState<Difficulty>('facile')
-  const [seriesLength, setSeriesLength] = useState(10)
 
   const [questions, setQuestions] = useState<typeof CANTONS>([])
+  const [questionTypes, setQuestionTypes] = useState<QuestionType[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [feedback, setFeedback] = useState<FeedbackType>(null)
   const [correctId, setCorrectId] = useState('')
   const [clickedId, setClickedId] = useState('')
   const [score, setScore] = useState(0)
   const [answered, setAnswered] = useState<string[]>([])
-  const [showHighscoreModal, setShowHighscoreModal] = useState(false)
+  const [resultats, setResultats] = useState<{ canton: string; cantonCapital: string; questionType: QuestionType; correct: boolean; clickedCantonName: string }[]>([])
 
   const [svgContent, setSvgContent] = useState('')
   const svgRef = useRef<HTMLDivElement>(null)
   const feedbackRef = useRef<FeedbackType>(null)
-  feedbackRef.current = feedback
+  useEffect(() => { feedbackRef.current = feedback }, [feedback])
 
   useEffect(() => {
     fetch('/ch.svg')
@@ -67,9 +80,10 @@ export default function CarteSuisse({ onBack }: CarteSuisseProps) {
   }, [])
 
   const currentCanton = questions[currentIndex]
+  const currentQuestionType = questionTypes[currentIndex]
 
   const questionText = currentCanton
-    ? difficulty === 'facile'
+    ? currentQuestionType === 'nom'
       ? `Clique sur le canton de ${currentCanton.name}`
       : `Clique sur le canton dont le chef-lieu est ${currentCanton.capital}`
     : ''
@@ -77,27 +91,39 @@ export default function CarteSuisse({ onBack }: CarteSuisseProps) {
   const getCantonFill = (cantonId: string): string => {
     if (feedback && cantonId === correctId) return '#a5d6a7'
     if (feedback === 'incorrect' && cantonId === clickedId) return '#ffd6c2'
-    if (answered.includes(cantonId)) return '#e0f0ee'
+    if (difficulty !== 'difficile' && answered.includes(cantonId)) return '#e0f0ee'
     return '#d4d4d4'
   }
 
   const initGame = () => {
-    const shuffled = [...CANTONS].sort(() => Math.random() - 0.5)
-    setQuestions(shuffled.slice(0, seriesLength))
+    const shuffled = [...CANTONS].sort(() => Math.random() - 0.5).slice(0, TOTAL_QUESTIONS)
+    setQuestions(shuffled)
+    setQuestionTypes(buildQuestionTypes(shuffled.length, difficulty))
     setCurrentIndex(0)
     setScore(0)
     setAnswered([])
+    setResultats([])
     setFeedback(null)
     setCorrectId('')
     setClickedId('')
-    setShowHighscoreModal(false)
     setGameState('playing')
+  }
+
+  const finishGame = async (finalScore: number) => {
+    setGameState('result')
+    await logActivity({
+      action_type: 'exercise_completed',
+      questions_total: TOTAL_QUESTIONS,
+      questions_correct: finalScore,
+      metadata: { exercise: 'cartesuisse', difficulty },
+    })
   }
 
   // Attacher les event listeners sur les cantons SVG
   useEffect(() => {
     if (!svgRef.current || !svgContent || gameState !== 'playing') return
     const canton = questions[currentIndex]
+    const questionType = questionTypes[currentIndex]
     if (!canton) return
 
     const handleClick = (e: Event) => {
@@ -107,16 +133,25 @@ export default function CarteSuisse({ onBack }: CarteSuisseProps) {
       if (!id || !id.startsWith('CH')) return
 
       const isCorrect = id === canton.id
+      const clickedCantonName = CANTONS.find(c => c.id === id)?.name ?? id
       setClickedId(id)
       setCorrectId(canton.id)
       setFeedback(isCorrect ? 'correct' : 'incorrect')
 
+      const finalScore = isCorrect ? score + 1 : score
       if (isCorrect) {
         setScore(s => s + 1)
         setAnswered(prev => [...prev, id])
       } else {
         setAnswered(prev => [...prev, canton.id])
       }
+      setResultats(prev => [...prev, {
+        canton: canton.name,
+        cantonCapital: canton.capital,
+        questionType,
+        correct: isCorrect,
+        clickedCantonName,
+      }])
 
       const nextIdx = currentIndex + 1
       setTimeout(() => {
@@ -124,7 +159,7 @@ export default function CarteSuisse({ onBack }: CarteSuisseProps) {
         setClickedId('')
         setCorrectId('')
         if (nextIdx >= questions.length) {
-          setGameState('result')
+          finishGame(finalScore)
         } else {
           setCurrentIndex(nextIdx)
         }
@@ -148,7 +183,7 @@ export default function CarteSuisse({ onBack }: CarteSuisseProps) {
     return () => {
       elements.forEach(el => el.removeEventListener('click', handleClick))
     }
-  }, [svgContent, currentIndex, feedback, answered, gameState])
+  }, [svgContent, currentIndex, questions, questionTypes, feedback, answered, gameState, score, difficulty])
 
   // Mettre à jour les couleurs après chaque changement d'état
   useEffect(() => {
@@ -158,26 +193,7 @@ export default function CarteSuisse({ onBack }: CarteSuisseProps) {
       const id = el.getAttribute('id')
       if (id) el.style.fill = getCantonFill(id)
     })
-  }, [feedback, answered, currentIndex])
-
-  const checkAndShowHighscore = async (finalScore: number) => {
-    if (localStorage.getItem('odigo_highscores') === 'off') return
-    const { data } = await supabase
-      .from('highscores')
-      .select('score')
-      .eq('exercise', 'carte-suisse')
-      .is('list_id', null)
-      .order('score', { ascending: false })
-      .limit(5)
-    const isTop = !data || data.length < 5 || finalScore > (data[data.length - 1]?.score || 0)
-    if (isTop) setShowHighscoreModal(true)
-  }
-
-  useEffect(() => {
-    if (gameState === 'result') {
-      checkAndShowHighscore(score)
-    }
-  }, [gameState])
+  }, [feedback, answered, currentIndex, difficulty])
 
   // ─── SÉLECTION ───
   if (gameState === 'select') {
@@ -189,8 +205,8 @@ export default function CarteSuisse({ onBack }: CarteSuisseProps) {
 
         <div style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: '1.5rem', textAlign: 'left' }}>
           <div style={{ fontWeight: 'bold', color: '#2a9d8f', marginBottom: '0.75rem' }}>Difficulté</div>
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-            {(['facile', 'difficile'] as Difficulty[]).map(d => (
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+            {(['facile', 'moyen', 'difficile'] as Difficulty[]).map(d => (
               <button
                 key={d}
                 onClick={() => setDifficulty(d)}
@@ -199,34 +215,15 @@ export default function CarteSuisse({ onBack }: CarteSuisseProps) {
                   border: `2px solid ${difficulty === d ? '#2a9d8f' : '#e0e0e0'}`,
                   background: difficulty === d ? '#2a9d8f' : 'white',
                   color: difficulty === d ? 'white' : '#555',
-                  fontWeight: difficulty === d ? 'bold' : 'normal', fontSize: '0.95rem',
+                  fontWeight: difficulty === d ? 'bold' : 'normal', fontSize: '0.9rem',
                 }}
               >
-                {d === 'facile' ? '😊 Facile' : '💪 Difficile'}
+                {DIFFICULTY_INFO[d].icon} {DIFFICULTY_INFO[d].label}
               </button>
             ))}
           </div>
-          <div style={{ fontSize: '0.85rem', color: '#888', marginBottom: '0.5rem' }}>
-            {difficulty === 'facile' ? 'On te demande le nom du canton.' : 'On te demande le chef-lieu du canton.'}
-          </div>
-
-          <div style={{ fontWeight: 'bold', color: '#2a9d8f', margin: '1.25rem 0 0.75rem' }}>Nombre de questions</div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {SERIES_OPTIONS.map(n => (
-              <button
-                key={n}
-                onClick={() => setSeriesLength(n)}
-                style={{
-                  flex: 1, padding: '0.6rem', borderRadius: '0.5rem', cursor: 'pointer',
-                  border: `2px solid ${seriesLength === n ? '#2a9d8f' : '#e0e0e0'}`,
-                  background: seriesLength === n ? '#2a9d8f' : 'white',
-                  color: seriesLength === n ? 'white' : '#555',
-                  fontWeight: seriesLength === n ? 'bold' : 'normal', fontSize: '1rem',
-                }}
-              >
-                {n}
-              </button>
-            ))}
+          <div style={{ fontSize: '0.85rem', color: '#888' }}>
+            {DIFFICULTY_INFO[difficulty].desc}
           </div>
         </div>
 
@@ -248,45 +245,36 @@ export default function CarteSuisse({ onBack }: CarteSuisseProps) {
   // ─── RÉSULTAT ───
   if (gameState === 'result') {
     return (
-      <div style={{ maxWidth: '480px', margin: '0 auto', textAlign: 'center', padding: '1rem' }}>
-        <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🗺️</div>
-        <h2 style={{ color: '#2a9d8f', marginBottom: '1rem' }}>Résultat !</h2>
-        <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#e9c46a', marginBottom: '0.25rem' }}>
-          {score} / {questions.length}
+      <div>
+        <ExerciseBilan
+          exercise="carte-suisse"
+          errors={TOTAL_QUESTIONS - score}
+          difficulty={difficulty}
+          hasRevisionBonus={false}
+          onDone={() => setGameState('select')}
+        />
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+            <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
+            {resultats.map((r, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
+                <span style={{ width: '3.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                  {i + 1}
+                </span>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.85rem' }}>
+                  <span style={{ color: '#555' }}>
+                    <strong>
+                      {r.questionType === 'nom' ? r.canton : `${r.cantonCapital} (${r.canton})`}
+                    </strong>
+                  </span>
+                  <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+                    {r.correct ? '✓ Trouvé' : `✗ Raté (Tu as cliqué sur ${r.clickedCantonName})`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div style={{ color: '#666', marginBottom: '2rem' }}>cantons trouvés</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '260px', margin: '0 auto' }}>
-          <button
-            onClick={initGame}
-            style={{ padding: '0.75rem', background: '#2a9d8f', color: 'white', border: 'none', borderRadius: '0.5rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}
-          >
-            🔄 Rejouer
-          </button>
-          <button
-            onClick={() => setGameState('select')}
-            style={{ padding: '0.75rem', background: 'var(--color-border)', color: '#555', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-          >
-            Changer les options
-          </button>
-          {onBack && (
-            <button onClick={onBack} style={{ padding: '0.75rem', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '0.9rem' }}>
-              Quitter
-            </button>
-          )}
-        </div>
-
-        {showHighscoreModal && (
-          <HighscoreModal
-            exercise="carte-suisse"
-            listId="carte-suisse"
-            listName="Carte de la Suisse"
-            score={score}
-            onClose={() => setShowHighscoreModal(false)}
-            onDisable={() => { localStorage.setItem('odigo_highscores', 'off'); setShowHighscoreModal(false) }}
-            onReplay={initGame}
-            onQuit={() => { setShowHighscoreModal(false); onBack?.() }}
-          />
-        )}
       </div>
     )
   }
@@ -302,7 +290,7 @@ export default function CarteSuisse({ onBack }: CarteSuisseProps) {
       <div style={{ height: '5px', background: '#e0e0e0', borderRadius: '3px', marginBottom: '1rem' }}>
         <div style={{
           height: '100%',
-          width: `${(currentIndex / questions.length) * 100}%`,
+          width: `${((currentIndex + 1) / questions.length) * 100}%`,
           background: '#2a9d8f', borderRadius: '3px', transition: 'width 0.3s',
         }} />
       </div>
@@ -319,8 +307,9 @@ export default function CarteSuisse({ onBack }: CarteSuisseProps) {
       {/* SVG carte */}
       <div
         ref={svgRef}
+        className="ch-map"
         dangerouslySetInnerHTML={{ __html: svgContent }}
-        style={{ width: '100%', maxWidth: '600px', margin: '0 auto', display: 'block' }}
+        style={{ width: '100%', maxWidth: '600px', margin: '0 auto', display: 'block', overflow: 'hidden' }}
       />
 
       {/* Feedback */}

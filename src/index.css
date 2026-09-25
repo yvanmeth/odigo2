@@ -289,3 +289,9 @@ textarea:focus {
     grid-template-columns: repeat(2, 1fr) !important;
   }
 }
+
+.ch-map svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}

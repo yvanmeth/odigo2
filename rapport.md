@@ -1,70 +1,89 @@
-# Rapport — Retrait de la rémunération classique + ajustement montant carte Bonus (flashcards.tsx, mode libre)
+# Rapport — Refonte du récapitulatif de CarteSuisse.tsx
 
-## 1. Rémunération classique retirée définitivement
+## 1. Tracking du canton cliqué
 
-Confirmé : le mécanisme était toujours actif malgré les refontes précédentes (il n'avait jamais été explicitement retiré). Tous les points identifiés ont été supprimés :
-
-**a) Calcul dans `nextCard` (branche `mode === 'libre'`)** — la logique `isFirstAttempt`/`digoos = isFirstAttempt ? 2 : 1`/`setDigoosEarned(prev => prev + digoos)` a été retirée. Seuls les sons (`playSuccessSound`/`playFailSound`) et l'incrémentation de `passCount` subsistent :
-```ts
-if (mode === 'libre') {
-  // Mode libre : plus aucun Δ crédité via ce mécanisme classique — seules les
-  // cartes Δ surprise (mini-QCM) peuvent rapporter des Δ.
-  if (known) {
-    playSuccessSound()
-  } else {
-    playFailSound()
-  }
-
-  setPassCount(prev => prev + 1)
-  ...
-```
-
-**b) State `digoosEarned` supprimé entièrement** — déclaration (`useState`) et toutes ses réinitialisations (effet de démarrage de partie, bouton "Recommencer" de l'écran résultat).
-
-**c) `addDigoos` dans `saveScore` (branche libre) retiré** — plus aucun crédit de Δ à la fin d'une session en mode libre :
-```ts
-const saveScore = async () => {
-  if (mode === 'libre') {
-    await logActivity({ ... }) // plus d'addDigoos avant
-    setGameState('result')
-    return
-  }
-  ...
-```
-
-**d) Affichage HUD pendant le jeu retiré** — le bloc `{mode === 'libre' && (<div>+{digoosEarned} <Delta/></div>)}` dans le HUD a été supprimé entièrement.
-
-**e) Affichage écran résultat (mode libre) retiré** — la ligne `+{digoosEarned} <Delta size={20} /> gagnés` a été supprimée ; le `marginBottom` de la ligne "passages au total" au-dessus a été ajusté de `0.5rem` à `2rem` pour conserver l'espacement visuel avant les boutons.
-
-**Effet de bord corrigé (lint)** : après le retrait de `isFirstAttempt = cardAttempts === 0`, `cardAttempts` n'était plus lu nulle part dans `nextCard`, ce qui a fait apparaître un nouveau warning `react-hooks/exhaustive-deps` ("unnecessary dependency: 'cardAttempts'"). Retiré de la liste de dépendances de `nextCard` pour revenir à un lint propre. Le state `cardAttempts` lui-même (incrémenté dans `handleUnknown`, réinitialisé dans les deux modes) reste en place — il n'a plus d'effet sur le calcul de récompense mais continue d'exister ; son retrait complet toucherait `handleUnknown`, les dépendances de l'effet clavier, etc., ce qui sortait du périmètre demandé. À signaler si un nettoyage complémentaire est souhaité.
-
-**Résultat** : le mode libre ne crédite plus aucun Δ via "Su"/"Pas su" — seule la carte Δ surprise (mini-QCM) peut désormais rapporter des Δ, conformément à la demande.
-
-## 2. Montant des cartes Bonus : plage réduite à 10-30
+`resultats` enrichi avec `cantonCapital` (chef-lieu du canton demandé, nécessaire pour l'affichage du type "capitale") et `clickedCantonName` (nom résolu du canton réellement cliqué) :
 
 ```ts
-// Avant
-const amount = Math.floor(Math.random() * 100) + 1  // 1 à 100
-
-// Après
-const amount = Math.floor(Math.random() * 21) + 10   // 10 à 30 inclus
+const [resultats, setResultats] = useState<{
+  canton: string
+  cantonCapital: string
+  questionType: QuestionType
+  correct: boolean
+  clickedCantonName: string
+}[]>([])
 ```
-Seule occurrence dans le fichier (dans `tryTriggerDigoosCard`), modifiée comme demandé.
+
+Résolution dans le handler de clic ([CarteSuisse.tsx:135-152](src/pages/CarteSuisse.tsx#L135-L152)) :
+```ts
+const isCorrect = id === canton.id
+const clickedCantonName = CANTONS.find(c => c.id === id)?.name ?? id
+...
+setResultats(prev => [...prev, {
+  canton: canton.name,
+  cantonCapital: canton.capital,
+  questionType,
+  correct: isCorrect,
+  clickedCantonName,
+}])
+```
+`clickedCantonName` est résolu via une recherche dans `CANTONS` par `id` (l'attribut `id` de l'élément SVG cliqué) — fonctionne aussi bien en cas de bonne réponse (où `clickedCantonName === canton.name`) qu'en cas d'erreur (où il diffère). Le fallback `?? id` ne devrait jamais se déclencher en pratique (le handler filtre déjà `id.startsWith('CH')`, garantissant une correspondance dans `CANTONS`), gardé par prudence.
+
+## 2. Affichage conditionnel selon le type de question
+
+```tsx
+<strong>
+  {r.questionType === 'nom' ? r.canton : `${r.cantonCapital} (${r.canton})`}
+</strong>
+...
+<span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+  {r.correct ? '✓ Trouvé' : `✗ Raté (Tu as cliqué sur ${r.clickedCantonName})`}
+</span>
+```
+([CarteSuisse.tsx:264-272](src/pages/CarteSuisse.tsx#L264-L272))
+
+La mention technique "(nom)"/"(chef-lieu)" a disparu. Plus aucune trace du mot `questionType` dans l'affichage — il ne sert plus qu'à choisir la mise en forme.
+
+## Exemples de rendu obtenus
+
+**Type "nom", raté** (`questionType: 'nom'`, `canton: 'Uri'`, `correct: false`, `clickedCantonName: 'Zurich'`) :
+```
+Uri
+✗ Raté (Tu as cliqué sur Zurich)
+```
+
+**Type "capitale", raté** (`questionType: 'capitale'`, `canton: 'Vaud'`, `cantonCapital: 'Lausanne'`, `correct: false`, `clickedCantonName: 'Genève'`) :
+```
+Lausanne (Vaud)
+✗ Raté (Tu as cliqué sur Genève)
+```
+
+**Type "nom", trouvé** (`canton: 'Berne'`, `correct: true`) :
+```
+Berne
+✓ Trouvé
+```
+
+**Type "capitale", trouvé** (`canton: 'Fribourg'`, `cantonCapital: 'Fribourg'`, `correct: true`) :
+```
+Fribourg (Fribourg)
+✓ Trouvé
+```
+(cas particulier où chef-lieu et nom du canton coïncident — comportement normal, non traité différemment, fidèle à la donnée)
+
+Ces rendus correspondent exactement aux deux exemples attendus fournis dans la demande.
 
 ## Build + Lint
 
 ```
-npm run build   → ✓ built in 933ms  (0 erreur TypeScript)
+npm run build   → ✓ built in 941ms  (0 erreur TypeScript)
 ```
 
 ```
-npx eslint src/pages/flashcards.tsx
-→ 15 problèmes (12 erreurs, 3 warnings) — retour exact à la base pré-existante
-  déjà documentée (any implicites, forward-references, set-state-in-effect,
-  warnings exhaustive-deps). Un warning transitoire ("unnecessary dependency:
-  cardAttempts") est apparu suite au retrait du calcul de digoos, puis corrigé
-  en retirant cardAttempts des dépendances de nextCard — aucune régression
-  persistante.
+npx eslint src/pages/CarteSuisse.tsx
+→ 2 problèmes (0 erreur, 2 warnings) — strictement identiques à l'état
+  précédent (react-hooks/exhaustive-deps sur getCantonFill/finishGame,
+  catégorie déjà présente avant cette intervention).
 ```
 
-**0 nouvelle erreur, 0 nouveau warning persistant.**
+**0 nouvelle erreur, 0 nouveau warning introduits.**
