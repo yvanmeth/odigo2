@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import HighscoreModal from '../components/HighscoreModal'
+import { logActivity } from '../services/activity'
+import ExerciseBilan from '../components/ExerciseBilan'
 
 const THEMES = [
   { id: 'moyen-age', label: 'Au Moyen Âge', category: 'Histoire', theme: 'Au Moyen Âge' },
@@ -19,7 +20,7 @@ const THEMES = [
 
 type Theme = typeof THEMES[number]
 
-const SERIES_OPTIONS = [5, 10, 15]
+const TOTAL_QUESTIONS = 10
 
 type GameState = 'select' | 'playing' | 'result'
 
@@ -46,23 +47,28 @@ const shuffleArray = <T,>(arr: T[]): T[] => {
   return a
 }
 
+interface RecapEntry {
+  question: string
+  givenAnswer: string
+  correctAnswer: string
+  correct: boolean
+}
+
 export default function DefiHistoireGeo({ onBack }: Props) {
   const [gameState, setGameState] = useState<GameState>('select')
   const [selectedTheme, setSelectedTheme] = useState<Theme | null>(null)
-  const [seriesLength, setSeriesLength] = useState(10)
 
   const [questions, setQuestions] = useState<DefiHGQuestion[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
   const [results, setResults] = useState<boolean[]>([])
+  const [resultatsRecap, setResultatsRecap] = useState<RecapEntry[]>([])
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
   const [userAnswer, setUserAnswer] = useState('')
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
   const [shuffledChoices, setShuffledChoices] = useState<string[]>([])
   const [totalCorrect, setTotalCorrect] = useState(0)
-  const [exerciseId, setExerciseId] = useState('')
-  const [showHighscoreModal, setShowHighscoreModal] = useState(false)
   const [noQuestions, setNoQuestions] = useState(false)
 
   const scoreRef = useRef(0)
@@ -106,7 +112,7 @@ export default function DefiHistoireGeo({ onBack }: Props) {
     }
 
     const shuffled = [...data].sort(() => Math.random() - 0.5)
-    const picked = shuffled.slice(0, seriesLength) as DefiHGQuestion[]
+    const picked = shuffled.slice(0, TOTAL_QUESTIONS) as DefiHGQuestion[]
     questionsRef.current = picked
 
     resetRefs()
@@ -115,14 +121,11 @@ export default function DefiHistoireGeo({ onBack }: Props) {
     setScore(0)
     setStreak(0)
     setResults([])
+    setResultatsRecap([])
     setFeedback(null)
     setUserAnswer('')
     setSelectedChoice(null)
     setTotalCorrect(0)
-    setShowHighscoreModal(false)
-
-    const eid = `histoire-geo-${selectedTheme.id}`
-    setExerciseId(eid)
     setGameState('playing')
   }
 
@@ -134,6 +137,12 @@ export default function DefiHistoireGeo({ onBack }: Props) {
     const newResults = [...resultsRef.current, isCorrect]
     resultsRef.current = newResults
     setResults(newResults)
+    setResultatsRecap(prev => [...prev, {
+      question: question.question,
+      givenAnswer: answer,
+      correctAnswer: question.answer,
+      correct: isCorrect,
+    }])
 
     if (isCorrect) {
       const newStreak = streakRef.current + 1
@@ -171,30 +180,12 @@ export default function DefiHistoireGeo({ onBack }: Props) {
     const correct = finalResults.filter(Boolean).length
     setTotalCorrect(correct)
     setGameState('result')
-    await checkAndShowHighscore(exerciseId || `histoire-geo-${selectedTheme?.id}`, correct)
-  }
-
-  const checkAndShowHighscore = async (eid: string, finalScore: number) => {
-    if (localStorage.getItem('odigo_highscores') === 'off') return
-    const { data } = await supabase
-      .from('highscores')
-      .select('score')
-      .eq('exercise', eid)
-      .is('list_id', null)
-      .order('score', { ascending: false })
-      .limit(5)
-    const isTop = !data || data.length < 5 || finalScore > (data[data.length - 1]?.score || 0)
-    if (isTop) setShowHighscoreModal(true)
-  }
-
-  const handleReplay = () => {
-    setShowHighscoreModal(false)
-    fetchQuestions()
-  }
-
-  const handleChangeTheme = () => {
-    setShowHighscoreModal(false)
-    setGameState('select')
+    await logActivity({
+      action_type: 'exercise_completed',
+      questions_total: TOTAL_QUESTIONS,
+      questions_correct: correct,
+      metadata: { exercise: 'defi-histoire-geo', theme: selectedTheme?.id },
+    })
   }
 
   const histoireThemes = THEMES.filter(t => t.category === 'Histoire')
@@ -259,28 +250,6 @@ export default function DefiHistoireGeo({ onBack }: Props) {
           </button>
         </div>
 
-        {/* Nombre de questions */}
-        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: '1.25rem' }}>
-          <div style={{ fontWeight: 'bold', color: '#5c6bc0', marginBottom: '0.75rem' }}>Nombre de questions</div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {SERIES_OPTIONS.map(n => (
-              <button
-                key={n}
-                onClick={() => setSeriesLength(n)}
-                style={{
-                  flex: 1, padding: '0.6rem', borderRadius: '0.5rem', cursor: 'pointer',
-                  border: `2px solid ${seriesLength === n ? '#5c6bc0' : '#e0e0e0'}`,
-                  background: seriesLength === n ? '#5c6bc0' : 'white',
-                  color: seriesLength === n ? 'white' : '#555',
-                  fontWeight: seriesLength === n ? 'bold' : 'normal', fontSize: '1rem',
-                }}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {noQuestions && (
           <div style={{ color: '#e63946', fontSize: '0.9rem', textAlign: 'center', marginBottom: '0.75rem' }}>
             Aucune question trouvée pour ce thème. Essaie un autre !
@@ -311,47 +280,33 @@ export default function DefiHistoireGeo({ onBack }: Props) {
 
   // ─── RÉSULTAT ───
   if (gameState === 'result') {
-    const eid = exerciseId || `histoire-geo-${selectedTheme?.id}`
     return (
-      <div style={{ maxWidth: '480px', margin: '0 auto', textAlign: 'center', padding: '1rem' }}>
-        <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>📚</div>
-        <h2 style={{ color: '#5c6bc0', marginBottom: '1rem' }}>Résultat !</h2>
-        <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#e9c46a', marginBottom: '0.25rem' }}>
-          {totalCorrect} / {questionsRef.current.length || seriesLength}
-        </div>
-        <div style={{ color: '#666', marginBottom: '0.5rem' }}>bonnes réponses</div>
-        {selectedTheme && (
-          <div style={{ display: 'inline-block', background: '#f0faf8', color: '#5c6bc0', borderRadius: '1rem', padding: '0.2rem 0.75rem', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '2rem' }}>
-            {selectedTheme.label}
+      <div>
+        <ExerciseBilan
+          exercise="histoire-geo"
+          errors={TOTAL_QUESTIONS - totalCorrect}
+          difficulty="moyen"
+          hasRevisionBonus={false}
+          onDone={() => setGameState('select')}
+        />
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+            <h3 style={{ color: '#5c6bc0', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
+            {resultatsRecap.map((r, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
+                <span style={{ width: '3.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                  {i + 1}
+                </span>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.85rem' }}>
+                  <span style={{ color: '#555' }}>{r.question}</span>
+                  <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+                    {r.correct ? `✓ ${r.givenAnswer}` : `✗ ${r.givenAnswer} → ${r.correctAnswer}`}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '280px', margin: '0 auto' }}>
-          <button onClick={handleReplay} style={{ padding: '0.75rem', background: '#5c6bc0', color: 'white', border: 'none', borderRadius: '0.5rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>
-            🔄 Rejouer (même thème)
-          </button>
-          <button onClick={handleChangeTheme} style={{ padding: '0.75rem', background: '#f0faf8', color: '#5c6bc0', border: '2px solid #5c6bc0', borderRadius: '0.5rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}>
-            📚 Changer de thème
-          </button>
-          {onBack && (
-            <button onClick={onBack} style={{ padding: '0.75rem', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '0.9rem' }}>
-              Quitter
-            </button>
-          )}
         </div>
-
-        {showHighscoreModal && selectedTheme && (
-          <HighscoreModal
-            exercise={eid}
-            listId={eid}
-            listName={`Histoire & Géo — ${selectedTheme.label}`}
-            score={totalCorrect}
-            onClose={() => setShowHighscoreModal(false)}
-            onDisable={() => { localStorage.setItem('odigo_highscores', 'off'); setShowHighscoreModal(false) }}
-            onReplay={handleReplay}
-            onQuit={() => { setShowHighscoreModal(false); onBack?.() }}
-          />
-        )}
       </div>
     )
   }
@@ -381,7 +336,7 @@ export default function DefiHistoireGeo({ onBack }: Props) {
       <div style={{ height: '5px', background: '#e0e0e0', borderRadius: '3px', marginBottom: '0.75rem' }}>
         <div style={{
           height: '100%',
-          width: `${(currentIndex / questions.length) * 100}%`,
+          width: `${((currentIndex + 1) / questions.length) * 100}%`,
           background: '#5c6bc0', borderRadius: '3px', transition: 'width 0.3s',
         }} />
       </div>
@@ -413,7 +368,7 @@ export default function DefiHistoireGeo({ onBack }: Props) {
           color: '#333',
         }}>
           {feedback === 'correct'
-            ? <>✓ Bravo !{streak >= 3 && <span style={{ fontSize: '0.85rem', marginLeft: '0.5rem' }}>🔥 +1 bonus streak !</span>}</>
+            ? <>✓ Bravo !{streak >= 3 && <span style={{ fontSize: '0.85rem', marginLeft: '0.5rem' }}>🔥</span>}</>
             : `✗ Réponse : ${currentQuestion.answer}`}
         </div>
       )}
