@@ -1,87 +1,129 @@
-# Rapport — Récapitulatif détaillé ajouté à Maths.tsx
+# Rapport — Retrait complet du highscore (vocabulaire.tsx, conjugaison.tsx, ConjugaisonEtrangere.tsx)
 
-## 1. State `resultats` ajouté
+Pour chacun des 3 fichiers, retrait entièrement identique : import `HighscoreModal`, state `showHighscore`, state `showLeaderboard` (bouton "Voir le classement" + sa modale en mode `leaderboard`, qui dépendaient du même composant), fonction `checkHighscore`, variante `'highscore'` du `GameState`, branchement dans `finaliser()`, écran `gameState === 'highscore'`, `ExerciseBilan.onDone` simplifié vers `'select'` directement. Dans les 3 cas, le state `score`/`points` interne (bonus de streak, jamais lié à `ExerciseBilan`) est également devenu totalement mort après ce retrait et a été supprimé, TypeScript strict (`noUnusedLocals`) l'ayant confirmé à la compilation.
 
+---
+
+## 1. vocabulaire.tsx (Dictée)
+
+**Retiré** :
+- `import HighscoreModal from '../components/HighscoreModal'`
+- `showHighscore`, `showLeaderboard` (states)
+- `checkHighscore()` (fonction complète)
+- `'highscore'` dans `GameState`
+- Bouton "🏆 Voir le classement" + sa `HighscoreModal` (mode leaderboard) sur l'écran de sélection
+- Bloc `if (gameState === 'highscore') { return <HighscoreModal .../> }`
+- `localStorage.getItem('odigo_highscores')` (2 occurrences, plus aucun usage)
+- La variable `listName` (ligne ~371 avant retrait) qui ne servait qu'à ce bloc supprimé
+
+**`finaliser()` simplifié** :
 ```ts
-const [resultats, setResultats] = useState<{
-  question: string; userAnswer: string; correctAnswer: string; correct: boolean
-}[]>([])
+const finaliser = async () => {
+  if (guestMode) { onGameEnd?.(); return }
+  setGameState('result')
+  await logActivity({
+    action_type: 'exercise_completed',
+    questions_total: resultats.length,
+    questions_correct: resultats.filter(r => r.correct).length,
+    metadata: { exercise: 'vocabulaire' },
+  })
+}
 ```
-Réinitialisé dans `startGame()` (`setResultats([])`), aux côtés de `setResults([])`.
 
-Alimenté dans `checkAnswer()` — point de validation unique, partagé par les 4 sous-modes (voir investigation précédente), au moment exact où `correct` est calculé, avant l'avancement à la question suivante :
-```ts
-const checkAnswer = () => {
-  if (feedback || !userAnswer) return
-  const correct = parseInt(userAnswer) === questions[currentIndex].answer
-  const newResults = [...results, correct]
-
-  setFeedback(correct ? 'correct' : 'incorrect')
-  setResults(newResults)
-  setResultats(prev => [...prev, {
-    question: questions[currentIndex].text,
-    userAnswer,
-    correctAnswer: String(questions[currentIndex].answer),
-    correct,
-  }])
-
-  setTimeout(() => {
-    ...
-```
-`questions[currentIndex].text` (l'énoncé déjà formaté par le générateur du sous-mode courant) et `userAnswer` (la saisie brute de l'élève, encore présente à cet instant) sont utilisés tels quels — aucune adaptation par sous-mode n'a été nécessaire, conformément à ce qu'avait confirmé l'investigation (structure `Question` commune aux 4 générateurs).
-
-## 2. Récapitulatif affiché sous ExerciseBilan
-
-Même format que les autres exercices (colonne numéro fixe à gauche, contenu à droite) :
+**`ExerciseBilan.onDone`** :
 ```tsx
-<div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
-  <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-    <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
-    {resultats.map((r, i) => (
-      <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
-        <span style={{ width: '3.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: '0.8rem', fontWeight: 'bold' }}>
-          {i + 1}
-        </span>
-        <div style={{ flex: 1, fontSize: '0.85rem' }}>
-          <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
-            {r.correct
-              ? `✓ ${r.question} = ${r.correctAnswer}`
-              : `✗ ${r.question} — ta réponse : ${r.userAnswer} → ${r.correctAnswer}`
-            }
-          </span>
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
+onDone={() => { setGameState('select'); setQueue([]) }}
 ```
-Une seule ligne de contenu par entrée (format exact demandé : "✓ {question} = {correctAnswer}" ou "✗ {question} — ta réponse : {userAnswer} → {correctAnswer}"), pas de ligne d'en-tête séparée puisque non demandée ici.
 
-## Exemples de rendu, 2 sous-modes différents
+**State `score` devenu mort, retiré** — après suppression des deux seuls consommateurs (`checkHighscore(score)`, `HighscoreModal score={score}`), plus aucune lecture ne subsistait. Supprimés avec lui : `const [score, setScore] = useState(0)`, `setScore(0)` (reset), et dans `valider()` le calcul `const points = correct ? 10 + (newStreak >= 3 ? 5 : 0) : 0` + `setScore(prev => prev + points)` (le `streak`/`setStreak` reste, utilisé par le badge 🔥 visible en jeu).
 
-**Multiplications** — question `"6 × 7"`, réponse attendue `42` :
-- Réussi (saisie "42") : `✓ 6 × 7 = 42`
-- Raté (saisie "41") : `✗ 6 × 7 — ta réponse : 41 → 42`
+## 2. conjugaison.tsx
 
-**Équations** (niveau moyen) — question `"3x + 8 = 23"`, réponse attendue `x = 5` :
-- Réussi (saisie "5") : `✓ 3x + 8 = 23 = 5`
-- Raté (saisie "4") : `✗ 3x + 8 = 23 — ta réponse : 4 → 5`
+**Retiré** : identique au point 1 (import, `showHighscore`, `showLeaderboard`, `checkHighscore`, `'highscore'` dans `GameState`, bouton + modale leaderboard, bloc écran highscore, `localStorage.getItem('odigo_highscores')`).
 
-**Remarque** : pour les équations, le rendu réussi affiche deux signes "=" à la suite (`3x + 8 = 23 = 5`) puisque l'énoncé contient déjà un "=" — c'est le résultat exact et littéral du format `"✓ {question} = {correctAnswer}"` demandé, appliqué sans adaptation particulière au cas équation. Si un format plus lisible est souhaité pour ce sous-mode spécifiquement (ex. "✓ 3x + 8 = 23 → x = 5"), il faudra me le préciser — non modifié ici, la consigne donnée a été suivie à la lettre.
+**Différence notable** : la variable `listName` (`lists.find(l => l.id === selectedList)?.name ?? ''`) est ici **restée en place**, car contrairement à `vocabulaire.tsx`, elle est aussi utilisée par l'écran résultat (`listName={listName || undefined}` sur `ExerciseBilan`) — donc pas devenue orpheline.
 
-Pour référence, les deux autres sous-modes suivent le même schéma sans ambiguïté :
-- **Calcul mental** — `"47 + 82"` → réussi : `✓ 47 + 82 = 129`
-- **Divisions** — `"84 ÷ 12"` → raté (saisie "6") : `✗ 84 ÷ 12 — ta réponse : 6 → 7`
+**`finaliser()` simplifié** :
+```ts
+const finaliser = async () => {
+  setGameState('result')
+  await logActivity({
+    action_type: 'exercise_completed',
+    questions_total: questions.length,
+    questions_correct: resultats.filter(r => r.correct).length,
+    metadata: { exercise: 'conjugaison' },
+  })
+}
+```
+
+**`ExerciseBilan.onDone`** :
+```tsx
+onDone={() => { setGameState('select'); setQuestions([]) }}
+```
+
+**State `score` retiré**, même raisonnement qu'au point 1 (`points`/`setScore` supprimés de `valider()`, `streak` conservé pour le badge 🔥).
+
+## 3. ConjugaisonEtrangere.tsx
+
+**Retiré** : identique aux points 1 et 2.
+
+**Point de vigilance vérifié** : ce fichier a une fonction module-level nommée `checkAnswer` (comparaison de réponse, sans rapport avec le highscore) — bien distincte de `checkHighscore` (composant), non touchée par erreur.
+
+**`finaliser()` simplifié** :
+```ts
+const finaliser = async () => {
+  if (guestMode) {
+    onGameEnd?.()
+    return
+  }
+  setGameState('result')
+  await logActivity({
+    action_type: 'exercise_completed',
+    questions_total: questions.length,
+    questions_correct: resultats.filter(r => r.correct).length,
+    metadata: { exercise: 'conjugaison-etrangere', language: listLanguage },
+  })
+}
+```
+
+**`ExerciseBilan.onDone`** :
+```tsx
+onDone={() => { setGameState('select'); setQuestions([]) }}
+```
+
+**State `score` retiré**, même raisonnement (`points`/`setScore` supprimés de `valider()`, `streak` conservé).
+
+---
+
+## Vérification — aucune référence morte au highscore
+
+Recherche `HighscoreModal|showHighscore|showLeaderboard|checkHighscore|\bscore\b|'highscore'|odigo_highscores` dans chacun des 3 fichiers : **zéro occurrence** dans les trois.
 
 ## Build + Lint
 
 ```
-npm run build   → ✓ built in 992ms  (0 erreur TypeScript)
+npm run build   → ✓ built in 972ms  (0 erreur TypeScript, les 3 fichiers)
 ```
 
+### vocabulaire.tsx
 ```
-npx eslint src/pages/Maths.tsx
-→ 0 problème
+npx eslint src/pages/vocabulaire.tsx
+→ 4 problèmes (3 erreurs, 1 warning)
 ```
+Tous pré-existants, sans rapport avec le highscore : forward-reference `fetchLists` (effet mode invité), `set-state-in-effect` sur `setSelectedList` (même effet), warning `exhaustive-deps` associé, et un `any` implicite dans un `.map()` non touché.
 
-**0 erreur, 0 warning** — comme pour `LireHeure.tsx`, ce fichier n'avait aucun résidu de lint avant l'intervention et n'en a introduit aucun.
+### conjugaison.tsx
+```
+npx eslint src/pages/conjugaison.tsx
+→ 2 problèmes (2 erreurs, 0 warning)
+```
+Forward-reference `fetchLists` + un `any` implicite, tous deux pré-existants, non liés au highscore.
+
+### ConjugaisonEtrangere.tsx
+```
+npx eslint src/pages/ConjugaisonEtrangere.tsx
+→ 6 problèmes (5 erreurs, 1 warning)
+```
+Forward-references `fetchLists`/`genererQuestions`, `set-state-in-effect` sur 2 effets liés au mode invité et à la configuration de langue, warning `exhaustive-deps` associé, et un `any` implicite — tous pré-existants, non liés au highscore.
+
+**Dans les 3 fichiers : 0 nouvelle erreur, 0 nouveau warning liés au retrait du highscore.** Les problèmes restants relèvent tous de patterns déjà documentés comme acceptés dans `CLAUDE.md` (forward-references, `set-state-in-effect`), présents avant cette intervention.

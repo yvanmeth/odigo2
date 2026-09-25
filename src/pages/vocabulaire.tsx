@@ -3,7 +3,6 @@ import { EmptyState } from '../components/EmptyState'
 import { supabase } from '../lib/supabase'
 import { logActivity } from '../services/activity'
 import { speak } from '../lib/speech'
-import HighscoreModal from '../components/HighscoreModal'
 import ExerciseBilan from '../components/ExerciseBilan'
 import { hasRevisionBonusForList } from '../services/revisionBonus'
 import { callClaude } from '../lib/claude'
@@ -24,7 +23,7 @@ interface Question {
   phrase: string
 }
 
-type GameState = 'select' | 'loading' | 'playing' | 'result' | 'highscore'
+type GameState = 'select' | 'loading' | 'playing' | 'result'
 
 const normaliser = (s: string) => s.trim().toLowerCase()
 
@@ -59,10 +58,7 @@ export default function Vocabulaire({ guestMode, guestListId, onGameEnd }: Guest
     mot: string; phrase: string; correct: boolean; donnee: string
   }[]>([])
   const [streak, setStreak] = useState(0)
-  const [score, setScore] = useState(0)
   const [error, setError] = useState('')
-  const [showHighscore, setShowHighscore] = useState(false)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [userInterests, setUserInterests] = useState<string[]>([])
   const [userFirstName, setUserFirstName] = useState('')
   const [hasRevisionBonus, setHasRevisionBonus] = useState(false)
@@ -99,18 +95,6 @@ export default function Vocabulaire({ guestMode, guestListId, onGameEnd }: Guest
     if (!user) return
     const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).in('list_type', ['dictée', 'vocabulaire']).eq('language', 'Français').order('name')
     if (data) setLists(data)
-  }
-
-  const checkHighscore = async (finalScore: number): Promise<boolean> => {
-    if (localStorage.getItem('odigo_highscores') === 'off') return false
-    if (!selectedList) return false
-    const { data } = await supabase
-      .from('highscores').select('score')
-      .eq('exercise', 'vocabulaire').eq('list_id', selectedList)
-      .order('score', { ascending: false }).limit(5)
-    if (!data) return false
-    if (data.length < 5) return true
-    return finalScore > data[data.length - 1].score
   }
 
   const genererQuestions = async () => {
@@ -170,7 +154,6 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
       setFeedback(null)
       setResultats([])
       setStreak(0)
-      setScore(0)
       setGameState('playing')
     } catch {
       setError("Erreur lors de la génération des phrases. Vérifie ta connexion et réessaie.")
@@ -188,10 +171,8 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
     const correct = normaliser(reponse) === normaliser(q.mot)
 
     const newStreak = correct ? streak + 1 : 0
-    const points = correct ? 10 + (newStreak >= 3 ? 5 : 0) : 0
 
     setStreak(newStreak)
-    setScore(prev => prev + points)
     setFeedback({ correct })
 
     // N'enregistre que le premier passage de chaque mot
@@ -225,18 +206,13 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
 
   const finaliser = async () => {
     if (guestMode) { onGameEnd?.(); return }
-    setShowHighscore(false)
     setGameState('result')
-    const [, isTop] = await Promise.all([
-      logActivity({
-        action_type: 'exercise_completed',
-        questions_total: resultats.length,
-        questions_correct: resultats.filter(r => r.correct).length,
-        metadata: { exercise: 'vocabulaire' },
-      }),
-      checkHighscore(score),
-    ])
-    setShowHighscore(isTop)
+    await logActivity({
+      action_type: 'exercise_completed',
+      questions_total: resultats.length,
+      questions_correct: resultats.filter(r => r.correct).length,
+      metadata: { exercise: 'vocabulaire' },
+    })
   }
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -307,27 +283,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           >
             {gameState === 'loading' ? '⏳ Génération des phrases...' : '🚀 Jouer'}
           </button>
-
-          {selectedList && localStorage.getItem('odigo_highscores') !== 'off' && (
-            <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
-              🏆 Voir le classement
-            </button>
-          )}
         </div>
-
-        {showLeaderboard && (
-          <HighscoreModal
-            exercise="vocabulaire"
-            listId={selectedList}
-            listName={lists.find(l => l.id === selectedList)?.name ?? ''}
-            score={0}
-            initialPhase="leaderboard"
-            onClose={() => setShowLeaderboard(false)}
-            onDisable={() => setShowLeaderboard(false)}
-            onReplay={() => { setShowLeaderboard(false); genererQuestions() }}
-            onQuit={() => setShowLeaderboard(false)}
-          />
-        )}
       </div>
     )
   }
@@ -343,10 +299,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           difficulty="moyen"
           hasRevisionBonus={hasRevisionBonus}
           listName={listNameForBilan}
-          onDone={() => {
-            if (showHighscore) setGameState('highscore')
-            else { setGameState('select'); setQueue([]) }
-          }}
+          onDone={() => { setGameState('select'); setQueue([]) }}
         />
         <div style={{ maxWidth: '600px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
           <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
@@ -364,24 +317,6 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           </div>
         </div>
       </div>
-    )
-  }
-
-  // ---- ÉCRAN HIGHSCORE ----
-  const listName = lists.find(l => l.id === selectedList)?.name ?? ''
-
-  if (gameState === 'highscore') {
-    return (
-      <HighscoreModal
-        exercise="vocabulaire"
-        listId={selectedList}
-        listName={listName}
-        score={score}
-        onClose={() => { setShowHighscore(false); setGameState('select'); setQueue([]) }}
-        onDisable={() => { setShowHighscore(false); setGameState('select'); setQueue([]) }}
-        onReplay={() => { setShowHighscore(false); setGameState('select'); genererQuestions() }}
-        onQuit={() => { setShowHighscore(false); setGameState('select'); setQueue([]) }}
-      />
     )
   }
 

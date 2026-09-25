@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { logActivity } from '../services/activity'
 import { EmptyState } from '../components/EmptyState'
-import HighscoreModal from '../components/HighscoreModal'
 import ExerciseBilan from '../components/ExerciseBilan'
 import { hasRevisionBonusForList } from '../services/revisionBonus'
 import { callClaude } from '../lib/claude'
@@ -19,7 +18,7 @@ interface Question {
   reponses: string[] // toutes les variantes acceptables
 }
 
-type GameState = 'select' | 'loading' | 'playing' | 'result' | 'highscore'
+type GameState = 'select' | 'loading' | 'playing' | 'result'
 
 const TEMPS = [
   { id: 'indicatif présent',          label: 'Indicatif présent' },
@@ -176,10 +175,7 @@ export default function Conjugaison() {
     correct: boolean; reponsesAffichage: string; donnee: string
   }[]>([])
   const [streak, setStreak] = useState(0)
-  const [score, setScore] = useState(0)
   const [error, setError] = useState('')
-  const [showHighscore, setShowHighscore] = useState(false)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [hasRevisionBonus, setHasRevisionBonus] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -194,18 +190,6 @@ export default function Conjugaison() {
     const { data } = await supabase.from('word_lists').select('id, name').eq('user_id', user.id).eq('list_type', 'conjugaison').eq('language', 'Français').order('name')
     if (data) setLists(data)
     setLoadingLists(false)
-  }
-
-  const checkHighscore = async (finalScore: number): Promise<boolean> => {
-    if (localStorage.getItem('odigo_highscores') === 'off') return false
-    if (!selectedList) return false
-    const { data } = await supabase
-      .from('highscores').select('score')
-      .eq('exercise', 'conjugaison').eq('list_id', selectedList)
-      .order('score', { ascending: false }).limit(5)
-    if (!data) return false
-    if (data.length < 5) return true
-    return finalScore > data[data.length - 1].score
   }
 
   const toggleTemps = (id: string) => {
@@ -275,7 +259,6 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
       setFeedback(null)
       setResultats([])
       setStreak(0)
-      setScore(0)
       setGameState('playing')
     } catch {
       setError("Erreur lors de la génération des questions. Vérifie ta connexion et réessaie.")
@@ -289,10 +272,8 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
     const result = validerReponse(reponse, q)
 
     const newStreak = result.correct ? streak + 1 : 0
-    const points = result.correct ? 10 + (newStreak >= 3 ? 5 : 0) : 0
 
     setStreak(newStreak)
-    setScore(prev => prev + points)
     setFeedback({
       correct: result.correct,
       erreurPronom: result.erreurPronom,
@@ -323,18 +304,13 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
   }, [current, questions.length, feedback])
 
   const finaliser = async () => {
-    setShowHighscore(false)
     setGameState('result')
-    const [, isTop] = await Promise.all([
-      logActivity({
-        action_type: 'exercise_completed',
-        questions_total: questions.length,
-        questions_correct: resultats.filter(r => r.correct).length,
-        metadata: { exercise: 'conjugaison' },
-      }),
-      checkHighscore(score),
-    ])
-    setShowHighscore(isTop)
+    await logActivity({
+      action_type: 'exercise_completed',
+      questions_total: questions.length,
+      questions_correct: resultats.filter(r => r.correct).length,
+      metadata: { exercise: 'conjugaison' },
+    })
   }
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -428,27 +404,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           >
             {gameState === 'loading' ? '⏳ Génération des questions...' : '🚀 Jouer'}
           </button>
-
-          {selectedList && localStorage.getItem('odigo_highscores') !== 'off' && (
-            <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
-              🏆 Voir le classement
-            </button>
-          )}
         </div>
-
-        {showLeaderboard && (
-          <HighscoreModal
-            exercise="conjugaison"
-            listId={selectedList}
-            listName={listName}
-            score={0}
-            initialPhase="leaderboard"
-            onClose={() => setShowLeaderboard(false)}
-            onDisable={() => setShowLeaderboard(false)}
-            onReplay={() => { setShowLeaderboard(false); genererQuestions() }}
-            onQuit={() => setShowLeaderboard(false)}
-          />
-        )}
       </div>
     )
   }
@@ -463,10 +419,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           difficulty="moyen"
           hasRevisionBonus={hasRevisionBonus}
           listName={listName || undefined}
-          onDone={() => {
-            if (showHighscore) setGameState('highscore')
-            else { setGameState('select'); setQuestions([]) }
-          }}
+          onDone={() => { setGameState('select'); setQuestions([]) }}
         />
         <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
           <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
@@ -483,22 +436,6 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
           </div>
         </div>
       </div>
-    )
-  }
-
-  // ---- ÉCRAN HIGHSCORE ----
-  if (gameState === 'highscore') {
-    return (
-      <HighscoreModal
-        exercise="conjugaison"
-        listId={selectedList}
-        listName={listName}
-        score={score}
-        onClose={() => { setShowHighscore(false); setGameState('select'); setQuestions([]) }}
-        onDisable={() => { setShowHighscore(false); setGameState('select'); setQuestions([]) }}
-        onReplay={() => { setShowHighscore(false); setGameState('select'); genererQuestions() }}
-        onQuit={() => { setShowHighscore(false); setGameState('select'); setQuestions([]) }}
-      />
     )
   }
 
