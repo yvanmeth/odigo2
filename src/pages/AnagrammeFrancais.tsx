@@ -2,12 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { logActivity } from '../services/activity'
 import { EmptyState } from '../components/EmptyState'
-import HighscoreModal from '../components/HighscoreModal'
 import ExerciseBilan from '../components/ExerciseBilan'
 import type { Difficulty } from '../lib/exerciseBilan'
 import { hasRevisionBonusForList } from '../services/revisionBonus'
 
-type GameState = 'select' | 'playing' | 'result' | 'highscore'
+type GameState = 'select' | 'playing' | 'result'
 
 interface WordList {
   id: string
@@ -58,14 +57,19 @@ export default function AnagrammeFrancais() {
   const [hintTranslation, setHintTranslation] = useState(false)
   const [attempts, setAttempts] = useState(0)
   const [results, setResults] = useState<boolean[]>([])
+  const [resultats, setResultats] = useState<{
+    mot: string; correct: boolean; attemptsBeforeSuccess: number; usedOptionalHint: boolean
+  }[]>([])
   const [streak, setStreak] = useState(0)
-  const [points, setPoints] = useState(0)
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
   const [hasRevisionBonus, setHasRevisionBonus] = useState(false)
-  const [showHighscore, setShowHighscore] = useState(false)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
 
   const validatingRef = useRef(false)
+  // Nombre de tentatives ratées sur le mot COURANT, avant réussite ou passage.
+  // Contrairement au state `attempts` (remis à 0 à chaque appel de initWord, y compris
+  // lors d'une réinitialisation du même mot après un échec), cette ref n'est remise à
+  // zéro que lors du passage à un NOUVEAU mot — elle survit donc aux réessais.
+  const attemptsRef = useRef(0)
 
   useEffect(() => { fetchLists() }, [])
 
@@ -99,6 +103,11 @@ export default function AnagrammeFrancais() {
       }
     } else {
       setHintFirst(false)
+    }
+
+    if (shuffledLetters === undefined) {
+      // Nouveau mot (pas une réinitialisation du même mot après un échec) : on repart de zéro.
+      attemptsRef.current = 0
     }
 
     setBank(newBank)
@@ -146,37 +155,20 @@ export default function AnagrammeFrancais() {
     setWords(anagramWords)
     setCurrentIndex(0)
     setResults([])
+    setResultats([])
     setStreak(0)
-    setPoints(0)
     initWord(anagramWords[0], difficulty)
     setGameState('playing')
   }
 
-  const checkHighscore = async (finalScore: number): Promise<boolean> => {
-    if (localStorage.getItem('odigo_highscores') === 'off') return false
-    if (!selectedListId) return false
-    const { data } = await supabase
-      .from('highscores').select('score')
-      .eq('exercise', 'anagramme-francais').eq('list_id', selectedListId)
-      .order('score', { ascending: false }).limit(5)
-    if (!data) return false
-    if (data.length < 5) return true
-    return finalScore > data[data.length - 1].score
-  }
-
-  const finaliser = async (totalPoints: number, totalCorrect: number) => {
-    setShowHighscore(false)
+  const finaliser = async (totalCorrect: number) => {
     setGameState('result')
-    const [, isTop] = await Promise.all([
-      logActivity({
-        action_type: 'exercise_completed',
-        questions_total: TOTAL_WORDS,
-        questions_correct: totalCorrect,
-        metadata: { exercise: 'anagramme-francais', listId: selectedListId },
-      }),
-      checkHighscore(totalPoints),
-    ])
-    setShowHighscore(isTop)
+    await logActivity({
+      action_type: 'exercise_completed',
+      questions_total: TOTAL_WORDS,
+      questions_correct: totalCorrect,
+      metadata: { exercise: 'anagramme-francais', listId: selectedListId },
+    })
   }
 
   const validateWord = (currentPlaced: PlacedItem[]) => {
@@ -192,17 +184,21 @@ export default function AnagrammeFrancais() {
     if (correct) {
       setFeedback('correct')
       const newStreak = streak + 1
-      const gain = newStreak >= 3 ? 6 : 1
       setStreak(newStreak)
-      setPoints(prev => prev + gain)
       setResults(prev => [...prev, true])
+      setResultats(prev => [...prev, {
+        mot: cw.target,
+        correct: true,
+        attemptsBeforeSuccess: attemptsRef.current,
+        usedOptionalHint: hintFirst && difficulty !== 'facile',
+      }])
 
       setTimeout(() => {
         setFeedback(null)
         validatingRef.current = false
         const nextIdx = currentIndex + 1
         if (nextIdx >= TOTAL_WORDS) {
-          finaliser(points + gain, results.filter(Boolean).length + 1)
+          finaliser(results.filter(Boolean).length + 1)
         } else {
           setCurrentIndex(nextIdx)
           initWord(words[nextIdx], difficulty)
@@ -210,6 +206,7 @@ export default function AnagrammeFrancais() {
       }, 1000)
     } else {
       setFeedback('incorrect')
+      attemptsRef.current += 1
       setAttempts(prev => prev + 1)
       setStreak(0)
 
@@ -290,11 +287,17 @@ export default function AnagrammeFrancais() {
     if (feedback !== null || validatingRef.current) return
     const newResults = [...results, false]
     setResults(newResults)
+    setResultats(prev => [...prev, {
+      mot: words[currentIndex].target,
+      correct: false,
+      attemptsBeforeSuccess: attemptsRef.current,
+      usedOptionalHint: hintFirst && difficulty !== 'facile',
+    }])
     setStreak(0)
 
     const nextIdx = currentIndex + 1
     if (nextIdx >= TOTAL_WORDS) {
-      finaliser(points, newResults.filter(Boolean).length)
+      finaliser(newResults.filter(Boolean).length)
     } else {
       setCurrentIndex(nextIdx)
       initWord(words[nextIdx], difficulty)
@@ -388,60 +391,56 @@ export default function AnagrammeFrancais() {
             >
               {loading ? 'Chargement...' : '🚀 Commencer'}
             </button>
-            {selectedListId && localStorage.getItem('odigo_highscores') !== 'off' && (
-              <button onClick={() => setShowLeaderboard(true)} style={{ width: '100%', marginTop: '0.75rem', padding: '0.5rem', background: 'none', color: '#aaa', border: '1px solid #eee', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
-                🏆 Voir le classement
-              </button>
-            )}
           </div>
-        )}
-        {showLeaderboard && (
-          <HighscoreModal
-            exercise="anagramme-francais"
-            listId={selectedListId}
-            listName={lists.find(l => l.id === selectedListId)?.name ?? ''}
-            score={0}
-            initialPhase="leaderboard"
-            onClose={() => setShowLeaderboard(false)}
-            onDisable={() => setShowLeaderboard(false)}
-            onReplay={() => { setShowLeaderboard(false); startGame() }}
-            onQuit={() => setShowLeaderboard(false)}
-          />
         )}
       </div>
     )
   }
 
   if (gameState === 'result') {
+    const hadImperfection = resultats.some(r => r.usedOptionalHint || r.attemptsBeforeSuccess > 0)
     return (
-      <ExerciseBilan
-        exercise="anagramme-francais"
-        errors={TOTAL_WORDS - results.filter(Boolean).length}
-        difficulty={difficulty}
-        hasRevisionBonus={hasRevisionBonus}
-        listName={lists.find(l => l.id === selectedListId)?.name}
-        onDone={() => {
-          if (showHighscore) setGameState('highscore')
-          else { setGameState('select'); setWords([]) }
-        }}
-      />
-    )
-  }
-
-  const listName = lists.find(l => l.id === selectedListId)?.name ?? ''
-
-  if (gameState === 'highscore') {
-    return (
-      <HighscoreModal
-        exercise="anagramme-francais"
-        listId={selectedListId}
-        listName={listName}
-        score={points}
-        onClose={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
-        onDisable={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
-        onReplay={() => { setShowHighscore(false); setGameState('select'); startGame() }}
-        onQuit={() => { setShowHighscore(false); setGameState('select'); setWords([]) }}
-      />
+      <div>
+        <ExerciseBilan
+          exercise="anagramme-francais"
+          errors={TOTAL_WORDS - results.filter(Boolean).length}
+          difficulty={difficulty}
+          hasRevisionBonus={hasRevisionBonus}
+          listName={lists.find(l => l.id === selectedListId)?.name}
+          blocksPerfect={hadImperfection}
+          onDone={() => { setGameState('select'); setWords([]) }}
+        />
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+            <h3 style={{ color: PRIMARY, fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
+            {resultats.map((r, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
+                <span style={{ width: '3.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                  {i + 1}
+                </span>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.85rem' }}>
+                  <span style={{ color: '#555' }}>
+                    <strong>{r.mot}</strong>
+                  </span>
+                  <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+                    {r.correct
+                      ? <>
+                          ✓ {r.mot}
+                          {r.attemptsBeforeSuccess > 0 && (
+                            <span style={{ marginLeft: '0.4rem', fontWeight: 'normal', color: '#aaa', fontSize: '0.75rem' }}>
+                              (après {r.attemptsBeforeSuccess} tentative{r.attemptsBeforeSuccess > 1 ? 's' : ''})
+                            </span>
+                          )}
+                        </>
+                      : `✗ ${r.mot}`
+                    }
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -451,10 +450,11 @@ export default function AnagrammeFrancais() {
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
           <span style={{ color: '#888', fontSize: '0.9rem' }}>Mot {currentIndex + 1} / {TOTAL_WORDS}</span>
-          <span style={{ color: PRIMARY, fontWeight: 'bold', fontSize: '0.9rem' }}>
-            {points} pt{points !== 1 ? 's' : ''}
-            {streak >= 3 && ` 🔥 série ${streak}`}
-          </span>
+          {streak >= 3 && (
+            <span style={{ color: PRIMARY, fontWeight: 'bold', fontSize: '0.9rem' }}>
+              🔥 série {streak}
+            </span>
+          )}
         </div>
         <div style={{ height: '6px', background: '#e0f0ee', borderRadius: '3px' }}>
           <div style={{ height: '100%', background: PRIMARY, borderRadius: '3px', width: `${progress}%`, transition: 'width 0.3s ease' }} />
