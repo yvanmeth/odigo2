@@ -4,6 +4,9 @@ import {
   formatTimeFR, formatTimeEN, formatTimeDE, formatTimeEL,
   type TimeExpression,
 } from '../lib/timeFormatting'
+import { logActivity } from '../services/activity'
+import ExerciseBilan from '../components/ExerciseBilan'
+import type { Difficulty } from '../lib/exerciseBilan'
 
 // ── Types exportés (réutilisables aux étapes suivantes) ────────────────────
 export type Language  = 'fr' | 'en' | 'de' | 'el'
@@ -11,6 +14,12 @@ export type Level     = 'pile' | 'quart' | 'libre'
 export type ClockMode = 'mots' | 'aiguilles' | 'mixte'
 type GameState        = 'select' | 'playing' | 'result'
 type QuestionMode     = 'mots' | 'aiguilles'
+
+const mapLevelToDifficulty = (l: Level): Difficulty => {
+  if (l === 'pile') return 'facile'
+  if (l === 'quart') return 'moyen'
+  return 'difficile'
+}
 
 // ── Configuration ──────────────────────────────────────────────────────────
 const TOTAL_QUESTIONS    = 10
@@ -47,6 +56,16 @@ interface Question {
   expression: TimeExpression
   questionMode: QuestionMode
   availableWords: string[]
+}
+
+// ── Récapitulatif ──────────────────────────────────────────────────────────
+interface RecapEntry {
+  hour: number
+  minute: number
+  expressionText: string
+  questionMode: QuestionMode
+  correct: boolean
+  donneTexte: string
 }
 
 // ── Utilitaires ────────────────────────────────────────────────────────────
@@ -103,6 +122,7 @@ export default function LireHeure({ onBack }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [feedback,     setFeedback]     = useState<'correct' | 'incorrect' | null>(null)
   const [score,        setScore]        = useState(0)
+  const [resultats,    setResultats]    = useState<RecapEntry[]>([])
 
   // ── État mode mots ─────────────────────────────────────────────────────
   const [available, setAvailable] = useState<string[]>([])
@@ -155,12 +175,23 @@ export default function LireHeure({ onBack }: Props) {
     setQuestions(qs)
     setCurrentIndex(0)
     setScore(0)
+    setResultats([])
     setClockMinutes(0)
     setCumulSteps(0)
     setAvailable([...qs[0].availableWords])
     setSelected([])
     setFeedback(null)
     setGameState('playing')
+  }
+
+  const finaliser = async () => {
+    setGameState('result')
+    await logActivity({
+      action_type: 'exercise_completed',
+      questions_total: TOTAL_QUESTIONS,
+      questions_correct: score,
+      metadata: { exercise: 'lire-heure', language: lang, level, mode },
+    })
   }
 
   const handleSuivant = () => {
@@ -171,7 +202,7 @@ export default function LireHeure({ onBack }: Props) {
       setSelected([])
       setFeedback(null)
     } else {
-      setGameState('result')
+      finaliser()
     }
   }
 
@@ -194,6 +225,14 @@ export default function LireHeure({ onBack }: Props) {
     const correct = selected.join('|') === q.expression.words.join('|')
     if (correct) setScore(prev => prev + 1)
     setFeedback(correct ? 'correct' : 'incorrect')
+    setResultats(prev => [...prev, {
+      hour: q.hour,
+      minute: q.minute,
+      expressionText: q.expression.text,
+      questionMode: q.questionMode,
+      correct,
+      donneTexte: selected.join(' '),
+    }])
   }
 
   // Mode aiguilles — validation avec tolérance ±3 min (cycle 12h)
@@ -206,6 +245,17 @@ export default function LireHeure({ onBack }: Props) {
     const correct     = wrappedDiff <= 3
     if (correct) setScore(prev => prev + 1)
     setFeedback(correct ? 'correct' : 'incorrect')
+    // Capture la position réelle de l'élève AVANT qu'elle ne soit réutilisée pour la question suivante
+    // (clockMinutes persiste entre questions, cf. commentaire sur son state).
+    const donneTexte = correct ? '' : FORMATTERS[lang](clockDisplayHour, clockDisplayMin).text
+    setResultats(prev => [...prev, {
+      hour: q.hour,
+      minute: q.minute,
+      expressionText: q.expression.text,
+      questionMode: q.questionMode,
+      correct,
+      donneTexte,
+    }])
   }
 
   // ── Styles ─────────────────────────────────────────────────────────────
@@ -290,7 +340,7 @@ export default function LireHeure({ onBack }: Props) {
   // ── PLAYING ────────────────────────────────────────────────────────────
   if (gameState === 'playing' && questions.length > 0) {
     const q        = questions[currentIndex]
-    const progress = (currentIndex / TOTAL_QUESTIONS) * 100
+    const progress = ((currentIndex + 1) / TOTAL_QUESTIONS) * 100
     const isOk     = feedback === 'correct'
     const isLast   = currentIndex + 1 >= TOTAL_QUESTIONS
 
@@ -421,16 +471,39 @@ export default function LireHeure({ onBack }: Props) {
 
   // ── RÉSULTAT ──────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: '480px', margin: '0 auto', textAlign: 'center', paddingTop: '2rem' }}>
-      <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🕐</div>
-      <h2 style={{ color: '#2a9d8f', marginBottom: '0.5rem' }}>Terminé !</h2>
-      <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#334155', marginBottom: '0.5rem' }}>
-        Score : {score} / {TOTAL_QUESTIONS}
-      </p>
-      <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '2rem' }}>(récompenses à venir)</p>
-      <button onClick={() => setGameState('select')} style={{ ...primaryBtnStyle, width: 'auto', padding: '0.75rem 2.5rem' }}>
-        Rejouer
-      </button>
+    <div>
+      <ExerciseBilan
+        exercise="lire-heure"
+        errors={TOTAL_QUESTIONS - score}
+        difficulty={mapLevelToDifficulty(level)}
+        hasRevisionBonus={false}
+        onDone={() => setGameState('select')}
+      />
+      <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
+        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+          <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
+          {resultats.map((r, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
+              <span style={{ width: '3.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                {i + 1}
+              </span>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', fontSize: '0.85rem' }}>
+                <span style={{ color: '#555' }}>
+                  {r.expressionText}
+                  {mode === 'mixte' && (
+                    <span style={{ marginLeft: '0.4rem', fontSize: '0.75rem', color: '#aaa' }}>
+                      ({r.questionMode === 'mots' ? 'mots' : 'aiguilles'})
+                    </span>
+                  )}
+                </span>
+                <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+                  {r.correct ? `✓ ${r.expressionText}` : `✗ ${r.donneTexte} → ${r.expressionText}`}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
