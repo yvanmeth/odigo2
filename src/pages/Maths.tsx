@@ -136,6 +136,9 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
   const [currentIndex, setCurrentIndex] = useState(0)
   const [userAnswer, setUserAnswer] = useState('')
   const [results, setResults] = useState<boolean[]>([])
+  const [resultats, setResultats] = useState<{
+    question: string; userAnswer: string; correctAnswer: string; correct: boolean
+  }[]>([])
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -149,6 +152,7 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
     setCurrentIndex(0)
     setUserAnswer('')
     setResults([])
+    setResultats([])
     setFeedback(null)
     setGameState('playing')
   }
@@ -180,6 +184,12 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
 
     setFeedback(correct ? 'correct' : 'incorrect')
     setResults(newResults)
+    setResultats(prev => [...prev, {
+      question: questions[currentIndex].text,
+      userAnswer,
+      correctAnswer: String(questions[currentIndex].answer),
+      correct,
+    }])
 
     setTimeout(() => {
       setFeedback(null)
@@ -382,14 +392,36 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
   if (gameState === 'result') {
     const errors = 10 - results.filter(Boolean).length
     return (
-      <ExerciseBilan
-        exercise="maths"
-        errors={errors}
-        difficulty={difficulty}
-        hasRevisionBonus={false}
-        subLabel={selectedExercise ? EXERCISE_INFO[selectedExercise].label : undefined}
-        onDone={() => setGameState('select')}
-      />
+      <div>
+        <ExerciseBilan
+          exercise="maths"
+          errors={errors}
+          difficulty={difficulty}
+          hasRevisionBonus={false}
+          subLabel={selectedExercise ? EXERCISE_INFO[selectedExercise].label : undefined}
+          onDone={() => setGameState('select')}
+        />
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+            <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
+            {resultats.map((r, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
+                <span style={{ width: '3.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                  {i + 1}
+                </span>
+                <div style={{ flex: 1, fontSize: '0.85rem' }}>
+                  <span style={{ color: r.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+                    {r.correct
+                      ? `✓ ${r.question} = ${r.correctAnswer}`
+                      : `✗ ${r.question} — ta réponse : ${r.userAnswer} → ${r.correctAnswer}`
+                    }
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     )
   }
 
