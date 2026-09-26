@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { logActivity } from '../services/activity'
 import { EmptyState } from '../components/EmptyState'
 import ExerciseBilan from '../components/ExerciseBilan'
-import type { Difficulty } from '../lib/exerciseBilan'
+import type { Difficulty, RecapItem } from '../lib/exerciseBilan'
 import { hasRevisionBonusForList } from '../services/revisionBonus'
 
 type GameState = 'select' | 'playing' | 'result'
@@ -422,19 +422,24 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
 
   if (gameState === 'result' && !guestMode) {
     const hadImperfection = resultats.some(r => r.usedOptionalHint || r.attemptsBeforeSuccess > 0)
+    const recapItems: RecapItem[] = resultats.map(r => ({
+      label: r.mot,
+      correct: r.correct,
+      detail: r.attemptsBeforeSuccess > 0 ? `après ${r.attemptsBeforeSuccess} tentative(s)` : undefined,
+    }))
     return (
-      <div>
-        <ExerciseBilan
-          exercise="anagramme"
-          errors={TOTAL_WORDS - results.filter(Boolean).length}
-          difficulty={difficulty}
-          hasRevisionBonus={hasRevisionBonus}
-          listName={lists.find(l => l.id === selectedListId)?.name}
-          blocksPerfect={hadImperfection}
-          onDone={() => { setGameState('select'); setWords([]) }}
-        />
-        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
-          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+      <ExerciseBilan
+        exercise="anagramme"
+        errors={TOTAL_WORDS - results.filter(Boolean).length}
+        difficulty={difficulty}
+        hasRevisionBonus={hasRevisionBonus}
+        listName={lists.find(l => l.id === selectedListId)?.name}
+        blocksPerfect={hadImperfection}
+        recapItems={recapItems}
+        onDone={() => { setGameState('select'); setWords([]) }}
+      >
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem' }}>
             <h3 style={{ color: PRIMARY, fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
             {resultats.map((r, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
@@ -466,7 +471,7 @@ export default function Anagramme({ guestMode, guestListId, onGameEnd }: Anagram
             ))}
           </div>
         </div>
-      </div>
+      </ExerciseBilan>
     )
   }
 

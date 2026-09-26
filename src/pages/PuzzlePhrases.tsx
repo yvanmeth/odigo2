@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { logActivity } from '../services/activity'
 import { useToast } from '../components/Toast'
 import ExerciseBilan from '../components/ExerciseBilan'
+import type { RecapItem } from '../lib/exerciseBilan'
 import { hasRevisionBonusForList } from '../services/revisionBonus'
 import { callClaude } from '../lib/claude'
 
@@ -458,19 +459,34 @@ export default function PuzzlePhrases() {
   if (gameState === 'result') {
     const correctCount = resultats.filter(r => r.correct).length
     const hadAnyRetry = resultats.some(r => r.attempt === 2)
+    const recapItems: RecapItem[] = resultats.map(r => {
+      if (r.attempt === 2) {
+        const resultatFinal = r.correct ? `✓ ${r.attendu}` : `✗ ${r.donne} → ${r.attendu}`
+        return {
+          label: r.french,
+          correct: r.correct,
+          detail: `1er essai : ${r.premierEssai || '—'} ✗ · 2e essai : ${resultatFinal}`,
+        }
+      }
+      return {
+        label: r.french,
+        correct: r.correct,
+        detail: r.correct ? undefined : `${r.donne} → ${r.attendu}`,
+      }
+    })
     return (
-      <div>
-        <ExerciseBilan
-          exercise="puzzlephrases"
-          errors={10 - correctCount}
-          difficulty={mode}
-          hasRevisionBonus={hasRevisionBonus}
-          listName={listName || undefined}
-          blocksPerfect={hadAnyRetry}
-          onDone={() => { setGameState('select'); setSentences([]) }}
-        />
-        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
-          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+      <ExerciseBilan
+        exercise="puzzlephrases"
+        errors={10 - correctCount}
+        difficulty={mode}
+        hasRevisionBonus={hasRevisionBonus}
+        listName={listName || undefined}
+        blocksPerfect={hadAnyRetry}
+        recapItems={recapItems}
+        onDone={() => { setGameState('select'); setSentences([]) }}
+      >
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem' }}>
             <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
             {resultats.map((r, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
@@ -496,7 +512,7 @@ export default function PuzzlePhrases() {
             ))}
           </div>
         </div>
-      </div>
+      </ExerciseBilan>
     )
   }
 

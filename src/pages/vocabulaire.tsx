@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { logActivity } from '../services/activity'
 import { speak } from '../lib/speech'
 import ExerciseBilan from '../components/ExerciseBilan'
+import type { RecapItem } from '../lib/exerciseBilan'
 import { hasRevisionBonusForList } from '../services/revisionBonus'
 import { callClaude } from '../lib/claude'
 
@@ -291,18 +292,23 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
   // ---- ÉCRAN RÉSULTAT ----
   if (gameState === 'result' && !guestMode) {
     const listNameForBilan = lists.find(l => l.id === selectedList)?.name
+    const recapItems: RecapItem[] = resultats.map(r => ({
+      label: r.phrase.replace('___', r.mot),
+      correct: r.correct,
+      detail: r.correct ? undefined : `Ta réponse : ${r.donnee}`,
+    }))
     return (
-      <div>
-        <ExerciseBilan
-          exercise="vocabulaire"
-          errors={10 - correctCount}
-          difficulty="moyen"
-          hasRevisionBonus={hasRevisionBonus}
-          listName={listNameForBilan}
-          onDone={() => { setGameState('select'); setQueue([]) }}
-        />
-        <div style={{ maxWidth: '600px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
-          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+      <ExerciseBilan
+        exercise="vocabulaire"
+        errors={10 - correctCount}
+        difficulty="moyen"
+        hasRevisionBonus={hasRevisionBonus}
+        listName={listNameForBilan}
+        recapItems={recapItems}
+        onDone={() => { setGameState('select'); setQueue([]) }}
+      >
+        <div style={{ maxWidth: '600px', margin: '0 auto', marginTop: '1rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem' }}>
             <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
             {resultats.map((r, i) => (
               <div key={i} style={{ padding: '0.6rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.9rem', lineHeight: '1.6' }}>
@@ -316,7 +322,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans balises mar
             ))}
           </div>
         </div>
-      </div>
+      </ExerciseBilan>
     )
   }
 

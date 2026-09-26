@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Children, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import { Delta } from './Delta'
 import { addDigoos } from '../services/digoos'
 import { toDateStr } from '../lib/dates'
-import { calcBilan, EXERCISE_LABELS, type Difficulty, type BilanCalcResult } from '../lib/exerciseBilan'
+import { calcBilan, EXERCISE_LABELS, type Difficulty, type BilanCalcResult, type RecapItem } from '../lib/exerciseBilan'
 
 export interface ExerciseBilanProps {
   exercise: string
@@ -14,6 +14,10 @@ export interface ExerciseBilanProps {
   subLabel?: string
   listName?: string
   blocksPerfect?: boolean
+  // Destiné à l'enregistrement dans exercise_results (voir handleContinue).
+  recapItems?: RecapItem[]
+  // Récapitulatif détaillé de la page d'exercice appelante, rendu après la carte Bilan.
+  children?: ReactNode
 }
 
 // Animation steps:
@@ -48,6 +52,8 @@ export default function ExerciseBilan({
   subLabel,
   listName,
   blocksPerfect,
+  recapItems,
+  children,
 }: ExerciseBilanProps) {
   const [step, setStep] = useState(0)
   const [golden, setGolden] = useState(false)
@@ -188,15 +194,46 @@ export default function ExerciseBilan({
         difficulty,
         digoos_earned: bilan.total,
         list_name: listName ?? null,
+        recap_items: recapItems ?? null,
       }).then(() => {}, () => {})
     }
     onDone()
   }
 
   const exerciseLabel = subLabel ?? EXERCISE_LABELS[exercise] ?? exercise
+  const hasRecap = Children.toArray(children).filter(Boolean).length > 0
   const coeffInfo =
     difficulty === 'facile' ? { label: 'Niveau facile', coeff: '× 0.8' } :
     difficulty === 'difficile' ? { label: 'Niveau difficile', coeff: '× 1.2' } : null
+
+  // Style partagé pour garantir que le bouton du haut et le bouton flottant restent identiques.
+  const continueButtonStyle: React.CSSProperties = {
+    marginTop: '1.25rem',
+    width: '100%',
+    padding: '0.75rem',
+    background: 'var(--color-primary)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '0.75rem',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'opacity 0.15s',
+  }
+
+  const renderContinueButton = (key: string) => (
+    <button
+      key={key}
+      onClick={handleContinue}
+      style={continueButtonStyle}
+      onMouseEnter={e => { e.currentTarget.style.opacity = '0.85' }}
+      onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+    >
+      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+        Obtenir les <Delta size={16} />
+      </span>
+    </button>
+  )
 
   return (
     <div
@@ -215,7 +252,7 @@ export default function ExerciseBilan({
         style={{
           background: 'white',
           borderRadius: '1.5rem',
-          padding: '2rem 1.75rem',
+          padding: hasRecap ? '2rem 1.75rem 2.25rem' : '2rem 1.75rem',
           boxShadow: '0 6px 32px rgba(0,0,0,0.12)',
           maxWidth: '380px',
           width: '100%',
@@ -312,30 +349,44 @@ export default function ExerciseBilan({
             )}
           </div>
 
-          <button
-            onClick={handleContinue}
-            style={{
-              marginTop: '1.25rem',
-              width: '100%',
-              padding: '0.75rem',
-              background: 'var(--color-primary)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.75rem',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'opacity 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.opacity = '0.85' }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-              Obtenir les <Delta size={16} />
-            </span>
-          </button>
+          {/* Sur un exercice sans récapitulatif (hasRecap false), le bouton sticky ne
+              s'affiche pas — celui-ci reste alors le seul moyen de continuer. */}
+          {!hasRecap && renderContinueButton('top')}
         </div>
       </div>
+
+      {/* Récapitulatif détaillé de l'exercice, fourni par la page appelante. Rendu ici
+          (et non par la page elle-même en dehors du composant) pour que le bouton sticky
+          ci-dessous partage le même conteneur englobant et reste actif pendant tout son
+          défilement. */}
+      {children}
+
+      {/* Bouton flottant, toujours visible pendant que l'utilisateur défile dans le
+          récapitulatif ci-dessus. Décalé au-dessus de la barre de navigation mobile sur
+          petit écran via .exercise-bilan-sticky-btn (src/index.css). N'apparaît que si un
+          récapitulatif est effectivement fourni — sinon seul le bouton du haut reste. */}
+      {hasRecap && (
+        <div
+          className="exercise-bilan-sticky-btn"
+          style={{
+            position: 'sticky',
+            width: '100%',
+            zIndex: 900,
+            display: 'flex',
+            justifyContent: 'center',
+            padding: '0.75rem 1.5rem',
+            background: 'linear-gradient(to top, rgba(255,255,255,0.98) 65%, rgba(255,255,255,0))',
+            boxShadow: '0 -2px 10px rgba(0,0,0,0.08)',
+            opacity: step >= 5 ? 1 : 0,
+            pointerEvents: step >= 5 ? 'auto' : 'none',
+            transition: 'opacity 0.4s ease',
+          }}
+        >
+          <div style={{ maxWidth: '380px', width: '100%' }}>
+            {renderContinueButton('sticky')}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

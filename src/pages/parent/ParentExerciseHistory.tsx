@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { formatISODateTime } from '../../lib/dates'
 import { EmptyState } from '../../components/EmptyState'
-import { EXERCISE_LABELS } from '../../lib/exerciseBilan'
+import { EXERCISE_LABELS, type RecapItem } from '../../lib/exerciseBilan'
 import type { Child } from './types'
 
 const PAGE_SIZE = 20
@@ -15,6 +15,7 @@ interface ExerciseResult {
   difficulty: string | null
   list_name: string | null
   created_at: string
+  recap_items: RecapItem[] | null
 }
 
 interface ParentExerciseHistoryProps {
@@ -32,6 +33,7 @@ export default function ParentExerciseHistory({ children }: ParentExerciseHistor
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [offset, setOffset] = useState(0)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const fetchPage = async (childId: string, pageOffset: number) => {
     if (pageOffset === 0) {
@@ -39,13 +41,14 @@ export default function ParentExerciseHistory({ children }: ParentExerciseHistor
       setResults([])
       setOffset(0)
       setHasMore(false)
+      setExpandedId(null)
     } else {
       setLoadingMore(true)
     }
 
     const { data } = await supabase
       .from('exercise_results')
-      .select('id, exercise, errors, stars, difficulty, list_name, created_at')
+      .select('id, exercise, errors, stars, difficulty, list_name, created_at, recap_items')
       .eq('user_id', childId)
       .order('created_at', { ascending: false })
       .range(pageOffset, pageOffset + PAGE_SIZE - 1)
@@ -114,22 +117,30 @@ export default function ParentExerciseHistory({ children }: ParentExerciseHistor
               const meta: string[] = []
               if (r.list_name) meta.push(r.list_name)
               if (r.difficulty) meta.push(DIFF_LABELS[r.difficulty] ?? r.difficulty)
+              const isExpanded = expandedId === r.id
               return (
                 <div
                   key={r.id}
+                  onClick={() => setExpandedId(prev => prev === r.id ? null : r.id)}
                   style={{
                     background: 'white',
                     borderRadius: '0.75rem',
                     padding: '0.75rem 1rem',
                     boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                    cursor: 'pointer',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem', marginBottom: '0.2rem' }}>
                     <span style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>
                       {EXERCISE_LABELS[r.exercise] ?? r.exercise}
                     </span>
-                    <span style={{ fontWeight: 'bold', color: '#2a9d8f', fontSize: '0.9rem' }}>
-                      {score}/10
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontWeight: 'bold', color: '#2a9d8f', fontSize: '0.9rem' }}>
+                        {score}/10
+                      </span>
+                      <span style={{ color: '#bbb', fontSize: '0.7rem' }}>
+                        {isExpanded ? '▲' : '▼'}
+                      </span>
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' }}>
@@ -141,6 +152,42 @@ export default function ParentExerciseHistory({ children }: ParentExerciseHistor
                       {formatISODateTime(r.created_at)}
                     </span>
                   </div>
+
+                  {isExpanded && (
+                    <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #f0f0f0' }}>
+                      {r.recap_items && r.recap_items.length > 0 ? (
+                        r.recap_items.map((item, i, arr) => (
+                          <div
+                            key={i}
+                            style={{
+                              display: 'flex', alignItems: 'center', padding: '0.4rem 0',
+                              borderBottom: i < arr.length - 1 ? '1px solid #f5f5f5' : 'none',
+                              gap: '0.6rem',
+                            }}
+                          >
+                            <span style={{ width: '2.5rem', flexShrink: 0, textAlign: 'center', color: '#aaa', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                              {i + 1}
+                            </span>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.1rem', fontSize: '0.82rem' }}>
+                              <span style={{ color: '#555' }}>{item.label}</span>
+                              <span style={{ color: item.correct ? '#2a9d8f' : '#e63946', fontWeight: 'bold' }}>
+                                {item.correct ? '✓' : '✗'}
+                                {item.detail && (
+                                  <span style={{ marginLeft: '0.4rem', fontWeight: 'normal', color: '#aaa', fontSize: '0.75rem' }}>
+                                    {item.detail}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ color: '#bbb', fontSize: '0.8rem', fontStyle: 'italic', textAlign: 'center', padding: '0.5rem 0' }}>
+                          Détail non disponible pour ce résultat
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}

@@ -1,5 +1,11 @@
 export type Difficulty = 'facile' | 'moyen' | 'difficile'
 
+export type RecapItem = {
+  label: string
+  correct: boolean
+  detail?: string
+}
+
 export const DAILY_CAP = 2000
 export const DAILY_CAP_COEFF = 0.2
 

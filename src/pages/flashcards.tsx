@@ -5,6 +5,7 @@ import { addDigoos } from '../services/digoos'
 import { logActivity } from '../services/activity'
 import { speak } from '../lib/speech'
 import ExerciseBilan from '../components/ExerciseBilan'
+import type { RecapItem } from '../lib/exerciseBilan'
 import { hasRevisionBonusForList } from '../services/revisionBonus'
 
 interface WordItem {
@@ -488,18 +489,23 @@ export default function Flashcards() {
   // ---- ÉCRAN RÉSULTAT ----
   if (gameState === 'result') {
     if (mode === 'normal') {
+      const recapItems: RecapItem[] = resultats.map(r => ({
+        label: r.mot,
+        correct: r.correct,
+        detail: r.isReview ? 'révision' : undefined,
+      }))
       return (
-        <div>
-          <ExerciseBilan
-            exercise="flashcards"
-            errors={TOTAL_NORMAL_CARDS - correctFirstPass}
-            difficulty="moyen"
-            hasRevisionBonus={hasRevisionBonus}
-            listName={listName || undefined}
-            onDone={() => { setGameState('select'); setWords([]) }}
-          />
-          <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
-            <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+        <ExerciseBilan
+          exercise="flashcards"
+          errors={TOTAL_NORMAL_CARDS - correctFirstPass}
+          difficulty="moyen"
+          hasRevisionBonus={hasRevisionBonus}
+          listName={listName || undefined}
+          recapItems={recapItems}
+          onDone={() => { setGameState('select'); setWords([]) }}
+        >
+          <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1rem', paddingBottom: '2rem' }}>
+            <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem' }}>
               <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
               {resultats.map((r, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
@@ -516,7 +522,7 @@ export default function Flashcards() {
               ))}
             </div>
           </div>
-        </div>
+        </ExerciseBilan>
       )
     }
 

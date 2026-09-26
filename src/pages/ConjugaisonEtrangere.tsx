@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { logActivity } from '../services/activity'
 import { EmptyState } from '../components/EmptyState'
 import ExerciseBilan from '../components/ExerciseBilan'
+import type { RecapItem } from '../lib/exerciseBilan'
 import { hasRevisionBonusForList } from '../services/revisionBonus'
 import { callClaude } from '../lib/claude'
 
@@ -335,18 +336,23 @@ Réponds UNIQUEMENT en JSON valide :
   }
 
   if (gameState === 'result' && !guestMode) {
+    const recapItems: RecapItem[] = resultats.map(r => ({
+      label: `${r.verbe} — ${r.temps} · ${r.personne}`,
+      correct: r.correct,
+      detail: r.correct ? undefined : `${r.donnee} → ${r.reponsesAffichage}`,
+    }))
     return (
-      <div>
-        <ExerciseBilan
-          exercise="conjugaison-etrangere"
-          errors={questions.length - correctCount}
-          difficulty="moyen"
-          hasRevisionBonus={hasRevisionBonus}
-          listName={listName || undefined}
-          onDone={() => { setGameState('select'); setQuestions([]) }}
-        />
-        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
-          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+      <ExerciseBilan
+        exercise="conjugaison-etrangere"
+        errors={questions.length - correctCount}
+        difficulty="moyen"
+        hasRevisionBonus={hasRevisionBonus}
+        listName={listName || undefined}
+        recapItems={recapItems}
+        onDone={() => { setGameState('select'); setQuestions([]) }}
+      >
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem' }}>
             <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
             {resultats.map((r, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f5f5f5', fontSize: '0.85rem', gap: '0.5rem' }}>
@@ -359,7 +365,7 @@ Réponds UNIQUEMENT en JSON valide :
             ))}
           </div>
         </div>
-      </div>
+      </ExerciseBilan>
     )
   }
 

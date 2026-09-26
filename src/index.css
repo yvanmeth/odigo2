@@ -295,3 +295,14 @@ textarea:focus {
   height: auto;
   display: block;
 }
+
+/* Bouton flottant "Obtenir les Δ" (ExerciseBilan) — décalé au-dessus de la barre
+   de navigation mobile (60px + safe-area, cf. dashboard/index.tsx) sur petits écrans. */
+.exercise-bilan-sticky-btn {
+  bottom: 0;
+}
+@media (max-width: 767px) {
+  .exercise-bilan-sticky-btn {
+    bottom: calc(60px + env(safe-area-inset-bottom));
+  }
+}

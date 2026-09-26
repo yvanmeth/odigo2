@@ -6,7 +6,7 @@ import {
 } from '../lib/timeFormatting'
 import { logActivity } from '../services/activity'
 import ExerciseBilan from '../components/ExerciseBilan'
-import type { Difficulty } from '../lib/exerciseBilan'
+import type { Difficulty, RecapItem } from '../lib/exerciseBilan'
 
 // ── Types exportés (réutilisables aux étapes suivantes) ────────────────────
 export type Language  = 'fr' | 'en' | 'de' | 'el'
@@ -470,17 +470,27 @@ export default function LireHeure({ onBack }: Props) {
   }
 
   // ── RÉSULTAT ──────────────────────────────────────────────────────────
+  const recapItems: RecapItem[] = resultats.map(r => {
+    const parts: string[] = []
+    if (mode === 'mixte') parts.push(r.questionMode === 'mots' ? 'mots' : 'aiguilles')
+    if (!r.correct) parts.push(r.donneTexte)
+    return {
+      label: r.expressionText,
+      correct: r.correct,
+      detail: parts.length > 0 ? parts.join(' · ') : undefined,
+    }
+  })
   return (
-    <div>
-      <ExerciseBilan
-        exercise="lire-heure"
-        errors={TOTAL_QUESTIONS - score}
-        difficulty={mapLevelToDifficulty(level)}
-        hasRevisionBonus={false}
-        onDone={() => setGameState('select')}
-      />
-      <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
-        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+    <ExerciseBilan
+      exercise="lire-heure"
+      errors={TOTAL_QUESTIONS - score}
+      difficulty={mapLevelToDifficulty(level)}
+      hasRevisionBonus={false}
+      recapItems={recapItems}
+      onDone={() => setGameState('select')}
+    >
+      <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1rem', paddingBottom: '2rem' }}>
+        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem' }}>
           <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
           {resultats.map((r, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
@@ -504,6 +514,6 @@ export default function LireHeure({ onBack }: Props) {
           ))}
         </div>
       </div>
-    </div>
+    </ExerciseBilan>
   )
 }

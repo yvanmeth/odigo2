@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { logActivity } from '../services/activity'
 import ExerciseBilan from '../components/ExerciseBilan'
+import type { RecapItem } from '../lib/exerciseBilan'
 
 type MathExercise = 'calcul' | 'multiplication' | 'division' | 'equation'
 type Difficulty = 'facile' | 'moyen' | 'difficile'
@@ -391,18 +392,23 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
   // ── BILAN ─────────────────────────────────────────────────────────────
   if (gameState === 'result') {
     const errors = 10 - results.filter(Boolean).length
+    const recapItems: RecapItem[] = resultats.map(r => ({
+      label: r.question,
+      correct: r.correct,
+      detail: r.correct ? undefined : `ta réponse : ${r.userAnswer} → ${r.correctAnswer}`,
+    }))
     return (
-      <div>
-        <ExerciseBilan
-          exercise="maths"
-          errors={errors}
-          difficulty={difficulty}
-          hasRevisionBonus={false}
-          subLabel={selectedExercise ? EXERCISE_INFO[selectedExercise].label : undefined}
-          onDone={() => setGameState('select')}
-        />
-        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
-          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+      <ExerciseBilan
+        exercise="maths"
+        errors={errors}
+        difficulty={difficulty}
+        hasRevisionBonus={false}
+        subLabel={selectedExercise ? EXERCISE_INFO[selectedExercise].label : undefined}
+        recapItems={recapItems}
+        onDone={() => setGameState('select')}
+      >
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem' }}>
             <h3 style={{ color: '#2a9d8f', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
             {resultats.map((r, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
@@ -421,7 +427,7 @@ export default function Maths({ initialExercise, onBack, guestMode, onGameEnd }:
             ))}
           </div>
         </div>
-      </div>
+      </ExerciseBilan>
     )
   }
 

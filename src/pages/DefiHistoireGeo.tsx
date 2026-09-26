@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { logActivity } from '../services/activity'
 import ExerciseBilan from '../components/ExerciseBilan'
+import type { RecapItem } from '../lib/exerciseBilan'
 
 const THEMES = [
   { id: 'moyen-age', label: 'Au Moyen Âge', category: 'Histoire', theme: 'Au Moyen Âge' },
@@ -280,17 +281,22 @@ export default function DefiHistoireGeo({ onBack }: Props) {
 
   // ─── RÉSULTAT ───
   if (gameState === 'result') {
+    const recapItems: RecapItem[] = resultatsRecap.map(r => ({
+      label: r.question,
+      correct: r.correct,
+      detail: r.correct ? undefined : `ta réponse : ${r.givenAnswer} → ${r.correctAnswer}`,
+    }))
     return (
-      <div>
-        <ExerciseBilan
-          exercise="histoire-geo"
-          errors={TOTAL_QUESTIONS - totalCorrect}
-          difficulty="moyen"
-          hasRevisionBonus={false}
-          onDone={() => setGameState('select')}
-        />
-        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1.5rem', paddingBottom: '2rem' }}>
-          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+      <ExerciseBilan
+        exercise="histoire-geo"
+        errors={TOTAL_QUESTIONS - totalCorrect}
+        difficulty="moyen"
+        hasRevisionBonus={false}
+        recapItems={recapItems}
+        onDone={() => setGameState('select')}
+      >
+        <div style={{ maxWidth: '560px', margin: '0 auto', marginTop: '1rem', paddingBottom: '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem' }}>
             <h3 style={{ color: '#5c6bc0', fontSize: '0.95rem', marginBottom: '0.75rem' }}>Récapitulatif</h3>
             {resultatsRecap.map((r, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5', gap: '0.75rem' }}>
@@ -307,7 +313,7 @@ export default function DefiHistoireGeo({ onBack }: Props) {
             ))}
           </div>
         </div>
-      </div>
+      </ExerciseBilan>
     )
   }
 
